@@ -188,7 +188,7 @@ class polynomial {
   }
   inline I size() const { return monomials_.size(); }
 
-  const std::vector<I> monomials() const { return monomials_; }
+  inline const std::vector<I> monomials() const { return monomials_; }
 
   private:
   monomial_store& store_;
