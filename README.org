@@ -1,0 +1,5 @@
+#+TITLE: Kommunopp
+
+* Storing Monomials
+
+Each monomial is stored as a run of Vs in the monomial store.
