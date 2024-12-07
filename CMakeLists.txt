@@ -4,6 +4,8 @@ project(kommunopp)
 # Always use the Boost-provided module.
 cmake_policy(SET CMP0167 NEW)
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+
 set(KOMMUNOPP_SRCS
   kommunopp.cpp
 )
@@ -22,6 +24,7 @@ set_property(TARGET kommunopp PROPERTY CXX_STANDARD 20)
 set_property(TARGET kommunopp_test PROPERTY CXX_STANDARD 20)
 
 find_package(Boost COMPONENTS unit_test_framework REQUIRED)
+find_package(GMP REQUIRED)
 
-target_link_libraries(kommunopp PUBLIC Boost::boost)
+target_link_libraries(kommunopp PUBLIC Boost::boost GMP::GMP)
 target_link_libraries(kommunopp_test PUBLIC Boost::unit_test_framework)
