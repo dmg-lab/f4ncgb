@@ -6,6 +6,7 @@
 #include <span>
 #include <vector>
 
+#include <boost/container/small_vector.hpp>
 #include <boost/multiprecision/gmp.hpp>
 #include <boost/unordered/unordered_flat_map.hpp>
 
@@ -22,6 +23,10 @@ struct monomial_length_overrun_exception : public std::exception {
   }
 };
 
+// Include another struct as template parameter that is added that
+// includes the length and eventual additional parameters. The
+// additional parameters may be specified at runtime by switching
+// between different implementations.
 template<class I, class V>
 class monomial_store {
   public:
@@ -83,17 +88,16 @@ class monomial_store {
       }
     }
 
-    size_t length_combined = getlength(a);
-    length_combined += getlength(b);
+    const size_t length_combined = static_cast<size_t>(getlength(a)) + getlength(b);
     if(length_combined > std::numeric_limits<V>::max()) {
       throw monomial_length_overrun_exception();
     }
-    V prod[length_combined];
+    boost::container::small_vector<V, 16> prod;
     auto a_it = (*this)[a];
     auto b_it = (*this)[b];
-    auto it = std::copy(a_it.begin(), a_it.end(), prod);
+    auto it = std::copy(a_it.begin(), a_it.end(), prod.begin());
     std::copy(b_it.begin(), b_it.end(), it);
-    I prod_idx = getidx(monomial(prod, length_combined));
+    I prod_idx = getidx(monomial(prod.begin(), length_combined));
     products_.insert(std::make_pair(prod_pair, prod_idx));
     return prod_idx;
   }

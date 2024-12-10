@@ -26,5 +26,17 @@ set_property(TARGET kommunopp_test PROPERTY CXX_STANDARD 20)
 find_package(Boost COMPONENTS unit_test_framework REQUIRED)
 find_package(GMP REQUIRED)
 
+target_compile_options(kommunopp PRIVATE
+     $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:
+          -Wall -Wextra -Wsign-conversion>
+     $<$<CXX_COMPILER_ID:MSVC>:
+          /W4>)
+
+target_compile_options(kommunopp_test PRIVATE
+     $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:
+          -Wall -Wextra -Wsign-conversion>
+     $<$<CXX_COMPILER_ID:MSVC>:
+          /W4>)
+
 target_link_libraries(kommunopp PUBLIC Boost::boost GMP::GMP)
 target_link_libraries(kommunopp_test PUBLIC Boost::unit_test_framework)

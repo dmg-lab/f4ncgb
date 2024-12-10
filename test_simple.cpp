@@ -5,8 +5,6 @@
 using namespace kommunopp;
 
 BOOST_AUTO_TEST_CASE(std_span_behavior) {
-  using I = impl<>;
-
   std::vector<uint8_t> v{ 1, 2, 3, 1, 2, 3 };
   std::span<uint8_t> s1{ v.begin(), 3 };
   std::span<uint8_t> s2{ v.begin() + 3, 3 };
