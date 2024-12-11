@@ -242,6 +242,7 @@ class monomial_store : public store<M, V, I> {
       throw monomial_length_overrun_exception();
     }
     auto [m, vv] = base::new_scratch(length_combined);
+    m.length = length_combined;
     auto a_it = (*this)[a];
     auto b_it = (*this)[b];
     auto it = std::copy(a_it.begin(), a_it.end(), vv);
@@ -271,6 +272,7 @@ class monomial_store : public store<M, V, I> {
       throw monomial_length_overrun_exception();
     }
     auto [m, vv] = base::new_scratch(length_combined);
+    m.length = length_combined;
     auto a_it = (*this)[a];
     auto b_it = (*this)[b];
     auto c_it = (*this)[c];

@@ -114,4 +114,12 @@ BOOST_AUTO_TEST_CASE(simple_with_extended_metadata) {
   BOOST_TEST(m1_metadata_.extra1 == 1);
   BOOST_TEST(m1_metadata_.extra2 == 2);
   BOOST_TEST(&m1_metadata == &m1_metadata_);
+
+  I::idx prod_id = s.get_product_id(m1_idx, m23_idx);
+  metadata_with_extra& prod_metadata = s.get_metadata(prod_id);
+  BOOST_TEST(prod_metadata.extra1 == 1);
+  BOOST_TEST(prod_metadata.extra2 == 2);
+  I::idx prod_id_expected = s.getid({ 1, 2, 3 });
+
+  BOOST_TEST(prod_id == prod_id_expected);
 }
