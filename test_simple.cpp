@@ -86,3 +86,32 @@ BOOST_AUTO_TEST_CASE(simple_polynomial) {
   BOOST_TEST(m1212 == p2m0);
   BOOST_TEST(m121 == p2m1);
 }
+
+BOOST_AUTO_TEST_CASE(simple_with_extended_metadata) {
+  struct metadata_with_extra {
+    uint8_t length = 0;
+    uint8_t extra1 = 1;
+    uint8_t extra2 = 2;
+  };
+  using I = impl<metadata_with_extra, uint8_t, uint16_t>;
+  I::monomial_store s;
+  I::idx m1_idx = s.getid({ 1 });
+  metadata_with_extra& m1_metadata = s.get_metadata(m1_idx);
+
+  BOOST_TEST(m1_metadata.extra1 == 1);
+  BOOST_TEST(m1_metadata.extra2 == 2);
+
+  I::idx m23_idx = s.getid({ 2, 3 });
+  metadata_with_extra& m23_metadata = s.get_metadata(m23_idx);
+
+  BOOST_TEST(m23_metadata.extra1 == 1);
+  BOOST_TEST(m23_metadata.extra2 == 2);
+
+  metadata_with_extra& m1_metadata_ = s.get_metadata(m1_idx);
+
+  BOOST_TEST(m1_metadata.extra1 == 1);
+  BOOST_TEST(m1_metadata.extra2 == 2);
+  BOOST_TEST(m1_metadata_.extra1 == 1);
+  BOOST_TEST(m1_metadata_.extra2 == 2);
+  BOOST_TEST(&m1_metadata == &m1_metadata_);
+}
