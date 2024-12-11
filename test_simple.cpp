@@ -93,6 +93,9 @@ BOOST_AUTO_TEST_CASE(simple_with_extended_metadata) {
     uint8_t extra1 = 1;
     uint8_t extra2 = 2;
   };
+  static_assert(sizeof(metadata_with_extra) == 3);
+  static_assert(alignof(metadata_with_extra) == 1);
+
   using I = impl<metadata_with_extra, uint8_t, uint16_t>;
   I::monomial_store s;
   I::idx m1_idx = s.getid({ 1 });
