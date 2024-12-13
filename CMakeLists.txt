@@ -40,3 +40,13 @@ target_compile_options(kommunopp_test PRIVATE
 
 target_link_libraries(kommunopp PUBLIC Boost::boost GMP::GMP)
 target_link_libraries(kommunopp_test PUBLIC Boost::unit_test_framework)
+
+include(CheckIPOSupported)
+check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
+
+if(ipo_supported AND ${CMAKE_BUILD_TYPE} MATCHES "Release")
+    message(STATUS "IPO / LTO enabled (Release build and compiler supports it)")
+    set_property(TARGET kommunopp_test PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+else()
+    message(STATUS "IPO / LTO not supported: <${ipo_error}>")
+endif()

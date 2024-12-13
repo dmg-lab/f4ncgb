@@ -343,8 +343,8 @@ class polynomial_store
                      polynomial_metadata<PM, I>,
                      I,
                      I>;
-  using monomial_store = monomial_store<MM, V, I>;
-  using monomial = monomial_store::value_type;
+  using monomial_store_ = monomial_store<MM, V, I>;
+  using monomial = monomial_store_::value_type;
   using metadata = polynomial_metadata<PM, I>;
 
   using polynomial_vec = std::vector<std::pair<C, I>>;
@@ -352,7 +352,7 @@ class polynomial_store
 
   friend base;
 
-  inline polynomial_store(monomial_store& store)
+  inline polynomial_store(monomial_store_& store)
     : base::store()
     , store_(store) {}
 
@@ -362,7 +362,6 @@ class polynomial_store
       // Explicitly destruct the coefficent again.
       c->~C();
     }
-    base::~base();
   }
 
   /// Initialize a new polynomial. Remember to initialize the coefficents!
@@ -402,7 +401,7 @@ class polynomial_store
   }
 
   protected:
-  monomial_store& store_;
+  monomial_store_& store_;
   std::unique_ptr<std::byte[]> cpool_
     = std::make_unique_for_overwrite<std::byte[]>(
       std::numeric_limits<I>::max());
