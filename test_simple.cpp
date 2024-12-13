@@ -72,6 +72,28 @@ struct metadata_with_tuple {
   uint16_t t[N];
 };
 
+template<size_t N>
+void
+run(/* some input parameters */) {
+  using I
+    = impl<metadata_with_tuple<N>, metadata_with_tuple<1>, uint8_t, uint16_t>;
+
+  // Do things with impl.
+  typename I::monomial_store s;
+  s.getid({ 1, 2, 3 });
+}
+
+BOOST_AUTO_TEST_CASE(select_impl_from_number) {
+  size_t n = 1;
+
+  // Generate a switch over n with at most 60 variables. The implementation is
+  // duplicated internally for each N.
+  //
+  // The implementation could also be a more complex struct or something else.
+  // The run function is only a demonstration.
+  boost::mp11::mp_with_index<60>(n, [](auto N) { run<N>(); });
+}
+
 BOOST_AUTO_TEST_CASE(simple_with_extended_metadata) {
   struct metadata_with_extra {
     uint8_t length = 0;
