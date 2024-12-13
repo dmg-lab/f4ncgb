@@ -69,6 +69,10 @@ class store {
 
   friend B;
 
+  static_assert(
+    alignof(M) >= alignof(V),
+    "Alignment of M needs to be stricter, as elements are aligned this way.");
+
   protected:
   using self = store<B, M, V, I>;
 
@@ -201,6 +205,41 @@ class store {
     const V* start = get_value_from_id(id - 1);
 
     return std::span<const V>(start, len);
+  }
+
+  I next_pos(I pos) {
+    if(pos == 0)
+      return 1;
+    else
+      --pos;
+    // Increment the position to the next valid index.
+    void* ptr = boost::alignment::align_up(pool_.get() + pos, alignof(M));
+
+    assert(ptr == pool_.get() + pos);
+
+    std::byte* ptr_start = static_cast<std::byte*>(ptr);
+    ptr = boost::alignment::align_up(static_cast<std::byte*>(ptr) + sizeof(M),
+                                     alignof(V));
+
+    std::byte* ptr_end
+      = static_cast<std::byte*>(ptr) + get_length(pos + 1) * sizeof(V);
+    std::byte* ptr_next = static_cast<std::byte*>(
+      boost::alignment::align_up(ptr_end, alignof(M)));
+
+    return 1 + pos + ptr_next - ptr_start;
+  }
+
+  std::ostream& print(std::ostream& o) {
+    for(I i = 0, pos = 0; i < inserted_count_ + 1; ++i) {
+      o << pos << ": =";
+      for(auto v : (*this)[pos]) {
+        o << " " << static_cast<int>(v);
+      }
+      o << ";" << std::endl;
+
+      pos = next_pos(pos);
+    }
+    return o;
   }
 };
 
@@ -393,11 +432,57 @@ class polynomial_store
     return commit();
   }
 
-  std::span<C> get_coefficients(I id) {
+  inline std::span<C> get_coefficients(I id) {
     if(id == 0)
       return std::span<C>();
     metadata& m = this->get_metadata(id);
     return std::span<C>(get_coefficients_raw(m.coefficients), m.length);
+  }
+
+  inline I get_monomial_id(I id, I idx) const {
+    if(id == 0)
+      return 0;
+    assert(idx < this->get_metadata(id).length);
+    return (*this)[id][idx];
+  }
+
+  inline std::span<const V> get_monomial(I id, I idx) const {
+    if(id == 0)
+      return std::span<V>();
+    assert(idx < this->get_metadata(id).length);
+    return store_.get((*this)[id][idx]);
+  }
+
+  template<bool front, bool back>
+  inline I multiply_front_or_back_or_both(I f, I p, I b) {
+    assert(p != 0);
+
+    metadata& p_metadata = this->get_metadata(p);
+    C* p_coeff = get_coefficients_raw(p - 1);
+    auto [new_m, new_i, new_c] = add(p_metadata.length);
+    new_m.length = p_metadata.length;
+    for(I i = 0; i < p_metadata.length; ++i) {
+      C* c = new(new_c + i) C;
+      *c = p_coeff[i];
+      if constexpr(front && !back) {
+        new_i[i] = store_.get_product_id(f, (*this)[p][i]);
+      } else if constexpr(!front && back) {
+        new_i[i] = store_.get_product_id((*this)[p][i], b);
+      } else if constexpr(front && back) {
+        new_i[i] = store_.get_product_id(f, (*this)[p][i], b);
+      }
+    }
+    return commit();
+  }
+
+  inline I multiply_front(I m, I p) {
+    return multiply_front_or_back_or_both<true, false>(m, p, 0);
+  }
+  inline I multiply_back(I p, I m) {
+    return multiply_front_or_back_or_both<false, true>(0, p, m);
+  }
+  inline I multiply_front_and_back(I f, I p, I b) {
+    return multiply_front_or_back_or_both<true, true>(f, p, b);
   }
 
   protected:

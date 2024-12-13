@@ -64,6 +64,21 @@ BOOST_AUTO_TEST_CASE(simple_polynomials) {
   BOOST_TEST(p.get_coefficients(p1)[1].compare(I::coefficient(2l)) == 0);
   BOOST_TEST(p.get_coefficients(p2)[0].compare(I::coefficient(3l)) == 0);
   BOOST_TEST(p.get_coefficients(p2)[1].compare(I::coefficient(4l)) == 0);
+
+  I::idx p3 = p.multiply_front(s.getid({ 1, 2 }), p1);
+  I::idx p4 = p.multiply_back(p2, s.getid({ 1, 2 }));
+
+  // Printing is also possible:
+  /*
+  std::cout << "p1: " << p1 << ", p2: " << p2 << ", p3: " << p3
+            << ", p4: " << p4 << std::endl;
+
+  s.print(std::cout);
+  p.print(std::cout);
+  */
+
+  BOOST_TEST(p.get_monomial_id(p3, 0) == s.getid({ 1, 2, 2, 3 }));
+  BOOST_TEST(p.get_monomial_id(p4, 0) == s.getid({ 3, 4, 1, 2 }));
 }
 
 template<size_t N>
