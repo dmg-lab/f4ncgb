@@ -49,43 +49,28 @@ BOOST_AUTO_TEST_CASE(simple_product) {
   BOOST_TEST(m123123_idx == prod2_idx);
 }
 
-BOOST_AUTO_TEST_CASE(simple_polynomial) {
+BOOST_AUTO_TEST_CASE(simple_polynomials) {
   using I = impl<>;
-
   I::monomial_store s;
+  I::polynomial_store p(s);
 
-  I::polynomial p1(s);
-  p1.append({ 1, 2 });
-  p1.append(std::initializer_list<I::var>{ 1 });
+  I::idx p1 = p.add_polynomial({ { 1l, { 2, 3 } }, { 2l, { 2, 3 } } });
+  I::idx p2 = p.add_polynomial({ { 3l, { 3, 4 } }, { 4l, { 5, 6 } } });
 
-  I::polynomial p2(s);
-  p2.append({ 1, 2 });
-  p2.append(std::initializer_list<I::var>{ 1 });
+  BOOST_TEST(p1 == 1);
+  BOOST_TEST(p2 != p1);
 
-  I::idx m12 = s.getid({ 1, 2 });
-  I::idx m112 = s.getid({ 1, 1, 2 });
-  I::idx m1212 = s.getid({ 1, 2, 1, 2 });
-  I::idx m121 = s.getid({ 1, 2, 1 });
-
-  I::idx p1m0 = p1.getid(0);
-
-  BOOST_TEST(m12 == p1m0);
-
-  p1.multiply_back(m12);
-  p2.multiply_front(m12);
-
-  p1m0 = p1.getid(0);
-  I::idx p1m1 = p1.getid(1);
-
-  BOOST_TEST(m1212 == p1m0);
-  BOOST_TEST(m112 == p1m1);
-
-  I::idx p2m0 = p2.getid(0);
-  I::idx p2m1 = p2.getid(1);
-
-  BOOST_TEST(m1212 == p2m0);
-  BOOST_TEST(m121 == p2m1);
+  BOOST_TEST(p.get_coefficients(p1)[0].compare(I::coefficient(1l)) == 0);
+  BOOST_TEST(p.get_coefficients(p1)[1].compare(I::coefficient(2l)) == 0);
+  BOOST_TEST(p.get_coefficients(p2)[0].compare(I::coefficient(3l)) == 0);
+  BOOST_TEST(p.get_coefficients(p2)[1].compare(I::coefficient(4l)) == 0);
 }
+
+template<size_t N>
+struct metadata_with_tuple {
+  uint8_t length = 0;
+  uint16_t t[N];
+};
 
 BOOST_AUTO_TEST_CASE(simple_with_extended_metadata) {
   struct metadata_with_extra {
@@ -96,7 +81,7 @@ BOOST_AUTO_TEST_CASE(simple_with_extended_metadata) {
   static_assert(sizeof(metadata_with_extra) == 3);
   static_assert(alignof(metadata_with_extra) == 1);
 
-  using I = impl<metadata_with_extra, uint8_t, uint16_t>;
+  using I = impl<metadata_with_extra, metadata_with_extra, uint8_t, uint16_t>;
   I::monomial_store s;
   I::idx m1_idx = s.getid({ 1 });
   metadata_with_extra& m1_metadata = s.get_metadata(m1_idx);

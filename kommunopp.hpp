@@ -49,10 +49,10 @@ concept value_concept = requires { is_power_of_two(sizeof(T)); };
 
 /// A store holds some instances of structures like [metadata, V_1, ...
 /// V_metadata.length].
-template<metadata_concept M = metadata<>,
+template<class B,
+         metadata_concept M = metadata<>,
          value_concept V = uint8_t,
          typename I = uint32_t>
-  requires(sizeof(M) >= sizeof(V))
 class store {
   public:
   inline static bool V_equal(const std::span<const V>& a,
@@ -67,8 +67,10 @@ class store {
     }
   };
 
+  friend B;
+
   protected:
-  using self = store<M, V, I>;
+  using self = store<B, M, V, I>;
 
   consteval static size_t capacity() {
     return std::min(std::numeric_limits<I>::max() * alignof(M),
@@ -93,27 +95,12 @@ class store {
   }
 
   I size_ = 0;
+  I inserted_count_ = 0;
   M zero_metadata_;
+  bool scratch_metadata_created_ = false;
 
   std::unique_ptr<std::byte[]> pool_
     = std::make_unique_for_overwrite<std::byte[]>(capacity());
-
-  boost::unordered_flat_map<std::span<const V>,
-                            I,
-                            boost::hash<std::span<const V>>,
-                            V_equality_struct>
-    map_;
-
-  I find(const std::span<const V>& v) const {
-    if(v.size() == 0)
-      return 0;
-
-    const auto it = map_.find(v);
-    if(it == map_.end())
-      return 0;
-
-    return it->second + 1;
-  }
 
   /// Work on the current tip but do not commit anything. The tip can later be
   /// committed using insert_scratch.
@@ -124,7 +111,12 @@ class store {
 
     void* ptr = boost::alignment::align_up(pool_.get() + size_, alignof(M));
 
+    // Destruct old metadata at that position if it was created previously.
+    if(scratch_metadata_created_)
+      reinterpret_cast<M*>(std::assume_aligned<alignof(M)>(ptr))->~M();
+
     M* metadata = new(std::assume_aligned<alignof(M)>(ptr)) M;
+    scratch_metadata_created_ = true;
 
     // Advance the pointer to the first possible location of V.
     ptr = boost::alignment::align_up(static_cast<std::byte*>(ptr) + sizeof(M),
@@ -134,7 +126,7 @@ class store {
     return std::pair<M&, V*>(*metadata, vv);
   }
 
-  I insert_scratch() {
+  inline I insert_scratch() {
     I id = size_;
 
     void* ptr = boost::alignment::align_up(pool_.get() + size_, alignof(M));
@@ -149,26 +141,42 @@ class store {
     std::byte* ptr_end
       = static_cast<std::byte*>(ptr) + metadata->length * sizeof(V);
 
-    map_.insert(std::pair((*this)[id + 1], id));
+    reinterpret_cast<B*>(this)->new_entry(id);
 
     size_ += ptr_end - ptr_start;
+    ++inserted_count_;
+
+    scratch_metadata_created_ = false;
 
     return id + 1;
   }
 
-  I insert(const std::span<const V>& v) {
+  inline I insert(const std::span<const V>& v) {
     auto [m, vv] = new_scratch(v.size());
     std::copy(v.begin(), v.end(), vv);
     m.length = v.size();
     return insert_scratch();
   }
 
+  inline void new_entry(I id) { (void)id; }
+
   public:
   using length_type = decltype(M::length);
   using value_type = V;
 
   store() = default;
-  ~store() = default;
+  ~store() {
+    for(I i = 0; i < inserted_count_; ++i) {
+      // Do not call the destructor of the 0 element, as this is special. Only
+      // call higher ones.
+      M& m = get_metadata(i + 1);
+      m.~M();
+    }
+
+    // If there was some scratch space with metadata, destroy it too.
+    if(scratch_metadata_created_)
+      get_metadata(inserted_count_ + 1).~M();
+  }
 
   inline M& get_metadata(I id) noexcept {
     if(id == 0) {
@@ -194,11 +202,43 @@ class store {
 
     return std::span<const V>(start, len);
   }
+};
 
+template<metadata_concept M = metadata<>,
+         value_concept V = uint8_t,
+         typename I = uint32_t>
+class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
+  using self = monomial_store<M, V, I>;
+  using base = store<self, M, V, I>;
+  friend base;
+
+  boost::unordered_flat_map<std::span<const V>,
+                            I,
+                            boost::hash<std::span<const V>>,
+                            typename base::V_equality_struct>
+    map_;
+
+  boost::unordered_flat_map<std::tuple<I, I, I>, I> products_;
+
+  protected:
+  inline void new_entry(I id) { map_.insert(std::pair((*this)[id + 1], id)); }
+
+  I find(const std::span<const V>& v) const {
+    if(v.size() == 0)
+      return 0;
+
+    const auto it = map_.find(v);
+    if(it == map_.end())
+      return 0;
+
+    return it->second + 1;
+  }
+
+  public:
   inline const I getid(const std::span<const V>& v) {
     I id = find(v);
     if(!id)
-      id = insert(v);
+      id = base::insert(v);
     return id;
   }
   inline const I getid(std::vector<V> v) {
@@ -214,17 +254,7 @@ class store {
     std::span<V> s(v.begin(), v.size());
     return get(s);
   }
-};
 
-template<metadata_concept M = metadata<>,
-         value_concept V = uint8_t,
-         typename I = uint32_t>
-class monomial_store : public store<M, V, I> {
-  using base = store<M, V, I>;
-
-  boost::unordered_flat_map<std::tuple<I, I, I>, I> products_;
-
-  public:
   inline I get_product_id(I a, I b) {
     std::tuple<I, I, I> prod_tuple{ a, b, 0 };
 
@@ -247,7 +277,7 @@ class monomial_store : public store<M, V, I> {
     auto b_it = (*this)[b];
     auto it = std::copy(a_it.begin(), a_it.end(), vv);
     std::copy(b_it.begin(), b_it.end(), it);
-    I prod_idx = base::find(std::span(vv, length_combined));
+    I prod_idx = find(std::span(vv, length_combined));
     if(!prod_idx) {
       prod_idx = base::insert_scratch();
     }
@@ -292,77 +322,116 @@ class monomial_store : public store<M, V, I> {
   }
 };
 
-template<metadata_concept M, value_concept V, typename I>
-class polynomial {
+template<metadata_concept M, typename I>
+struct polynomial_metadata : public M {
+  I coefficients;
+};
+
+template<metadata_concept PM,
+         metadata_concept MM,
+         value_concept V,
+         typename I,
+         typename C = boost::multiprecision::gmp_rational>
+class polynomial_store
+  : public store<polynomial_store<PM, MM, V, I, C>,
+                 polynomial_metadata<PM, I>,
+                 I,
+                 I> {
   public:
-  using monomial_store = monomial_store<M, V, I>;
+  using self = polynomial_store<PM, MM, V, I, C>;
+  using base = store<polynomial_store<PM, MM, V, I, C>,
+                     polynomial_metadata<PM, I>,
+                     I,
+                     I>;
+  using monomial_store = monomial_store<MM, V, I>;
   using monomial = monomial_store::value_type;
+  using metadata = polynomial_metadata<PM, I>;
 
-  using rational = boost::multiprecision::mpq_rational;
+  using polynomial_vec = std::vector<std::pair<C, I>>;
+  using polynomial_nested_vec = std::vector<std::pair<C, std::vector<V>>>;
 
-  inline polynomial(monomial_store& store)
-    : store_(store) {}
+  friend base;
 
-  inline I append(I idx, rational k = 1) {
-    monomials_.push_back(idx);
-    koefficients_.push_back(k);
-    return idx;
-  }
-  inline I append(monomial v, rational k = 1) {
-    I idx = store_.getid(v);
-    monomials_.push_back(idx);
-    koefficients_.push_back(k);
-    return idx;
-  }
-  inline I append(std::vector<V> v, rational k = 1) {
-    I idx = store_.getid(v);
-    monomials_.push_back(idx);
-    koefficients_.push_back(k);
-    return idx;
-  }
+  inline polynomial_store(monomial_store& store)
+    : base::store()
+    , store_(store) {}
 
-  inline void multiply_back(I idx) {
-    for(I& m : monomials_) {
-      m = store_.get_product_id(m, idx);
+  ~polynomial_store() {
+    for(I i = 0; i < cpool_size_; ++i) {
+      C* c = get_coefficients_raw(i);
+      // Explicitly destruct the coefficent again.
+      c->~C();
     }
+    base::~base();
   }
-  inline void multiply_front(I idx) {
-    for(I& m : monomials_) {
-      m = store_.get_product_id(idx, m);
+
+  /// Initialize a new polynomial. Remember to initialize the coefficents!
+  inline std::tuple<metadata&, I*, C*> add(I length = 32) {
+    auto [m, vv] = this->new_scratch(length);
+    return std::tuple<metadata&, I*, C*>(
+      reinterpret_cast<metadata&>(m), vv, get_coefficients_raw(cpool_size_));
+  }
+  inline I commit() { return this->insert_scratch(); }
+
+  inline I add_polynomial(polynomial_vec p) {
+    auto [m, monomials, coefficients] = add(p.size());
+    for(size_t i = 0; i < p.size(); ++i) {
+      C* c = new(coefficients + i) C;
+      *c = p[i].first;
+      monomials[i] = p[i].second;
     }
+    m.length = p.size();
+    return commit();
+  }
+  inline I add_polynomial(polynomial_nested_vec p) {
+    auto [m, monomials, coefficients] = add(p.size());
+    for(size_t i = 0; i < p.size(); ++i) {
+      C* c = new(coefficients + i) C;
+      *c = p[i].first;
+      monomials[i] = store_.getid(p[i].second);
+    }
+    m.length = p.size();
+    return commit();
   }
 
-  inline I getid(I id) const {
-    assert(id < monomials_.size());
-    return monomials_[id];
+  std::span<C> get_coefficients(I id) {
+    if(id == 0)
+      return std::span<C>();
+    metadata& m = this->get_metadata(id);
+    return std::span<C>(get_coefficients_raw(m.coefficients), m.length);
   }
-  inline rational getkoeff(I idx) const {
-    assert(idx < koefficients_.size());
-    return koefficients_[idx];
-  }
-  inline monomial get(I idx) const {
-    assert(idx < monomials_.size());
-    return store_[monomials_[idx]];
-  }
-  inline I size() const { return monomials_.size(); }
 
-  inline const std::vector<I> monomials() const { return monomials_; }
-
-  private:
+  protected:
   monomial_store& store_;
-  // List of indices into the global monomial vector.
-  std::vector<I> monomials_;
-  std::vector<rational> koefficients_;
+  std::unique_ptr<std::byte[]> cpool_
+    = std::make_unique_for_overwrite<std::byte[]>(
+      std::numeric_limits<I>::max());
+  size_t cpool_size_ = 0;
+
+  inline C* get_coefficients_raw(I id) {
+    return reinterpret_cast<C*>(cpool_.get()
+                                + static_cast<size_t>(id) * sizeof(C));
+  }
+
+  inline void new_entry(I id) {
+    // Commit the new coefficients to the coefficient array.
+    metadata& m = this->get_metadata(id + 1);
+    m.coefficients = cpool_size_;
+    cpool_size_ += m.length;
+  }
 };
 }
 
-template<internal::metadata_concept M = internal::metadata<uint8_t>,
+template<internal::metadata_concept MM = internal::metadata<uint8_t>,
+         internal::metadata_concept PM = internal::metadata<uint8_t>,
          internal::value_concept V = uint8_t,
-         typename I = uint32_t>
+         typename I = uint32_t,
+         typename C = boost::multiprecision::gmp_rational>
 struct impl {
   using var = V;
   using idx = I;
-  using monomial_store = internal::monomial_store<M, V, I>;
-  using polynomial = internal::polynomial<M, V, I>;
+  using coefficient = C;
+  using monomial_store = internal::monomial_store<MM, V, I>;
+  using polynomial_store = internal::polynomial_store<PM, MM, V, I, C>;
 };
 }
