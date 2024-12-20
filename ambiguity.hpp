@@ -3,8 +3,7 @@
 
 #include <algorithm>
 #include <concepts>
-
-#include "kommunopp.hpp"
+#include <boost/functional/hash.hpp>
 
 namespace kommunopp {
 

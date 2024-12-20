@@ -5,8 +5,8 @@
 #include <cstdint>
 #include <limits>
 #include <span>
-#include <vector>
 #include <unordered_set>
+#include <vector>
 
 #include <boost/align/align_down.hpp>
 #include <boost/align/align_up.hpp>
@@ -255,15 +255,12 @@ template<internal::metadata_concept M = internal::metadata<uint8_t>,
          typename I = uint32_t>
 class monomial_store;
 
-
-template<metadata_concept M,
-         value_concept V,
-         typename I>
+template<metadata_concept M, value_concept V, typename I>
 class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
   using self = monomial_store<M, V, I>;
   using base = store<self, M, V, I>;
   friend base;
-  
+
   using ambiguity = ambiguity<I>;
   using amb_hash = ambiguity_hash<I>;
 
@@ -364,7 +361,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     auto it = std::copy(a_it.begin(), a_it.end(), vv);
     std::copy(b_it.begin(), b_it.end(), it);
     std::copy(c_it.begin(), c_it.end(), it);
-    auto prod_idx = base::find(std::span(vv, length_combined));
+    auto prod_idx = find(std::span(vv, length_combined));
     if(!prod_idx) {
       prod_idx = base::insert_scratch();
     }
@@ -375,46 +372,48 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
   inline const std::span<V> get_product(I a, I b) {
     return (*this)[get_product_id(a, b)];
   }
-  
+
   std::ostream& print_monomial(I i, std::ostream& o) {
-        auto m = (*this)[i];
-        o << "(";
-        for (const auto & v: m)
-            o << static_cast<int>(v) << ", ";
-        o << ")";
-        return o;
+    auto m = (*this)[i];
+    o << "(";
+    for(const auto& v : m)
+      o << static_cast<int>(v) << ", ";
+    o << ")";
+    return o;
   }
 
-//-----------------------------------------------------------------
+  //-----------------------------------------------------------------
   inline bool cmp(I a, I b) {
     // this is a strict order
-    if (a == b) return false;
-        
+    if(a == b)
+      return false;
+
     // compare lengths
     size_t la = base::get_length(a);
     size_t lb = base::get_length(b);
-    if (la != lb)
+    if(la != lb)
       return la < lb;
-        
+
     // compare monomials lexicographically
     auto a_it = (*this)[a];
     auto b_it = (*this)[b];
-    return std::lexicographical_compare(a_it.begin(), a_it.end(), b_it.begin(), b_it.end());
-  }
-  
-  std::ostream& print_ambiguity(const ambiguity & a, std::ostream& o) {
-        o << "(" << a.degree() << ", ";
-        this->print_monomial(a.ai(),o);
-        o << ", ";
-        this->print_monomial(a.ci(),o);
-        o << ", ";
-        this->print_monomial(a.aj(),o);
-        o << ", ";
-        this->print_monomial(a.cj(),o);
-        o << ", " << static_cast<int>(a.i()) << ", " << static_cast<int>(a.j()) << ")\n";
-        return o;
+    return std::lexicographical_compare(
+      a_it.begin(), a_it.end(), b_it.begin(), b_it.end());
   }
 
+  std::ostream& print_ambiguity(const ambiguity& a, std::ostream& o) {
+    o << "(" << a.degree() << ", ";
+    this->print_monomial(a.ai(), o);
+    o << ", ";
+    this->print_monomial(a.ci(), o);
+    o << ", ";
+    this->print_monomial(a.aj(), o);
+    o << ", ";
+    this->print_monomial(a.cj(), o);
+    o << ", " << static_cast<int>(a.i()) << ", " << static_cast<int>(a.j())
+      << ")\n";
+    return o;
+  }
 };
 
 //================================================================
@@ -511,6 +510,15 @@ class polynomial_store
     return store_.get((*this)[id][idx]);
   }
 
+  inline I get_lm_id(I id) const {
+    // discuss if polynomials are sorted
+    // increasing or decreasing -- decreasing
+    // is probably better
+    return get_monomial_id(id, 0);
+  }
+
+  inline std::span<const V> get_lm(I id) const { return get_monomial(id, 0); }
+
   template<bool front, bool back>
   inline I multiply_front_or_back_or_both(I f, I p, I b) {
     assert(p != 0);
@@ -564,5 +572,3 @@ class polynomial_store
 };
 }
 }
-
-

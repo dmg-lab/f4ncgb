@@ -32,6 +32,7 @@
 #include <queue>
 #include <utility>
 #include <vector>
+#include <span>
 
 namespace aho_corasick {
 

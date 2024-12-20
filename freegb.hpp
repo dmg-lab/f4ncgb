@@ -162,11 +162,14 @@ main(int argc, char** argv) {
   int res = 0;
   init_all_signal_handers();
 
-  int stuff = 10;
 
   size_t n = 4;
-  boost::mp11::mp_with_index<64>(n, [&stuff](auto N) {
-    data<N> d;
+size_t maxiter = 10;
+
+
+  boost::mp11::mp_with_index<6>(n, [&maxiter](auto N) {
+    f4<N> algo;
+    algo.compute_basis(maxiter);
   });
   //   D::monomial_store mons;
   //   D::polynomia_store poly (mons);

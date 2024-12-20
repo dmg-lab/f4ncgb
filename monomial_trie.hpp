@@ -20,10 +20,10 @@ template<internal::metadata_concept M = internal::metadata<uint8_t>,
          internal::value_concept V = uint8_t,
          typename I = uint32_t>
 class monomial_trie {
-    using monomial = std::span<const V>;
     using monomial_store = internal::monomial_store<M, V, I>;
     using ambiguity = ambiguity<I>;
     using amb_hash = ambiguity_hash<I>;
+    using monomial = std::span<const V>;
         
     public:
     aho_corasick::trie<V> T;
@@ -162,21 +162,3 @@ class monomial_trie {
 
 #endif // MONOMIAL_TRIE_H
 
-// -----------------------------------------------------------------
-//     const std::unordered_set<ambiguity,amb_hash> compute_ambiguities(
-//                                                 const monomial_trie& prefix, 
-//                                                 const monomial_trie& suffix, 
-//                                                 I i) {
-//         std::unordered_set<ambiguity, amb_hash> amb;
-//         
-//         // compute all overlaps ABC where a = AB
-//         amb = prefix.compute_overlaps(*this, i);
-//         
-//         // compute all overlaps ABC where a = BC
-//         amb.merge( suffix.compute_overlaps_reversed(*this, i) );
-//         
-//         // compute all inclusions
-//         amb.merge( prefix.compute_inclusions(*this, i) );
-//                 
-//         return amb;                                             
-//     }
