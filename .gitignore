@@ -4,3 +4,5 @@ build-
 /compile_commands.json
 /.cache/
 /build-release/
+.DS_Store
+/.dir-locals.el

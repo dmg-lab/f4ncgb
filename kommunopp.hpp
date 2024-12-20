@@ -6,6 +6,7 @@
 #include <limits>
 #include <span>
 #include <vector>
+#include <unordered_set>
 
 #include <boost/align/align_down.hpp>
 #include <boost/align/align_up.hpp>
@@ -13,7 +14,12 @@
 #include <boost/multiprecision/gmp.hpp>
 #include <boost/unordered/unordered_flat_map.hpp>
 
+#include "./aho_corasick/src/aho_corasick/aho_corasick.hpp"
+
+#include "ambiguity.hpp"
+
 namespace kommunopp {
+
 namespace internal {
 struct monomial_store_overrun_exception : public std::exception {
   virtual const char* what() const throw() {
@@ -243,13 +249,23 @@ class store {
   }
 };
 
-template<metadata_concept M = metadata<>,
-         value_concept V = uint8_t,
+//================================================================
+template<internal::metadata_concept M = internal::metadata<uint8_t>,
+         internal::value_concept V = uint8_t,
          typename I = uint32_t>
+class monomial_store;
+
+
+template<metadata_concept M,
+         value_concept V,
+         typename I>
 class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
   using self = monomial_store<M, V, I>;
   using base = store<self, M, V, I>;
   friend base;
+  
+  using ambiguity = ambiguity<I>;
+  using amb_hash = ambiguity_hash<I>;
 
   boost::unordered_flat_map<std::span<const V>,
                             I,
@@ -262,23 +278,23 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
   protected:
   inline void new_entry(I id) { map_.insert(std::pair((*this)[id + 1], id)); }
 
-  I find(const std::span<const V>& v) const {
+  std::optional<I> find(const std::span<const V>& v) const {
     if(v.size() == 0)
       return 0;
 
     const auto it = map_.find(v);
     if(it == map_.end())
-      return 0;
+      return std::nullopt;
 
     return it->second + 1;
   }
 
   public:
   inline const I getid(const std::span<const V>& v) {
-    I id = find(v);
+    auto id = find(v);
     if(!id)
       id = base::insert(v);
-    return id;
+    return *id;
   }
   inline const I getid(std::vector<V> v) {
     std::span<const V> s(v.begin(), v.size());
@@ -316,12 +332,12 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     auto b_it = (*this)[b];
     auto it = std::copy(a_it.begin(), a_it.end(), vv);
     std::copy(b_it.begin(), b_it.end(), it);
-    I prod_idx = find(std::span(vv, length_combined));
+    auto prod_idx = find(std::span(vv, length_combined));
     if(!prod_idx) {
       prod_idx = base::insert_scratch();
     }
-    products_.insert(std::make_pair(prod_tuple, prod_idx));
-    return prod_idx;
+    products_.insert(std::make_pair(prod_tuple, *prod_idx));
+    return *prod_idx;
   }
 
   inline I get_product_id(I a, I b, I c) {
@@ -348,18 +364,60 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     auto it = std::copy(a_it.begin(), a_it.end(), vv);
     std::copy(b_it.begin(), b_it.end(), it);
     std::copy(c_it.begin(), c_it.end(), it);
-    I prod_idx = base::find(std::span(vv, length_combined));
+    auto prod_idx = base::find(std::span(vv, length_combined));
     if(!prod_idx) {
       prod_idx = base::insert_scratch();
     }
-    products_.insert(std::make_pair(prod_tuple, prod_idx));
-    return prod_idx;
+    products_.insert(std::make_pair(prod_tuple, *prod_idx));
+    return *prod_idx;
   }
 
   inline const std::span<V> get_product(I a, I b) {
     return (*this)[get_product_id(a, b)];
   }
+  
+  std::ostream& print_monomial(I i, std::ostream& o) {
+        auto m = (*this)[i];
+        o << "(";
+        for (const auto & v: m)
+            o << static_cast<int>(v) << ", ";
+        o << ")";
+        return o;
+  }
+
+//-----------------------------------------------------------------
+  inline bool cmp(I a, I b) {
+    // this is a strict order
+    if (a == b) return false;
+        
+    // compare lengths
+    size_t la = base::get_length(a);
+    size_t lb = base::get_length(b);
+    if (la != lb)
+      return la < lb;
+        
+    // compare monomials lexicographically
+    auto a_it = (*this)[a];
+    auto b_it = (*this)[b];
+    return std::lexicographical_compare(a_it.begin(), a_it.end(), b_it.begin(), b_it.end());
+  }
+  
+  std::ostream& print_ambiguity(const ambiguity & a, std::ostream& o) {
+        o << "(" << a.degree() << ", ";
+        this->print_monomial(a.ai(),o);
+        o << ", ";
+        this->print_monomial(a.ci(),o);
+        o << ", ";
+        this->print_monomial(a.aj(),o);
+        o << ", ";
+        this->print_monomial(a.cj(),o);
+        o << ", " << static_cast<int>(a.i()) << ", " << static_cast<int>(a.j()) << ")\n";
+        return o;
+  }
+
 };
+
+//================================================================
 
 template<metadata_concept M, typename I>
 struct polynomial_metadata : public M {
@@ -505,17 +563,6 @@ class polynomial_store
   }
 };
 }
-
-template<internal::metadata_concept MM = internal::metadata<uint8_t>,
-         internal::metadata_concept PM = internal::metadata<uint8_t>,
-         internal::value_concept V = uint8_t,
-         typename I = uint32_t,
-         typename C = boost::multiprecision::gmp_rational>
-struct impl {
-  using var = V;
-  using idx = I;
-  using coefficient = C;
-  using monomial_store = internal::monomial_store<MM, V, I>;
-  using polynomial_store = internal::polynomial_store<PM, MM, V, I, C>;
-};
 }
+
+

@@ -1,8 +1,23 @@
 #include <boost/test/unit_test.hpp>
 
 #include "kommunopp.hpp"
+#include "monomial_trie.hpp"
+#include "./aho_corasick/src/aho_corasick/aho_corasick.hpp"
 
 using namespace kommunopp;
+
+template<internal::metadata_concept MM = internal::metadata<uint8_t>,
+         internal::metadata_concept PM = internal::metadata<uint8_t>,
+         internal::value_concept V = uint8_t,
+         typename I = uint32_t,
+         typename C = boost::multiprecision::gmp_rational>
+struct impl {
+  using var = V;
+  using idx = I;
+  using coefficient = C;
+  using monomial_store = internal::monomial_store<MM, V, I>;
+  using polynomial_store = internal::polynomial_store<PM, MM, V, I, C>;
+};
 
 BOOST_AUTO_TEST_CASE(std_span_behavior) {
   std::vector<uint8_t> v{ 1, 2, 3, 1, 2, 3 };
@@ -49,6 +64,21 @@ BOOST_AUTO_TEST_CASE(simple_product) {
   BOOST_TEST(m123123_idx == prod2_idx);
 }
 
+BOOST_AUTO_TEST_CASE(simple_cmp) {
+  using I = impl<>;
+
+  I::monomial_store s;
+
+  I::idx m123_idx = s.getid({ 1, 2, 3 });
+  I::idx m123_idx2 = s.getid({ 1, 2, 3 });
+  I::idx m132_idx = s.getid({ 1, 3, 2 });
+  I::idx m123123_idx = s.getid({ 1, 2, 3, 1, 2, 3 });
+
+  BOOST_TEST( !s.cmp(m123_idx, m123_idx2) );
+  BOOST_TEST( s.cmp(m123_idx, m132_idx) );
+  BOOST_TEST( !s.cmp(m123123_idx, m123_idx) );
+}
+
 BOOST_AUTO_TEST_CASE(simple_polynomials) {
   using I = impl<>;
   I::monomial_store s;
@@ -69,13 +99,12 @@ BOOST_AUTO_TEST_CASE(simple_polynomials) {
   I::idx p4 = p.multiply_back(p2, s.getid({ 1, 2 }));
 
   // Printing is also possible:
-  /*
-  std::cout << "p1: " << p1 << ", p2: " << p2 << ", p3: " << p3
-            << ", p4: " << p4 << std::endl;
-
-  s.print(std::cout);
-  p.print(std::cout);
-  */
+  
+//   std::cout << "p1: " << p1 << ", p2: " << p2 << ", p3: " << p3
+//             << ", p4: " << p4 << std::endl;
+// 
+//   s.print(std::cout);
+//   p.print(std::cout);
 
   BOOST_TEST(p.get_monomial_id(p3, 0) == s.getid({ 1, 2, 2, 3 }));
   BOOST_TEST(p.get_monomial_id(p4, 0) == s.getid({ 3, 4, 1, 2 }));
@@ -147,4 +176,47 @@ BOOST_AUTO_TEST_CASE(simple_with_extended_metadata) {
   I::idx prod_id_expected = s.getid({ 1, 2, 3 });
 
   BOOST_TEST(prod_id == prod_id_expected);
+}
+
+
+BOOST_AUTO_TEST_CASE(find_divisors_with_trie) {
+  using I = impl<>;
+  monomial_trie<> prefix;
+  monomial_trie<> suffix;
+  I::monomial_store s;
+
+  I::idx m13 = s.getid({1,3});
+  I::idx m1234 = s.getid({1, 2, 3, 4});
+  I::idx m123 = s.getid({1, 2, 3 });
+  I::idx m132 = s.getid({1, 2, 1, 2, 3});
+  I::idx m231 = s.getid({2,3,1});
+  
+  prefix.insert_monomial(s[m13]);
+  prefix.insert_monomial(s[m1234]);
+  prefix.insert_monomial(s[m123]);
+  prefix.insert_monomial(s[m132]);
+  prefix.insert_monomial(s[m231]); 
+  
+  suffix.insert_monomial_reversed(s[m13]);
+  suffix.insert_monomial_reversed(s[m1234]);
+  suffix.insert_monomial_reversed(s[m123]);
+  suffix.insert_monomial_reversed(s[m132]);
+  suffix.insert_monomial_reversed(s[m231]);  
+  
+  std::cout << "Computing overlaps for ";
+  s.print_monomial(m231,std::cout);
+  std::cout << "\n";
+  
+  auto amb = prefix.compute_overlaps(s, m231);
+    amb = suffix.compute_overlaps_reversed(s, m231);
+    amb = prefix.compute_inclusions(s, m231);
+  
+        
+  std::cout << "Found the following ambiguities \n";
+  for (const auto & a : amb)
+        s.print_ambiguity(a,std::cout);
+    
+    s.print(std::cout);
+
+     
 }
