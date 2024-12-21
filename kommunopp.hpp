@@ -6,6 +6,7 @@
 #include <limits>
 #include <span>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include <boost/align/align_down.hpp>
@@ -359,7 +360,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     auto b_it = (*this)[b];
     auto c_it = (*this)[c];
     auto it = std::copy(a_it.begin(), a_it.end(), vv);
-    std::copy(b_it.begin(), b_it.end(), it);
+    it = std::copy(b_it.begin(), b_it.end(), it);
     std::copy(c_it.begin(), c_it.end(), it);
     auto prod_idx = find(std::span(vv, length_combined));
     if(!prod_idx) {
@@ -518,6 +519,20 @@ class polynomial_store
   }
 
   inline std::span<const V> get_lm(I id) const { return get_monomial(id, 0); }
+
+  inline std::pair<std::vector<I>, I> shadow_multiply_front_and_back(I f,
+                                                                     I p,
+                                                                     I b) {
+    assert(p != 0);
+
+    auto l = this->get_length(p);
+    std::vector<I> mons;
+    mons.reserve(l);
+
+    for(I i = 0; i < l; ++i)
+      mons[i] = store_.get_product_id(f, (*this)[p][i], b);
+    return std::make_pair(mons, p);
+  }
 
   template<bool front, bool back>
   inline I multiply_front_or_back_or_both(I f, I p, I b) {
