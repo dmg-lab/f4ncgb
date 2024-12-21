@@ -530,7 +530,8 @@ class polynomial_store
     mons.reserve(l);
 
     for(I i = 0; i < l; ++i)
-      mons[i] = store_.get_product_id(f, (*this)[p][i], b);
+      mons.push_back(  store_.get_product_id(f, (*this)[p][i], b) );
+
     return std::make_pair(mons, p);
   }
 
