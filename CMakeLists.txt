@@ -9,11 +9,13 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 set(KOMMUNOPP_SRCS
   kommunopp.cpp
   signal_statistics.cpp
+  parser.cpp
 )
 
 set(KOMMUNOPP_TEST_SRCS
   test.cpp
   test_simple.cpp
+  test_parse.cpp
 )
 
 set(KOMMUNOPP_TARGETS

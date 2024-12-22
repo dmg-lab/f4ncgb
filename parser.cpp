@@ -1,113 +1,145 @@
-/*------------------------------------------------------------------------*/
-/*! \file parser.cpp
-    \brief contains functions necessary to parse the AIG
+#include <cerrno>
+#include <cstdio>
+#include <cstring>
 
-  Part of FGLMultiLing
-  Copyright(C) 2024 Daniela Kaufmann,TU Wien, Austria
-*/
-/*------------------------------------------------------------------------*/
-#include "parser.h"
-/*------------------------------------------------------------------------*/
-// ERROR CODES:
-static int err_parsing       = 20; // general parsing error
-static int err_latches       = 21; // cannot handle latches
-static int err_no_inputs     = 22; // no inputs
-static int err_odd_inputs    = 23; // odd inputs
-static int err_no_outputs    = 24; // no outputs
-static int err_wrong_outputs = 25; // wrong number of outputs
-/*------------------------------------------------------------------------*/
+#include "parser.hpp"
 
-bool match_and(unsigned lhs, unsigned rhs0, unsigned rhs1) {
-  if (lhs == aiger_false) return 0;
-  if (aiger_sign(lhs)) return 0;
-  assert(lhs != aiger_true);
+#define xstr(s) str(s)
+#define str(s) #s
 
-  aiger_and * and1 = is_model_and(lhs);
-  if (!and1) return 0;
-  if (and1->rhs0 == rhs0 && and1->rhs1 == rhs1) return 1;
-  if (and1->rhs0 == rhs1 && and1->rhs1 == rhs0) return 1;
-  return 0;
+#define EXPECT(C)                                                            \
+  do {                                                                       \
+    if(c != C) {                                                             \
+      return ctx.error_at_current(std::format(                               \
+        "{} {}", "Expected " str(C) " but received", static_cast<char>(c))); \
+    }                                                                        \
+  } while(false)
+
+static inline bool
+isdigit_(char c) {
+  return c >= '0' && c <= '9';
 }
 
-/*------------------------------------------------------------------------*/
-void determine_input_order() {
-  unsigned s0 = 0, sl = NN-1;
-  if (match_and(
-        slit(0),
-        get_model_inputs_lit(0),
-        get_model_inputs_lit(1))) {
-    a0 = 0, al = NN-2, ainc = 2;
-    b0 = 1, bl = NN-1, binc = 2;
-    msg("assuming ordering as in BTOR generated benchmarks");
-  } else {
-    a0 = 0, al = NN/2-1,   ainc = 1;
-    b0 = NN/2, bl = NN-1, binc = 1;
-    msg("assuming ordering as in the ABC generated or AOKI benchmarks");
+#define EXPECT_DIGIT()                                             \
+  do {                                                             \
+    if(!isdigit_(c)) {                                             \
+      return ctx.error_at_current(                                 \
+        std::format("{} {}", "Expected a digit but received", c)); \
+    }                                                              \
+  } while(false)
+
+#define READ(C)   \
+  c = ctx.getc(); \
+  EXPECT(C);
+
+namespace kommunopp {
+parse_res
+parser_context::open(std::filesystem::path p) {
+  if(!std::filesystem::exists(p)) {
+    return std::format("File \"{}\" does not exist!", p.string());
   }
-  if (verbose >= 2) {
-    if (NN == 2) {
-      msg("a[0] = input[%d]", a0);
-      msg("b[0] = input[%d]", b0);
-      msg("s[0] = output[%d]", s0);
-    } else if (NN == 4) {
-      msg("(a[0], a[1]) =(input[%d], input[%d])", a0, al);
-      msg("(b[0], b[1]) =(input[%d], input[%d])", b0, bl);
-      msg("(s[0], ..., s[3]) =(output[%d], ..., output[%d])", s0, sl);
-    } else if (NN == 6) {
-      msg("(a[0], a[1], a[2]) =(input[%d], input[%d], input[%d])",
-        a0, a0 + ainc, al);
-      msg("(b[0], b[1], b[2]) =(input[%d], input[%d], input[%d])",
-        b0, b0 + binc, bl);
-      msg("(s[0], ..., s[5]) =(output[%d], ..., output[%d])", s0, sl);
-    } else {
-      msg("(a[0], a[1], ..., a[%d]) =(input[%d], input[%d], ..., input[%d])",
-        NN/2-1, a0, a0 + ainc, al);
-      msg("(b[0], b[1], ..., b[%d]) =(input[%d], input[%d], ..., input[%d])",
-        NN/2-1, b0, b0 + binc, bl);
-      msg("(s[0], ..., s[%d]) =(output[%d], ..., output[%d])",
-        NN-1, s0, sl);
-    }
+  FILE* f_ptr = std::fopen(p.c_str(), "r");
+  if(!f_ptr) {
+    return std::format(
+      "Could not open file \"{}\", error: {}", p.string(), strerror(errno));
   }
+  f.reset(f_ptr);
+  filename = p.string();
+  return std::nullopt;
 }
 
-/*------------------------------------------------------------------------*/
-
-void init_aiger_with_checks() {
-  if (get_model_num_latches()) die(err_latches, "can not handle latches");
-  if (!get_model_num_inputs()) die(err_no_inputs, "no inputs");
-  if (mult_inp && (get_model_num_inputs() & 1)) die(err_odd_inputs, "odd number of inputs");
-  if (!get_model_num_outputs()) die(err_no_outputs, "no outputs");
-  if (mult_inp && get_model_num_outputs() == get_model_num_inputs()) {
-    M = get_model_maxvar() + 1;
-    NN = get_model_num_inputs();
-    MM = get_model_num_outputs();
-  } else if (miter_inp && get_model_num_outputs() == 1){
-    M = get_model_maxvar() + 1;
-    NN = get_model_num_inputs();
-    MM = get_model_num_outputs();
-  }
-  else  die(err_wrong_outputs, "only got %u outputs",
-      get_model_num_outputs());
-
-
-  msg("MILOA %u %u %u %u %u",
-    get_model_maxvar(),
-    get_model_num_inputs(),
-    get_model_num_latches(),
-    get_model_num_outputs(),
-    get_model_num_ands());
-
-  determine_input_order();
+static parse_res
+parse_impl_msolve(parser_context& ctx,
+                  parse_add_cb add_cb,
+                  void* add_cb_userdata,
+                  parse_monomial_boundary_cb boundary_cb,
+                  void* boundary_cb_userdata,
+                  char first_char,
+                  char second_char) {
+  // TODO
+  return std::nullopt;
 }
 
-/*------------------------------------------------------------------------*/
+static parse_res
+parse_impl_poly(parser_context& ctx,
+                parse_add_cb add_cb,
+                void* add_cb_userdata,
+                parse_monomial_boundary_cb boundary_cb,
+                void* boundary_cb_userdata,
+                size_t var_count,
+                size_t var_blocks,
+                size_t characteristic) {
+  // TODO
+  return std::nullopt;
+}
 
-void parse_aig(const char * input_name) {
-  init_aig_parsing();
+static parse_res
+parse_impl_sympoly(parser_context& ctx,
+                   parse_add_cb add_cb,
+                   void* add_cb_userdata,
+                   parse_monomial_boundary_cb boundary_cb,
+                   void* boundary_cb_userdata,
+                   size_t var_count,
+                   size_t var_blocks,
+                   size_t characteristic) {
+  // TODO
+  return std::nullopt;
+}
 
-  msg("reading '%s'", input_name);
-  const char * err = aiger_open_and_read_to_model(input_name);
-  if (err) die(err_parsing, "error parsing '%s': %s", input_name, err);
+parse_res
+parse_impl(parser_context& ctx,
+           parse_add_cb add_cb,
+           void* add_cb_userdata,
+           parse_monomial_boundary_cb boundary_cb,
+           void* boundary_cb_userdata) {
+  // Parsing procedure:
+  //
+  // 1. Decide on format to use based on first few read characters.
+  // 2. Call the respective implementation.
+  // 3. Let the implementation call the callbacks.
+  //
+  // Return eventual errors as strings.
 
-  init_aiger_with_checks();
+  int c = ctx.getc();
+  if(c != 'p') {
+    int second = ctx.getc();
+    return parse_impl_msolve(ctx,
+                             add_cb,
+                             add_cb_userdata,
+                             boundary_cb,
+                             boundary_cb_userdata,
+                             c,
+                             second);
+  }
+
+  // File reads "p"
+  c = ctx.getc();
+  if(c != ' ') {
+    return parse_impl_msolve(
+      ctx, add_cb, add_cb_userdata, boundary_cb, boundary_cb_userdata, 'p', c);
+  }
+
+  // File reads "p "
+
+  // Now the file must be one of our own new format types!
+  c = ctx.getc();
+  if(c == 's') {
+    // File should read "p sympoly"
+    READ('y');
+    READ('m');
+    READ('p');
+    READ('o');
+    READ('l');
+    READ('y');
+    READ(' ');
+  } else if(c == 'p') {
+    // File should read "p poly"
+    READ('o');
+    READ('l');
+    READ('y');
+    READ(' ');
+  }
+
+  return std::nullopt;
+}
 }
