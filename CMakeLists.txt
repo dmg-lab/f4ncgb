@@ -37,6 +37,7 @@ set_property(TARGET freegb PROPERTY CXX_STANDARD 20)
 
 find_package(Boost COMPONENTS unit_test_framework REQUIRED)
 find_package(GMP REQUIRED)
+find_package(Flint REQUIRED)
 
 target_compile_options(kommunopp PRIVATE
      $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:
@@ -59,8 +60,7 @@ target_compile_options(freegb PRIVATE
 target_link_libraries(kommunopp PUBLIC Boost::boost GMP::GMP)
 target_link_libraries(kommunopp_test PUBLIC Boost::unit_test_framework)
 target_link_libraries(freegb PUBLIC Boost::boost GMP::GMP)
-target_link_libraries(freegb PUBLIC -I/opt/homebrew/include -L/opt/homebrew/lib -lflint)
-
+target_link_libraries(freegb PUBLIC Flint::Flint)
 
 include(CheckIPOSupported)
 check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
