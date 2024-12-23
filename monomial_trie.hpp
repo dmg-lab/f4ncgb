@@ -48,9 +48,9 @@ class monomial_trie {
     std::unordered_set<I> divisors;
     divisors.reserve(results.size());
     
-    for (auto r : results ) {
-        auto vec = r.get_keyword();
-        divisors.insert( s.getid(vec) );
+    for (auto & r : results ) {
+      auto vec = r.get_keyword();
+      divisors.insert( s.getid(vec) );
     }    
     return divisors;
     }
@@ -88,9 +88,7 @@ class monomial_trie {
     */
     monomial bc = s[i];
     std::unordered_set<ambiguity, amb_hash> overlaps;
-    
-    std::cout << "Computing REVERSED overlaps\n";
-    
+        
     for (I id = 1; id < bc.size(); id++) {     
         auto results = T.prefixes(bc.rbegin() + id, bc.rend());                 
         
@@ -98,13 +96,7 @@ class monomial_trie {
         for (auto &  r : results) {                
             std::vector<V> v = r.get_keyword();
             monomial ab (v.begin(), v.size());
-            
-            std::cout << "AB = ";
-            for (const auto & ch : ab)
-                std::cout << static_cast<int>(ch) << ", ";
-            std::cout << "\n";
-            
-            
+                        
             I d = id + v.size();
             I j = s.getid(ab);
             I ai = s.getid(ab.first(r.get_end()));

@@ -339,11 +339,15 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     return getid(s);
   }
 
-  inline const std::span<V> get(const std::span<V>& v) {
+   inline const std::span<const V> get(const V id) {
+     return (*this)[id];
+    }
+  
+  inline const std::span<const V> get(const std::span<V>& v) {
     I id = getid(v);
     return (*this)[id];
   }
-  inline const std::span<V> get(std::vector<V> v) {
+  inline const std::span<const V> get(std::vector<V> v) {
     std::span<V> s(v.begin(), v.size());
     return get(s);
   }
@@ -424,7 +428,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
   }
 
   //-----------------------------------------------------------------
-  inline bool cmp(I a, I b) {
+   inline bool cmp(I a, I b) {
     // this is a strict order
     if(a == b)
       return false;

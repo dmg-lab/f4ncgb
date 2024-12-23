@@ -1,14 +1,17 @@
 #ifndef FREEGB_H
 #define FREEGB_H
 
+#include <filesystem>
+#include <memory>
 #include <set>
 #include <sstream>
 #include <string.h>
 #include <vector>
 
-#include "signal_statistics.hpp"
 #include "f4.hpp"
 #include "kommunopp.hpp"
+#include "parser.hpp"
+#include "signal_statistics.hpp"
 
 #define VERSION "0.1"
 /*------------------------------------------------------------------------*/
@@ -151,23 +154,33 @@ main(int argc, char** argv) {
     }
   }
 
-  if(!mode)
-    die(err_mode_sel, "select mode(try -h for more information)");
   if(!input_name)
     die(err_no_file, "no input file given(try '-h')");
-  if(!output_name)
-    die(err_no_file, "no output file given(try '-h')");
+  // if(!output_name)
+  //   die(err_no_file, "no output file given(try '-h')");
 
   int res = 0;
   init_all_signal_handers();
 
+  std::filesystem::path in = std::filesystem::current_path()
+                             / std::filesystem::path("test_inputs/braid3.ms");
 
-  size_t n = 4;
-size_t maxiter = 10;
+  std::cout << "Path = " << in << std::endl;
+  
+  parser_context context;
+  context.open(in);
+  parse_res r = parse_header(context);
+  if(r.has_value())
+    die(17, "Error in parsing input file.");
 
+  size_t maxiter = 10;
+  size_t n = 0;
+  if(context.num_blocks > 1)
+    n = context.num_blocks;
 
-  boost::mp11::mp_with_index<6>(n, [&maxiter](auto N) {
+  boost::mp11::mp_with_index<6>(n, [&maxiter, &context](auto N) {
     f4<N> algo;
+    algo.read_input(context);
     algo.compute_basis(maxiter);
   });
 

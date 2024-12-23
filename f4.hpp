@@ -15,13 +15,14 @@
 #include <boost/unordered/unordered_flat_map.hpp>
 #include <unordered_set>
 
+#include "parser.hpp"
 #include "ambiguity.hpp"
 #include "gmp.h"
 #include "kommunopp.hpp"
+#include "linear_algebra.hpp"
 #include "monomial_trie.hpp"
 #include "signal_statistics.hpp"
 #include "sparse_rref/sparse_mat.h"
-#include "linear_algebra.hpp"
 
 using namespace boost::multiprecision;
 
@@ -78,32 +79,24 @@ struct f4 {
     , lm_reversed() {}
 
   //------------------------------------------------------------------------------
+  inline void read_input(parser_context & context) {
+    parse_res res = parse_rest_into_polynomial_store(context, poly);
+    }
+
+  //------------------------------------------------------------------------------
 
   std::vector<poly_id> compute_basis(size_t maxiter) {
     msg("Computing Gröbner basis");
 
-    poly_id p1 = poly.add_polynomial({ { 5l, { 2, 3 } }, { 14l, { 2, 3 } } });
-    poly_id p2 = poly.add_polynomial({ { 3l, { 3, 4 } }, { 4l, { 5, 6 } } });
-
-    C src = (poly.get_coefficients(p1)[0]);
-    C src2 = (poly.get_coefficients(p1)[1]);
-    gmp_int i(src);
-    gmp_int j(src2);
-
-    sparse_mat_t<gmp_int> mat;
-    sparse_mat_init(mat, 5, 5);
-
-    auto row = sparse_mat_row(mat, 0);
-    _sparse_vec_set_entry(row, 3, &i);
-    _sparse_vec_set_entry(row, 1, &j);
-    auto [idxs, entries] = multimodular_rref(mat);
-    sparse_mat_clear(mat);
-
-    std::vector<poly_id> input = { p1, p2 };
-
     // add something at 0th position
     // so that index 0 remains free
     basis.push_back(0);
+
+    std::vector<poly_id> input(poly.begin(), poly.end());     
+    update_basis_and_amb(input);
+
+    mons.print(std::cout);
+    poly.print(std::cout);
 
     // add input to critical pairs
     for(const auto& p : input) {
@@ -172,10 +165,14 @@ struct f4 {
       amb[a.degree()].insert(a);
   }
 
-  void symbolic_preprocessing() {
-    std::set<mon_id> todo;
-    std::set<mon_id> done;
-    std::set<poly_id> reducers;
+  //------------------------------------------------------------------------------
+  std::unordered_set<poly_id> symbolic_preprocessing() {
+    std::unordered_set<mon_id> todo;
+    std::unordered_set<mon_id> done;
+    std::unordered_set<poly_id> rows;
+
+    msg("============ Sym Pre ===================");
+
     for(const auto& [f, g] : crit_pairs) {
       auto mons = poly.get_monomial_ids(f);
       done.insert(mons[0]);
@@ -183,21 +180,110 @@ struct f4 {
       mons = poly.get_monomial_ids(g);
       done.insert(mons[0]);
       todo.insert(mons.begin() + 1, mons.end());
+      rows.insert(f);
+      rows.insert(g);
     }
-   while (!todo.empty()) {
-     //   mon_id m = todo.pop();
+    while(!todo.empty()) {
+      die(-1,"");
+      std::cout << "Todo length = " << todo.size() << "\n";
+      for (auto c : todo)
+        std::cout << (int)c << ", ";
+      std::cout << "\n";
+      
+      mon_id m = *todo.begin();
+      todo.erase(todo.begin());
+      done.insert(m);
+      poly_id reducer = find_reducer(m);
+      if(!reducer)
+        continue;
+      assert(m == poly.get_lm_id(reducer));
 
+      std::cout << "Found reducer " << reducer << "\n";
 
-} 
+      mons.print(std::cout);
+      std::cout << "---------------------------\n";
+      poly.print(std::cout);
+      
+      rows.insert(reducer);
+      for(auto rm : poly.get_monomial_ids(reducer))
+        if(!done.count(rm))
+          todo.insert(rm);
+    }
 
+        msg("============ Sym Pre finished  ===================");
 
+    return rows;
   }
 
   //------------------------------------------------------------------------------
+  poly_id find_reducer(mon_id m, bool strategy = false) {
+
+        msg("============ Find reducer  ===================");
+    
+    auto reducers = lm.compute_divisors(mons, m);
+    if(reducers.empty())
+      return 0;
+
+    monomial mm = mons[m];
+
+    poly_id g;
+    // strategy 1 : the last one
+    if(strategy)
+      g = *std::max_element(reducers.begin(), reducers.end());
+    // strategy 2 : the one with smallest lm
+    else if(true)
+      g = *std::max_element(
+        reducers.begin(), reducers.end(), [this](mon_id a, mon_id b) {
+          return this->mons.cmp(b, a);
+        });
+    // strategy 3 : the one with largest lm
+    else
+      g = *std::max_element(
+        reducers.begin(), reducers.end(), [this](mon_id a, mon_id b) {
+          return this->mons.cmp(a, b);
+        });
+
+    monomial lm_g = poly.get_lm(g);
+
+    auto it = std::search(mm.begin(), mm.end(), lm_g.begin(), lm_g.end());
+    assert(it != lm_g.end());
+    mon_id a = mons.getid(std::span(mm.begin(), it));
+    mon_id b = mons.getid(std::span(it + lm_g.size(), mm.end()));
+
+    poly_id res = poly.multiply_front_and_back(a, g, b);
+
+    msg("============ Find reducer finished  ===================");
+
+    
+    return res;
+  }
+  //------------------------------------------------------------------------------
+  struct compare_lm {
+
+    monomial_store * mons;
+    polynomial_store * poly;
+
+    compare_lm(monomial_store *s,  polynomial_store * p) : mons(s), poly(p) {}
+    
+    bool operator()(const poly_id a, const poly_id b) {
+      return mons->cmp(poly->get_lm_id(a), poly->get_lm_id(b));
+    }
+  };
+  //------------------------------------------------------------------------------
   std::vector<poly_id>& reduction() {
     // symbolic preprocessing
-    symbolic_preprocessing();
+    std::unordered_set<poly_id> rows = symbolic_preprocessing();
+
+    // make columns
+    std::set<mon_id, compare_lm> columns (compare_lm(&mons,&poly));
+    for(const auto r : rows) { auto m = poly.get_monomial_ids(r);
+      columns.insert(m.begin(), m.end());
+    }
+
+    for(auto c : columns)
+      mons.print_monomial(c, std::cout);
     // set up matrix
+    
 
     // reduction
 
@@ -207,7 +293,7 @@ struct f4 {
   //------------------------------------------------------------------------------
   void update_basis_and_amb(std::vector<poly_id>& new_elements) {
 
-    for(const poly_id& p_id : new_elements) {
+    for(const poly_id p_id : new_elements) {
       // update lm data
       mon_id m_id = poly.get_lm_id(p_id);
       lm_to_poly[m_id] = p_id;
