@@ -151,10 +151,12 @@ class store {
 
     std::byte* ptr_end
       = static_cast<std::byte*>(ptr) + metadata->length * sizeof(V);
+    std::byte* ptr_next = static_cast<std::byte*>(
+      boost::alignment::align_up(ptr_end, alignof(M)));
 
     reinterpret_cast<B*>(this)->new_entry(id);
 
-    size_ += ptr_end - ptr_start;
+    size_ += ptr_next - ptr_start;
     ++inserted_count_;
 
     scratch_metadata_created_ = false;
@@ -230,6 +232,7 @@ class store {
 
     std::byte* ptr_end
       = static_cast<std::byte*>(ptr) + get_length(pos + 1) * sizeof(V);
+
     std::byte* ptr_next = static_cast<std::byte*>(
       boost::alignment::align_up(ptr_end, alignof(M)));
 
