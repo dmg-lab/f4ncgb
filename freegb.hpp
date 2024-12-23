@@ -7,7 +7,6 @@
 #include <vector>
 
 #include "signal_statistics.hpp"
-
 #include "f4.hpp"
 #include "kommunopp.hpp"
 
@@ -171,24 +170,7 @@ size_t maxiter = 10;
     f4<N> algo;
     algo.compute_basis(maxiter);
   });
-  //   D::monomial_store mons;
-  //   D::polynomia_store poly (mons);
 
-  //   init_nonces();
-  //
-  //   parse_input(input_name);
-  //   bool res;
-  //   init_mpz(NN);
-  //   init_gates();
-  //
-  //   Polynomial * spec;
-  //   if(mult_inp) spec = mult_spec_poly();
-  //   else if (miter_inp) spec = miter_spec_poly();
-  //   else spec = parse_specification_polynomial(spec_name);
-  //   spec->print(stdout);
-  //   res = verify(input_name, spec, output_name1, output_name2, output_name3,
-  //   mode == 3); reset_aig_parsing(); reset_all();
-  //
   reset_time = process_time();
   print_statistics();
 

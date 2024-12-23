@@ -497,6 +497,16 @@ class polynomial_store
     return std::span<C>(get_coefficients_raw(m.coefficients), m.length);
   }
 
+  inline std::vector<I> get_monomial_ids(I id) {
+    if(id == 0)
+      return std::vector<I>(0);
+    std::vector<I> res;
+    res.reserve(this->get_length(id));
+    for(size_t i = 0; i < this->get_length(id); i++)
+      res.push_back((*this)[id][i]);
+    return res;
+  }
+
   inline I get_monomial_id(I id, I idx) const {
     if(id == 0)
       return 0;
@@ -530,7 +540,7 @@ class polynomial_store
     mons.reserve(l);
 
     for(I i = 0; i < l; ++i)
-      mons.push_back(  store_.get_product_id(f, (*this)[p][i], b) );
+      mons.push_back(store_.get_product_id(f, (*this)[p][i], b));
 
     return std::make_pair(mons, p);
   }

@@ -29,6 +29,7 @@ add_executable(freegb ${KOMMUNOPP_TARGETS})
 target_link_libraries(kommunopp_test PUBLIC kommunopp)
 target_link_libraries(freegb PUBLIC kommunopp)
 
+
 set_property(TARGET kommunopp PROPERTY CXX_STANDARD 20)
 set_property(TARGET kommunopp_test PROPERTY CXX_STANDARD 20)
 set_property(TARGET freegb PROPERTY CXX_STANDARD 20)
@@ -58,6 +59,7 @@ target_compile_options(freegb PRIVATE
 target_link_libraries(kommunopp PUBLIC Boost::boost GMP::GMP)
 target_link_libraries(kommunopp_test PUBLIC Boost::unit_test_framework)
 target_link_libraries(freegb PUBLIC Boost::boost GMP::GMP)
+target_link_libraries(freegb PUBLIC -I/opt/homebrew/include -L/opt/homebrew/lib -lflint)
 
 
 include(CheckIPOSupported)
