@@ -6,6 +6,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include "parser.hpp"
+#include "kommunopp.hpp"
 
 using namespace kommunopp;
 
@@ -34,7 +35,9 @@ null_parser(std::filesystem::path p) {
     return err;
   }
   return parse(
-    ctx, [](int) { return std::nullopt; }, []() { return std::nullopt; });
+    ctx,
+    [](uint32_t) { return std::nullopt; },
+    [](long, long, bool) { return std::nullopt; });
 }
 
 BOOST_AUTO_TEST_CASE(parse_files) {

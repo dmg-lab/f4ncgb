@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <concepts>
 #include <cstdint>
+#include <iterator>
 #include <limits>
 #include <span>
 #include <unordered_set>
@@ -240,17 +241,53 @@ class store {
   }
 
   std::ostream& print(std::ostream& o) {
-    for(I i = 0, pos = 0; i < inserted_count_ + 1; ++i) {
+    o << "size: " << size_ << std::endl;
+    for(auto pos : (*this)) {
       o << pos << ": =";
       for(auto v : (*this)[pos]) {
         o << " " << static_cast<int>(v);
       }
       o << ";" << std::endl;
-
-      pos = next_pos(pos);
     }
     return o;
   }
+
+  struct pos_iterator {
+    using iterator_category = std::forward_iterator_tag;
+    using difference_type = std::ptrdiff_t;
+    using value_type = I;
+    using pointer = value_type*;
+    using reference = const value_type&;
+
+    pos_iterator(self& s, I pos = 0)
+      : s(s)
+      , pos(pos) {}
+
+    reference operator*() const { return pos; }
+    pointer operator->() { return &pos; }
+    pos_iterator& operator++() {
+      pos = s.next_pos(pos);
+      return *this;
+    }
+    pos_iterator operator++(int) {
+      pos_iterator tmp = *this;
+      ++(*this);
+      return tmp;
+    }
+    friend bool operator==(const pos_iterator& a, const pos_iterator& b) {
+      return &a.s == &b.s && a.pos == b.pos;
+    };
+    friend bool operator!=(const pos_iterator& a, const pos_iterator& b) {
+      return &a.s != &b.s || a.pos != b.pos;
+    };
+
+    private:
+    self& s;
+    I pos;
+  };
+
+  pos_iterator begin() { return pos_iterator(*this, 0); }
+  pos_iterator end() { return pos_iterator(*this, size_ + 1); }
 };
 
 //================================================================
@@ -449,6 +486,7 @@ class polynomial_store
 
   using polynomial_vec = std::vector<std::pair<C, I>>;
   using polynomial_nested_vec = std::vector<std::pair<C, std::vector<V>>>;
+  using coefficient = C;
 
   friend base;
 
@@ -472,7 +510,7 @@ class polynomial_store
   }
   inline I commit() { return this->insert_scratch(); }
 
-  inline I add_polynomial(polynomial_vec p) {
+  inline I add_polynomial(const polynomial_vec& p) {
     auto [m, monomials, coefficients] = add(p.size());
     for(size_t i = 0; i < p.size(); ++i) {
       C* c = new(coefficients + i) C;
@@ -482,7 +520,7 @@ class polynomial_store
     m.length = p.size();
     return commit();
   }
-  inline I add_polynomial(polynomial_nested_vec p) {
+  inline I add_polynomial(const polynomial_nested_vec& p) {
     auto [m, monomials, coefficients] = add(p.size());
     for(size_t i = 0; i < p.size(); ++i) {
       C* c = new(coefficients + i) C;
@@ -579,6 +617,8 @@ class polynomial_store
   inline I multiply_front_and_back(I f, I p, I b) {
     return multiply_front_or_back_or_both<true, true>(f, p, b);
   }
+
+  monomial_store_& get_monomial_store() { return store_; }
 
   protected:
   monomial_store_& store_;
