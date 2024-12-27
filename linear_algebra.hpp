@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <chrono>
 #include <concepts>
 #include <cstdint>
 #include <limits>
@@ -12,35 +13,39 @@
 
 #include "gmp.h"
 #include "kommunopp.hpp"
-#include "sparse_rref/scalar.h"
-#include "sparse_rref/sparse_vec.h"
-#include "sparse_rref/sparse_mat.h"
 #include "signal_statistics.hpp"
+#include "sparse_rref/scalar.h"
+#include "sparse_rref/sparse_mat.h"
+#include "sparse_rref/sparse_vec.h"
+
+extern double crt_time, ratrec_time, rref_time;
 
 using namespace boost::multiprecision;
 
 namespace kommunopp {
 
+/* std::vector<ulong> primes = { 5, 7, 23, 17, 31, 37 }; */
 
-std::vector<ulong> primes = { 5, 7, 23, 17, 31, 37 };
+std::vector<ulong> primes
+  = { 2147483629, 2147483587, 2147483579, 2147483563, 2147483549, 2147483543,
+      2147483497, 2147483489, 2147483477, 2147483423, 2147483399, 2147483353,
+      2147483323, 2147483269, 2147483249, 2147483237, 2147483179, 2147483171,
+      2147483137, 2147483123, 2147483077, 2147483069, 2147483059, 2147483053,
+      2147483033, 2147483029, 2147482951, 2147482949, 2147482943, 2147482937,
+      2147482921 };
 
-typedef sparse_vec_t<gmp_int> gmp_int_vec_t;
-typedef sparse_mat_t<gmp_int> gmp_int_mat_t;
-
-inline ulong
-mod_coeff(const gmp_int* c, uint p) {
-  return mpz_fdiv_ui(c->data(), p);
-}
+typedef sparse_vec_t<fmpz> sfmpz_vec_t;
+typedef sparse_mat_t<fmpz> sfmpz_mat_t;
 
 //------------------------------------------------------------------------------
 
 inline void
-vec_mod(snmod_vec_t vec, const gmp_int_vec_t src, uint p) {
+vec_mod(snmod_vec_t vec, const sfmpz_vec_t src, nmod_t mod) {
   sparse_vec_realloc(vec, src->nnz);
   vec->alloc = src->nnz;
   vec->nnz = 0;
   for(size_t i = 0; i < src->nnz; i++) {
-    ulong val = mod_coeff(src->entries + i, p);
+    ulong val = fmpz_get_nmod(src->entries + i, mod);
     _sparse_vec_set_entry(vec, src->indices[i], &val);
   }
 }
@@ -48,9 +53,11 @@ vec_mod(snmod_vec_t vec, const gmp_int_vec_t src, uint p) {
 //------------------------------------------------------------------------------
 
 inline void
-mat_mod(snmod_mat_t mat, const gmp_int_mat_t src, uint p) {
+mat_mod(snmod_mat_t mat, const sfmpz_mat_t src, ulong p) {
+  nmod_t mod;
+  nmod_init(&mod, p);
   for(size_t i = 0; i < src->nrow; i++)
-    vec_mod(sparse_mat_row(mat, i), sparse_mat_row(src, i), p);
+    vec_mod(sparse_mat_row(mat, i), sparse_mat_row(src, i), mod);
 }
 //------------------------------------------------------------------------------
 
@@ -71,43 +78,26 @@ cmp_pivots(pivots x, pivots y) {
 //------------------------------------------------------------------------------
 
 inline gmp_int
-height(gmp_int_mat_t& mat) {
+height(sfmpz_mat_t mat) {
   gmp_int h;
+  mpz_t tmp;
+  mpz_init(tmp);
   for(size_t i = 0; i < mat->nrow; i++) {
     auto row = sparse_mat_row(mat, i);
-    for(size_t j = 0; j < row->nnz; j++)
-      if(mpz_cmpabs((row->entries + j)->data(), h.data()))
-        mpz_abs(h.data(), (row->entries + j)->data());
+    for(size_t j = 0; j < row->nnz; j++) {
+      fmpz_get_mpz(tmp, row->entries + j);
+      if(mpz_cmpabs(tmp, h.data()))
+        mpz_abs(h.data(), tmp);
+    }
   }
+  mpz_clear(tmp);
+
   return h;
 }
 //------------------------------------------------------------------------------
 
-inline std::vector<mpz_int>
-crt_basis(const std::vector<ulong>& moduli, const mpz_int& M) {
-  std::vector<mpz_int> res;
-  mpz_int m, mm, g, s, t;
-
-  if(moduli.size() == 0)
-    return res;
-  for(const auto& m_ulong : moduli) {
-    m = m_ulong;
-    mm = M / m;
-    mpz_gcdext(g.backend().data(),
-               s.backend().data(),
-               t.backend().data(),
-               m.backend().data(),
-               mm.backend().data());
-
-    assert(g == 1);
-    res.push_back((t * mm) % M);
-  }
-  return res;
-}
-//------------------------------------------------------------------------------
-
 void
-reconstruct_mat(std::vector<gmp_int>& entries,
+reconstruct_mat(fmpz*& entries,
                 std::vector<std::pair<size_t, size_t>>& idxs,
                 std::vector<snmod_mat_t*> rrefs,
                 std::vector<ulong> primes,
@@ -116,8 +106,6 @@ reconstruct_mat(std::vector<gmp_int>& entries,
     return;
 
   size_t n_rows = (*rrefs[0])->nrow;
-  entries.reserve(sparse_mat_nnz(*rrefs[0]));
-  idxs.reserve(sparse_mat_nnz(*rrefs[0]));
 
   // get all (i,j) where at least one rref is nonzero
   std::map<size_t, std::set<size_t>> nnz_pos;
@@ -131,18 +119,46 @@ reconstruct_mat(std::vector<gmp_int>& entries,
     for(auto& j : nnz_pos_row)
       nnz_pos[i].insert(j);
   }
+  size_t nnz = 0;
+  for(const auto& [key, values] : nnz_pos)
+    nnz += values.size();
 
-  // actual CRT
-  auto crt_base = crt_basis(primes, prod);
+  size_t len = primes.size();
+  idxs.reserve(sparse_mat_nnz(*rrefs[0]));
+  fmpz* moduli = new fmpz[len];
+  for(size_t i = 0; i < len; ++i)
+    fmpz_init_set_ui(moduli + i, primes[i]);
+  entries = new fmpz[nnz];
+  for(size_t i = 0; i < nnz; i++)
+    fmpz_init(entries + i);
+
+  fmpz_multi_CRT_t crt_base;
+  fmpz_multi_CRT_init(crt_base);
+  int res = fmpz_multi_CRT_precompute(crt_base, moduli, len);
+  if(!res)
+    die(12, "Problem with CRT");
+
+  fmpz* inputs = new fmpz[rrefs.size()];
+  for(size_t i = 0; i < rrefs.size(); i++)
+    fmpz_init(inputs + i);
+
+  size_t idx = 0;
   for(size_t i = 0; i < n_rows; i++) {
     for(auto j : nnz_pos[i]) {
-      mpz_int tmp = 0;
-      for(size_t k = 0; k < rrefs.size(); k++)
-        tmp = tmp + crt_base[k] * (*sparse_mat_entry(*rrefs[k], i, j));
       idxs.emplace_back(i, j);
-      entries.push_back(tmp.backend());
+      for(size_t k = 0; k < rrefs.size(); k++)
+        fmpz_set_ui(inputs + k, *sparse_mat_entry(*rrefs[k], i, j));
+      fmpz_multi_CRT_precomp(entries + idx++, crt_base, inputs, 0);
     }
   }
+
+  fmpz_multi_CRT_clear(crt_base);
+  for(size_t i = 0; i < primes.size(); i++)
+    fmpz_clear(moduli + i);
+  for(size_t i = 0; i < rrefs.size(); i++)
+    fmpz_clear(inputs + i);
+  free(moduli);
+  free(inputs);
 }
 //------------------------------------------------------------------------------
 
@@ -209,10 +225,9 @@ ratrecon(gmp_rational& res, mpz_t u, ratrec_data* data) {
 
   bool success = false;
 
-  std::cout << "========= Reconstructing entry  ==============" << "\n";
   mpz_int p1(u);
   mpz_int p2(data->mod);
-  std::cout << p1 << " % " << p2 << "\n";
+  // std::cout << p1 << " % " << p2 << "\n";
 
   while(mpz_cmp_ui(u, 0) < 0) {
     mpz_add(u, u, data->mod);
@@ -225,6 +240,7 @@ ratrecon(gmp_rational& res, mpz_t u, ratrec_data* data) {
   mpz_set_ui(data->t1, 1);
 
   while(mpz_cmp(data->r1, data->N) > 0) {
+
     mpz_fdiv_q(data->q, data->r0, data->r1);
 
     mpz_mul(data->tmp, data->q, data->r1);
@@ -249,7 +265,6 @@ ratrecon(gmp_rational& res, mpz_t u, ratrec_data* data) {
     success = true;
     mpz_set(mpq_numref(res.data()), data->n);
     mpz_set(mpq_denref(res.data()), data->d);
-    std::cout << "Reconstructed " << mpq_rational(res) << "\n";
 
   } else
     msg("Rational reconstruction does not exist");
@@ -260,41 +275,111 @@ ratrecon(gmp_rational& res, mpz_t u, ratrec_data* data) {
 
 inline bool
 rational_reconstruction(std::vector<gmp_rational>& entries,
-                        std::vector<gmp_int>& crt_entries,
-                        mpz_int& prod) {
+                        fmpz * crt_entries,
+                        mpz_int& prod,
+                        size_t N) {
   ratrec_data data;
   mpz_set(data.mod, prod.backend().data());
   // N = floor(sqrt(m/2))
   mpz_fdiv_q_2exp(data.N, data.mod, 1);
   mpz_sqrt(data.N, data.N);
 
-  std::cout << "========= Reconstructing matrix ==============" << "\n";
+  bool res = true;
 
-  entries.reserve(crt_entries.size());
-  for(auto& e : crt_entries) {
+  std::cout << "========= Reconstructing matrix ==============" << "\n";
+  entries.reserve(N);
+  mpz_t u;
+  mpz_init(u);
+  for(size_t i = 0; i < N; i++) {
     gmp_rational r;
-    bool success = ratrecon(r, e.data(), &data);
+    fmpz_get_mpz(u, crt_entries + i);
+    bool success = ratrecon(r, u, &data);
     if(success)
       entries.push_back(r);
-    else
-      return false;
+    else {
+      res = false;
+      break;
+    }
   }
-  return true;
+  mpz_clear(u);
+  return res;
+}
+//------------------------------------------------------------------------------
+template<typename T>
+std::vector<std::pair<slong, slong>>
+my_sparse_mat_rref(sparse_mat_t<T> mat,
+                   field_t F,
+                   BS::thread_pool& pool,
+                   rref_option_t opt) {
+  // first canonicalize, sort and compress the matrix
+  sparse_mat_compress(mat);
+
+  T scalar[1];
+  scalar_init(scalar);
+
+  slong r;
+  slong start_row = 0;
+  slong min_row;
+  slong min;
+
+  std::vector<std::pair<slong, slong>> pivots;
+
+  for(slong c = 0; c < mat->ncol; c++) {
+
+    min_row = -1;
+    min = mat->ncol + 1;
+    for(r = start_row; r < mat->nrow; r++) {
+      auto therow = sparse_mat_row(mat, r);
+      if(therow->nnz > 0 and therow->nnz < min)
+        if(therow->indices[0] == c) {
+          min_row = r;
+          min = therow->nnz;
+        }
+    }
+    if(min_row == -1)
+      continue;
+
+    // will use row r to reduce column c
+    r = min_row;
+
+    // rescale row
+    scalar_inv(scalar, sparse_mat_entry(mat, r, c, true), F);
+    sparse_vec_rescale(sparse_mat_row(mat, r), scalar, F);
+
+    // swap row to top
+    std::swap(mat->rows[start_row], mat->rows[r]);
+    pivots.emplace_back(start_row, c);
+
+    // eliminate
+    auto therow = sparse_mat_row(mat, start_row);
+    for(size_t i = 0; i < mat->nrow; i++) {
+      if(i == start_row)
+        continue;
+      auto row_i = sparse_mat_row(mat, i);
+      auto b = sparse_vec_entry(row_i, c);
+      if(b != NULL) {
+        sparse_vec_sub_mul(sparse_mat_row(mat, i), therow, b, F);
+      }
+    }
+    start_row++;
+  }
+
+  return pivots;
 }
 //------------------------------------------------------------------------------
 
 std::pair<std::vector<std::pair<size_t, size_t>>, std::vector<gmp_rational>>
-multimodular_rref(gmp_int_mat_t& mat, bool proof = true) {
+multimodular_rref(sfmpz_mat_t& mat, bool proof = true) {
   field_t F;
   rref_option_t opt;
   opt->verbose = true;
-  opt->is_back_sub = false;
+  opt->is_back_sub = true;
   opt->print_step = 100;
-  opt->pivot_dir = false;
+  opt->pivot_dir = true;
   opt->search_depth = INT_MAX;
 
   // TODO : adapt
-  BS::thread_pool pool(2);
+  BS::thread_pool pool(1);
 
   std::vector<snmod_mat_t*> rrefs;
   pivots best_piv;
@@ -313,9 +398,6 @@ multimodular_rref(gmp_int_mat_t& mat, bool proof = true) {
   mpz_int prod = 1;
   mpz_int M = mat->ncol * 100000 * (h + 100) * h + 1;
 
-  // TODO : remove !!!!
-  M = 25;
-
   size_t MAX_PRIMES = primes.size();
   ulong p;
 
@@ -325,26 +407,31 @@ multimodular_rref(gmp_int_mat_t& mat, bool proof = true) {
         die(-1, "Multimodular rref is not converging");
       p = primes[i++];
 
-      msg("Computing mod %d", p);
+      msg("Computing mod %ul", p);
 
       field_init(F, FIELD_Fp, std::vector<ulong>{ p });
 
-      snmod_mat_t nmod_mat;
-      sparse_mat_init(nmod_mat, mat->nrow, mat->ncol);
-      mat_mod(nmod_mat, mat, p);
-      pivots piv = sparse_mat_rref(nmod_mat, F, pool, opt);
+      snmod_mat_t* nmod_mat = new snmod_mat_t[1];
+      sparse_mat_init(*nmod_mat, mat->nrow, mat->ncol);
+      mat_mod(*nmod_mat, mat, p);
 
-      sparse_mat_write(nmod_mat, std::cout);
+      auto start = std::chrono::high_resolution_clock().now();
+      pivots piv = my_sparse_mat_rref(*nmod_mat, F, pool, opt);
+      auto end = std::chrono::high_resolution_clock().now();
+      std::chrono::duration<double> elapsed = end - start;
+      rref_time += elapsed.count();
+
+      std::cout << "Computed rref\n";
 
       if(cmp_pivots(best_piv, piv) <= 0) {
         best_piv = piv;
         pivs.push_back(piv);
-        rrefs.push_back(&nmod_mat);
+        rrefs.push_back(nmod_mat);
         used_primes.push_back(p);
         prod = prod * p;
       } else {
         msg("Excluding prime %d (bad pivots)", p);
-        sparse_mat_clear(nmod_mat);
+        sparse_mat_clear(*nmod_mat);
       }
     }
     prod = 1;
@@ -360,14 +447,30 @@ multimodular_rref(gmp_int_mat_t& mat, bool proof = true) {
       }
     }
 
-    std::vector<gmp_int> crt_entries;
+    // Initialize crt_entries in reconstruction
+    // and clear here
+    fmpz* crt_entries;
+    auto start = std::chrono::high_resolution_clock().now();
     reconstruct_mat(crt_entries, idxs, good_rrefs, good_primes, prod);
-    bool success = rational_reconstruction(rat_entries, crt_entries, prod);
+    auto end = std::chrono::high_resolution_clock().now();
+    std::chrono::duration<double> elapsed = end - start;
+    crt_time += elapsed.count();
+
+    start = std::chrono::high_resolution_clock().now();
+    bool success = rational_reconstruction(rat_entries, crt_entries, prod, idxs.size());
+    for(size_t i = 0; i < idxs.size(); i++)
+      fmpz_clear(crt_entries + i);
+    free(crt_entries);
+    end = std::chrono::high_resolution_clock().now();
+    elapsed = end - start;
+    ratrec_time += elapsed.count();
 
     if(!success) {
       msg("Reconstruction unsuccessfull. Increasing bound.");
-      M = prod * p * p * p;
+      M = prod * p * p;
+      continue;
     }
+
     if(!proof or verify_result())
       break;
   }
@@ -376,4 +479,5 @@ multimodular_rref(gmp_int_mat_t& mat, bool proof = true) {
 
   return std::make_pair(idxs, rat_entries);
 }
+
 }

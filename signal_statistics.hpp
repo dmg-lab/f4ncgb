@@ -85,7 +85,6 @@ void msg(const char *fmt, ...);
 extern double init_time;          // /< measure initializing time
 extern double slicing_elim_time;  // /< measure time used to eliminate & slice
 extern double reduction_time;     // /< measure time used to reduce
-extern double reset_time;         // /< measure resetting time
 extern double substitution_time;  // /< measure time used in substitution
 extern int count_cocoa_calls;
 /**

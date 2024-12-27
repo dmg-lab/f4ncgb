@@ -164,8 +164,6 @@ main(int argc, char** argv) {
 
   std::filesystem::path in = std::filesystem::current_path()
                              / std::filesystem::path("test_inputs/braid3.ms");
-
-  std::cout << "Path = " << in << std::endl;
   
   parser_context context;
   context.open(in);
@@ -180,11 +178,10 @@ main(int argc, char** argv) {
 
   boost::mp11::mp_with_index<6>(n, [&maxiter, &context](auto N) {
     f4<N> algo;
-    algo.read_input(context);
-    algo.compute_basis(maxiter);
+    // algo.read_input(context);
+    algo.compute_basis(maxiter, 11);
   });
 
-  reset_time = process_time();
   print_statistics();
 
   return res;

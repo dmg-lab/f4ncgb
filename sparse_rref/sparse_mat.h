@@ -1,6 +1,7 @@
 #ifndef SPARSE_MAT_H
 #define SPARSE_MAT_H
 
+#include "gmp.h"
 #include "sparse_vec.h"
 #include <boost/multiprecision/gmp.hpp>
 
@@ -17,7 +18,8 @@ template<typename T>
 using sparse_mat_t = struct sparse_mat_struct<T>[1];
 
 typedef sparse_mat_t<ulong> snmod_mat_t;
-typedef sparse_mat_t<fmpq> sfmpq_mat_t;
+typedef sparse_mat_t<fmpz> sfmpz_mat_t;
+
 
 #define sparse_mat_row(mat, ind) ((mat)->rows + (ind))
 
@@ -376,7 +378,7 @@ findmanypivots_r(sparse_mat_t<T> mat,
     ulong mnnz = ULLONG_MAX;
     bool flag = true;
 
-    for(size_t i = 0; i < therow->nnz; i++) {
+    for(size_t i = 0; i < 1; i++) {
       flag = (pcols.count(indices[i]) == 0);
       if(!flag)
         break;
@@ -394,58 +396,57 @@ findmanypivots_r(sparse_mat_t<T> mat,
     }
     if(!flag)
       continue;
-    if(mnnz != ULLONG_MAX) {
+    if(mnnz != ULLONG_MAX) {      
       pivots.push_back(std::make_pair(col, row));
       pcols.insert(col);
     }
   }
   // leftlook then
   // now pcols will be used as prows to store the rows that have been used
-  pcols.clear();
-  // make a table to help to look for row pointers
-  std::vector<iter> rowptrs(mat->nrow, end);
-  for(auto it = start; it != end; it++)
-    rowptrs[*it] = it;
+  // pcols.clear();
+  // // make a table to help to look for row pointers
+  // std::vector<iter> rowptrs(mat->nrow, end);
+  // for(auto it = start; it != end; it++)
+  //   rowptrs[*it] = it;
 
-  for(auto p : pivots) {
-    pcols.insert(*(p.second));
-  }
+  // for(auto p : pivots) {
+  //   pcols.insert(*(p.second));
+  // }
 
-  for(size_t i = 0; i < mat->ncol; i++) {
-    if(pivots.size() > max_depth)
-      break;
-    auto col = mat->ncol - i - 1;// reverse ordering
-    if(colpivs[col] != -1)
-      continue;
-    bool flag = true;
-    slong row = 0;
-    ulong mnnz = ULLONG_MAX;
-    auto tc = sparse_mat_row(tranmat, col);
-    for(size_t j = 0; j < tc->nnz; j++) {
-      if(rowptrs[tc->indices[j]] == end)
-        continue;
-      flag = (pcols.count(tc->indices[j]) == 0);
-      if(!flag)
-        break;
-      if(mat->rows[tc->indices[j]].nnz < mnnz) {
-        mnnz = mat->rows[tc->indices[j]].nnz;
-        row = tc->indices[j];
-      }
-      // make the result stable
-      else if(mat->rows[tc->indices[j]].nnz == mnnz && tc->indices[j] < row) {
-        row = tc->indices[j];
-      }
-    }
-    if(!flag)
-      continue;
-    if(mnnz != ULLONG_MAX) {
-      pivots.push_front(std::make_pair(col, rowptrs[row]));
-      pcols.insert(row);
-    }
-  }
+  // for(size_t i = 0; i < mat->ncol; i++) {
+  //   if(pivots.size() > max_depth)
+  //     break;
+  //   auto col = mat->ncol - i - 1;// reverse ordering
+  //   if(colpivs[col] != -1)
+  //     continue;
+  //   bool flag = true;
+  //   slong row = 0;
+  //   ulong mnnz = ULLONG_MAX;
+  //   auto tc = sparse_mat_row(tranmat, col);
+  //   for(size_t j = 0; j < tc->nnz; j++) {
+  //     if(rowptrs[tc->indices[j]] == end)
+  //       continue;
+  //     flag = (pcols.count(tc->indices[j]) == 0);
+  //     if(!flag)
+  //       break;
+  //     if(mat->rows[tc->indices[j]].nnz < mnnz) {
+  //       mnnz = mat->rows[tc->indices[j]].nnz;
+  //       row = tc->indices[j];
+  //     }
+  //     // make the result stable
+  //     else if(mat->rows[tc->indices[j]].nnz == mnnz && tc->indices[j] < row) {
+  //       row = tc->indices[j];
+  //     }
+  //   }
+  //   if(!flag)
+  //     continue;
+  //   if(mnnz != ULLONG_MAX) {      
+  //     pivots.push_front(std::make_pair(col, rowptrs[row]));
+  //     pcols.insert(row);
+  //   }
+  // }
 
   std::vector<std::pair<slong, iter>> result(pivots.begin(), pivots.end());
-
   return result;
 }
 
@@ -470,7 +471,7 @@ findmanypivots_c(sparse_mat_t<T> mat,
     bool flag = true;
     auto thecol = sparse_mat_row(tranmat, *col);
     auto indices = thecol->indices;
-    for(size_t i = 0; i < thecol->nnz; i++) {
+    for(size_t i = 0; i < 1; i++) {
       flag = (prows.count(indices[i]) == 0);
       if(!flag)
         break;
@@ -575,7 +576,6 @@ triangular_solver(sparse_mat_t<T> mat,
       tranmat[col].push_back(pivots[i].first);
     }
   }
-
   size_t count = 0;
   for(size_t i = 0; i < pivots.size(); i++) {
     size_t index = i;
@@ -590,13 +590,13 @@ triangular_solver(sparse_mat_t<T> mat,
         if(r == pp.first)
           return;
         auto entry = sparse_mat_entry(mat, r, pp.second, true);
-        sparse_vec_sub_mul(
-          sparse_mat_row(mat, r), sparse_mat_row(mat, pp.first), entry, F);
+        auto r1 = sparse_mat_row(mat, r);
+        auto r2 = sparse_mat_row(mat, pp.first);
+        sparse_vec_sub_mul(r1, r2, entry, F);
       });
     }
     pool.wait();
-
-    if(verbose && (i % printstep == 0 || i == pivots.size() - 1)
+    if(verbose && (i % opt->print_step == 0 || i == pivots.size() - 1)
        && thecol.size() > 1) {
       count++;
       auto end = sparse_base::clocknow();
@@ -610,7 +610,7 @@ triangular_solver(sparse_mat_t<T> mat,
       start = sparse_base::clocknow();
       count = 0;
     }
-  }
+  }  
   if(opt->verbose)
     std::cout << std::endl;
 }
@@ -1006,6 +1006,7 @@ sparse_mat_rref_r(sparse_mat_t<T> mat,
       continue;
     else if(therow->nnz == 1) {
       auto col = therow->indices[0];
+      std::cout << "Row with just one entry " << row << ", " << col << "\n";
       pivots.push_back(std::make_pair(row, col));
       rowpivs[row] = col;
       colpivs[col] = row;
@@ -1160,7 +1161,7 @@ sparse_mat_rref(sparse_mat_t<T> mat,
   else
     pivots = sparse_mat_rref_c(mat, F, pool, opt);
 
-  if(opt->is_back_sub) {
+  if(true) {
     if(opt->verbose)
       std::cout << "\n>> Reverse solving: " << std::endl;
     triangular_solver(mat, pivots, F, opt, -1, pool);
@@ -1176,11 +1177,14 @@ sparse_mat_write(sparse_mat_t<T> mat, S& st) {
     for(size_t j = 0; j < mat->ncol; j++) {
       auto c = sparse_mat_entry(mat, i, j);
       boost::multiprecision::mpz_int cc;
-      if(c != nullptr)
-        cc = *c;
+      if (c == nullptr)
+        st << 0 << ' ';
+      else if constexpr(std::is_same_v<T, fmpz>) {
+        fmpz_get_mpz(cc.backend().data(), c);
+        st << cc << ' ';
+      }
       else
-        cc = 0;
-      st << cc << ' ';
+        st << (int)(*c) << ' ';
     }
     st << "\n";
   }

@@ -19,6 +19,7 @@
 #include "./aho_corasick/src/aho_corasick/aho_corasick.hpp"
 
 #include "ambiguity.hpp"
+#include "gmp.h"
 
 namespace kommunopp {
 
@@ -339,10 +340,8 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     return getid(s);
   }
 
-   inline const std::span<const V> get(const V id) {
-     return (*this)[id];
-    }
-  
+  inline const std::span<const V> get(const V id) { return (*this)[id]; }
+
   inline const std::span<const V> get(const std::span<V>& v) {
     I id = getid(v);
     return (*this)[id];
@@ -428,7 +427,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
   }
 
   //-----------------------------------------------------------------
-   inline bool cmp(I a, I b) {
+  inline bool cmp(I a, I b) {
     // this is a strict order
     if(a == b)
       return false;
@@ -442,6 +441,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     // compare monomials lexicographically
     auto a_it = (*this)[a];
     auto b_it = (*this)[b];
+
     return std::lexicographical_compare(
       a_it.begin(), a_it.end(), b_it.begin(), b_it.end());
   }
@@ -595,7 +595,7 @@ class polynomial_store
     assert(p != 0);
 
     metadata& p_metadata = this->get_metadata(p);
-    C* p_coeff = get_coefficients_raw(p - 1);
+    C* p_coeff = get_coefficients_raw(p_metadata.coefficients);
     auto [new_m, new_i, new_c] = add(p_metadata.length);
     new_m.length = p_metadata.length;
     for(I i = 0; i < p_metadata.length; ++i) {

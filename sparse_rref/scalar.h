@@ -6,6 +6,7 @@
 #include "flint/fmpq.h"
 #include "flint/nmod.h"
 #include "flint/ulong_extras.h"
+#include "gmp.h"
 #include "sparse_base.h"
 
 // field
@@ -54,8 +55,7 @@ template <typename T> inline T* binarysearch(T* begin, T* end, T val) {
 }
 
 // scalar
-
-static inline void scalar_init(fmpq_t a) { fmpq_init(a); }
+static inline void scalar_init(fmpz_t a) { fmpz_init(a); }
 static inline void scalar_init(ulong* a) { return; } // do nothing
 template <typename T>
 inline void scalar_init(scalar_s<T>* a, const ulong rank) {
@@ -65,7 +65,7 @@ inline void scalar_init(scalar_s<T>* a, const ulong rank) {
 		scalar_init(a->data + i);
 }
 
-static inline void scalar_clear(fmpq_t a) { fmpq_clear(a); }
+static inline void scalar_clear(fmpz_t a) { fmpz_clear(a); }
 static inline void scalar_clear(ulong* a) { return; } // do nothing
 template <typename T>
 inline void scalar_clear(scalar_s<T>* a) {
@@ -85,7 +85,7 @@ static inline std::string scalar_to_str(fmpq_t a) {
 }
 static inline std::string scalar_to_str(ulong* a) { return std::to_string(*a); }
 
-static inline bool scalar_is_zero(const fmpq_t a) { return fmpq_is_zero(a); }
+static inline bool scalar_is_zero(const fmpz_t a) { return fmpz_is_zero(a); }
 static inline bool scalar_is_zero(const ulong* a) { return (*a) == 0; }
 template <typename T>
 inline bool scalar_is_zero(const scalar_s<T>* a) {
@@ -95,7 +95,7 @@ inline bool scalar_is_zero(const scalar_s<T>* a) {
 	return true;
 }
 
-static inline bool scalar_equal(const fmpq_t a, const fmpq_t b) { return fmpq_equal(a, b); }
+static inline bool scalar_equal(const fmpz_t a, const fmpz_t b) { return fmpz_equal(a, b); }
 static inline bool scalar_equal(const ulong* a, const ulong* b) { return (*a) == (*b); }
 template <typename T>
 inline bool scalar_equal(const scalar_s<T>* a, const scalar_s<T>* b) {
@@ -105,7 +105,7 @@ inline bool scalar_equal(const scalar_s<T>* a, const scalar_s<T>* b) {
 	return true;
 }
 
-static inline void scalar_set(fmpq_t a, const fmpq_t b) { fmpq_set(a, b); }
+static inline void scalar_set(fmpz_t a, const fmpz_t b) { fmpz_set(a, b); }
 static inline void scalar_set(ulong* a, const ulong* b) { *a = *b; }
 template <typename T>
 inline void scalar_set(T* a, const T* b, const ulong rank) {
@@ -117,7 +117,7 @@ static inline void scalar_set(scalar_s<ulong>* a, const scalar_s<ulong>* b) {
 	scalar_set(a->data, b->data, b->rank);
 }
 
-static inline void scalar_zero(fmpq_t a) { fmpq_zero(a); }
+static inline void scalar_zero(fmpz_t a) { fmpz_zero(a); }
 static inline void scalar_zero(ulong* a) { *a = 0; }
 
 template <typename T>
