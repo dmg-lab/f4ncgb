@@ -5,6 +5,7 @@
 #include <concepts>
 #include <cstdint>
 #include <limits>
+#include <sys/errno.h>
 #include <utility>
 #include <vector>
 
@@ -18,7 +19,7 @@
 #include "sparse_rref/sparse_mat.h"
 #include "sparse_rref/sparse_vec.h"
 
-extern double crt_time, ratrec_time, rref_time;
+extern double crt_time, ratrec_time, rref_time, other_time;
 
 using namespace boost::multiprecision;
 
@@ -358,7 +359,11 @@ my_sparse_mat_rref(sparse_mat_t<T> mat,
       auto row_i = sparse_mat_row(mat, i);
       auto b = sparse_vec_entry(row_i, c);
       if(b != NULL) {
+        auto start = std::chrono::high_resolution_clock().now();
         sparse_vec_sub_mul(sparse_mat_row(mat, i), therow, b, F);
+        auto end = std::chrono::high_resolution_clock().now();
+        std::chrono::duration<double> elapsed = end - start;
+        other_time += elapsed.count();
       }
     }
     start_row++;
@@ -373,13 +378,13 @@ multimodular_rref(sfmpz_mat_t& mat, bool proof = true) {
   field_t F;
   rref_option_t opt;
   opt->verbose = true;
-  opt->is_back_sub = true;
+  opt->is_back_sub = false;
   opt->print_step = 100;
-  opt->pivot_dir = true;
+  opt->pivot_dir = false;
   opt->search_depth = INT_MAX;
 
   // TODO : adapt
-  BS::thread_pool pool(1);
+  BS::thread_pool pool(4);
 
   std::vector<snmod_mat_t*> rrefs;
   pivots best_piv;
@@ -396,7 +401,7 @@ multimodular_rref(sfmpz_mat_t& mat, bool proof = true) {
 
   mpz_int h = mpz_int(height(mat));
   mpz_int prod = 1;
-  mpz_int M = mat->ncol * 100000 * (h + 100) * h + 1;
+  mpz_int M = mat->ncol * 10000 * (h + 100) * h + 1;
 
   size_t MAX_PRIMES = primes.size();
   ulong p;
@@ -420,8 +425,6 @@ multimodular_rref(sfmpz_mat_t& mat, bool proof = true) {
       auto end = std::chrono::high_resolution_clock().now();
       std::chrono::duration<double> elapsed = end - start;
       rref_time += elapsed.count();
-
-      std::cout << "Computed rref\n";
 
       if(cmp_pivots(best_piv, piv) <= 0) {
         best_piv = piv;

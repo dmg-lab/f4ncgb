@@ -17,9 +17,12 @@
 #include <boost/unordered/unordered_flat_map.hpp>
 
 #include "./aho_corasick/src/aho_corasick/aho_corasick.hpp"
+#include "signal_statistics.hpp"
 
 #include "ambiguity.hpp"
 #include "gmp.h"
+
+extern long long hashmap_hits, hashmap_calls;
 
 namespace kommunopp {
 
@@ -384,9 +387,12 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
   inline I get_product_id(I a, I b, I c) {
     std::tuple<I, I, I> prod_tuple{ a, b, c };
 
+    hashmap_calls++;
+
     {
       auto it = products_.find(prod_tuple);
       if(it != products_.end()) {
+        hashmap_hits++;
         return it->second;
       }
     }
@@ -574,21 +580,6 @@ class polynomial_store
   }
 
   inline std::span<const V> get_lm(I id) const { return get_monomial(id, 0); }
-
-  inline std::pair<std::vector<I>, I> shadow_multiply_front_and_back(I f,
-                                                                     I p,
-                                                                     I b) {
-    assert(p != 0);
-
-    auto l = this->get_length(p);
-    std::vector<I> mons;
-    mons.reserve(l);
-
-    for(I i = 0; i < l; ++i)
-      mons.push_back(store_.get_product_id(f, (*this)[p][i], b));
-
-    return std::make_pair(mons, p);
-  }
 
   template<bool front, bool back>
   inline I multiply_front_or_back_or_both(I f, I p, I b) {

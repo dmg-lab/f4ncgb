@@ -199,44 +199,6 @@ BOOST_AUTO_TEST_CASE(simple_with_extended_metadata) {
   BOOST_TEST(v[3] == 3);
 }
 
-BOOST_AUTO_TEST_CASE(find_divisors_with_trie) {
-  using I = impl<>;
-  monomial_trie<> prefix;
-  monomial_trie<> suffix;
-  I::monomial_store s;
-
-  I::idx m13 = s.getid({ 1, 3 });
-  I::idx m1234 = s.getid({ 1, 2, 3, 4 });
-  I::idx m123 = s.getid({ 1, 2, 3 });
-  I::idx m132 = s.getid({ 1, 2, 1, 2, 3 });
-  I::idx m231 = s.getid({ 2, 3, 1 });
-
-  prefix.insert_monomial(s[m13]);
-  prefix.insert_monomial(s[m1234]);
-  prefix.insert_monomial(s[m123]);
-  prefix.insert_monomial(s[m132]);
-  prefix.insert_monomial(s[m231]);
-
-  suffix.insert_monomial_reversed(s[m13]);
-  suffix.insert_monomial_reversed(s[m1234]);
-  suffix.insert_monomial_reversed(s[m123]);
-  suffix.insert_monomial_reversed(s[m132]);
-  suffix.insert_monomial_reversed(s[m231]);
-
-  std::cout << "Computing overlaps for ";
-  s.print_monomial(m231, std::cout);
-  std::cout << "\n";
-
-  auto amb = prefix.compute_overlaps(s, m231);
-  amb = suffix.compute_overlaps_reversed(s, m231);
-  amb = prefix.compute_inclusions(s, m231);
-
-  std::cout << "Found the following ambiguities \n";
-  for(const auto& a : amb)
-    s.print_ambiguity(a, std::cout);
-
-  s.print(std::cout);
-}
 
 BOOST_AUTO_TEST_CASE(parse_small_ms_into_polynomial) {
   auto dir_optional = get_test_input_files_location();

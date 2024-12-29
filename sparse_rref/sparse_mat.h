@@ -378,7 +378,7 @@ findmanypivots_r(sparse_mat_t<T> mat,
     ulong mnnz = ULLONG_MAX;
     bool flag = true;
 
-    for(size_t i = 0; i < 1; i++) {
+    for(size_t i = 0; i < therow->nnz; i++) {
       flag = (pcols.count(indices[i]) == 0);
       if(!flag)
         break;
@@ -404,47 +404,47 @@ findmanypivots_r(sparse_mat_t<T> mat,
   // leftlook then
   // now pcols will be used as prows to store the rows that have been used
   // pcols.clear();
-  // // make a table to help to look for row pointers
-  // std::vector<iter> rowptrs(mat->nrow, end);
-  // for(auto it = start; it != end; it++)
-  //   rowptrs[*it] = it;
+  // make a table to help to look for row pointers
+  std::vector<iter> rowptrs(mat->nrow, end);
+  for(auto it = start; it != end; it++)
+    rowptrs[*it] = it;
 
-  // for(auto p : pivots) {
-  //   pcols.insert(*(p.second));
-  // }
+  for(auto p : pivots) {
+    pcols.insert(*(p.second));
+  }
 
-  // for(size_t i = 0; i < mat->ncol; i++) {
-  //   if(pivots.size() > max_depth)
-  //     break;
-  //   auto col = mat->ncol - i - 1;// reverse ordering
-  //   if(colpivs[col] != -1)
-  //     continue;
-  //   bool flag = true;
-  //   slong row = 0;
-  //   ulong mnnz = ULLONG_MAX;
-  //   auto tc = sparse_mat_row(tranmat, col);
-  //   for(size_t j = 0; j < tc->nnz; j++) {
-  //     if(rowptrs[tc->indices[j]] == end)
-  //       continue;
-  //     flag = (pcols.count(tc->indices[j]) == 0);
-  //     if(!flag)
-  //       break;
-  //     if(mat->rows[tc->indices[j]].nnz < mnnz) {
-  //       mnnz = mat->rows[tc->indices[j]].nnz;
-  //       row = tc->indices[j];
-  //     }
-  //     // make the result stable
-  //     else if(mat->rows[tc->indices[j]].nnz == mnnz && tc->indices[j] < row) {
-  //       row = tc->indices[j];
-  //     }
-  //   }
-  //   if(!flag)
-  //     continue;
-  //   if(mnnz != ULLONG_MAX) {      
-  //     pivots.push_front(std::make_pair(col, rowptrs[row]));
-  //     pcols.insert(row);
-  //   }
-  // }
+  for(size_t i = 0; i < mat->ncol; i++) {
+    if(pivots.size() > max_depth)
+      break;
+    auto col = mat->ncol - i - 1;// reverse ordering
+    if(colpivs[col] != -1)
+      continue;
+    bool flag = true;
+    slong row = 0;
+    ulong mnnz = ULLONG_MAX;
+    auto tc = sparse_mat_row(tranmat, col);
+    for(size_t j = 0; j < tc->nnz; j++) {
+      if(rowptrs[tc->indices[j]] == end)
+        continue;
+      flag = (pcols.count(tc->indices[j]) == 0);
+      if(!flag)
+        break;
+      if(mat->rows[tc->indices[j]].nnz < mnnz) {
+        mnnz = mat->rows[tc->indices[j]].nnz;
+        row = tc->indices[j];
+      }
+      // make the result stable
+      else if(mat->rows[tc->indices[j]].nnz == mnnz && tc->indices[j] < row) {
+        row = tc->indices[j];
+      }
+    }
+    if(!flag)
+      continue;
+    if(mnnz != ULLONG_MAX) {      
+      pivots.push_front(std::make_pair(col, rowptrs[row]));
+      pcols.insert(row);
+    }
+  }
 
   std::vector<std::pair<slong, iter>> result(pivots.begin(), pivots.end());
   return result;
@@ -1161,7 +1161,7 @@ sparse_mat_rref(sparse_mat_t<T> mat,
   else
     pivots = sparse_mat_rref_c(mat, F, pool, opt);
 
-  if(true) {
+  if(opt->is_back_sub) {
     if(opt->verbose)
       std::cout << "\n>> Reverse solving: " << std::endl;
     triangular_solver(mat, pivots, F, opt, -1, pool);

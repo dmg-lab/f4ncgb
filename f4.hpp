@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <limits>
 #include <span>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -28,8 +29,9 @@
 
 using namespace boost::multiprecision;
 
-extern double amb_time, crit_pair_time, sym_pre_time, reduction_time, reset_time;
-extern double overlap_time, inclusion_time;
+extern double amb_time, crit_pair_time, sym_pre_time, reduction_time,
+  reset_time;
+extern double overlap_time, inclusion_time, overlap_map_time;
 
 std::chrono::time_point<std::chrono::high_resolution_clock> start;
 std::chrono::time_point<std::chrono::high_resolution_clock> end;
@@ -51,7 +53,7 @@ struct metadata_polynomial {
 
 //------------------------------------------------------------------------------
 
-template<size_t N,
+  template<size_t N, size_t Nvars,
          internal::value_concept V = uint8_t,
          typename I = uint32_t,
          typename C = boost::multiprecision::gmp_rational>
@@ -61,7 +63,6 @@ struct f4 {
   using coefficient = C;
   using monomial_store = internal::monomial_store<MM, V, I>;
   using polynomial_store = internal::polynomial_store<PM, MM, V, I, C>;
-  using monomial_trie = monomial_trie<MM, V, I>;
 
   using monomial = std::span<const V>;
   using mon_id = I;
@@ -71,23 +72,43 @@ struct f4 {
   using amb_hash = ambiguity_hash<mon_id>;
   using crit_pair = std::pair<poly_id, poly_id>;
 
+  using monomial_trie = monomial_trie<Nvars, V, I>;
+
+  // Custom hash function for std::span
+  struct monomial_hash {
+    size_t operator()(const monomial& m) const {
+      size_t seed = 0;
+      for(auto it = m.begin(); it != m.end(); it++)
+        boost::hash_combine(seed, *it);
+      return seed;
+    }
+  };
+
+  // Custom equality comparator for std::span
+  struct monomial_equal {
+    bool operator()(const monomial& m1, const monomial& m2) const {
+      return m1.size() == m2.size()
+             && std::equal(m1.begin(), m1.end(), m2.begin());
+    }
+  };
+
   public:
   monomial_store mons;
   polynomial_store poly;
-  monomial_trie lm;
-  monomial_trie lm_reversed;
   std::vector<poly_id> basis;
   std::map<size_t, std::unordered_set<ambiguity, amb_hash>> amb;
   std::set<crit_pair> crit_pairs;
   std::unordered_map<mon_id, poly_id> lm_to_poly;
+  monomial_trie prefix_trie;
+  monomial_trie suffix_trie;
 
   size_t maxdeg;
 
   f4()
     : mons()
     , poly(mons)
-    , lm()
-    , lm_reversed() {}
+    , prefix_trie()
+    , suffix_trie() {}
 
   //------------------------------------------------------------------------------
   inline void read_input(parser_context& context) {
@@ -114,8 +135,23 @@ struct f4 {
                                        { 1l, { 2, 2, 2 } },
                                        { 1l, { 1, 2, 3 } },
                                        { 1l, { 1, 1, 1 } } });
-
     std::vector<poly_id> input = { p1, p2, p3, p4 };
+
+    /* poly_id p1 = poly.add_polynomial({ { 1l, { 1, 1, 1 } }, { -1l, {} } });
+     */
+    /* poly_id p2 = poly.add_polynomial({ { 1l, { 2, 2, 2 } }, { -1l, {} } });
+     */
+    /* poly_id p3 = poly.add_polynomial( */
+    /*   { { 1l, { 2, 1, 2, 1, 1, 2, 1, 2, 1, 1 } }, { -1l, {} } }); */
+    /* std::vector<poly_id> input = { p1, p2, p3 }; */
+
+    /* poly_id p1 = poly.add_polynomial({ { 1l, { 3, 2 } }, { 1l, { 2, 1 } } });
+     */
+    /* poly_id p2 = poly.add_polynomial({ { 1l, { 3, 3 } }, */
+    /*                                    { 1l, { 3, 2 } }, */
+    /*                                    { -1l, { 2, 3 } }, */
+    /*                                    { -1l, { 2, 2 } } }); */
+    /* std::vector<poly_id> input = { p1, p2 }; */
 
     // add input to critical pairs
     for(const auto& p : input) {
@@ -127,13 +163,11 @@ struct f4 {
     size_t iter = 0;
     while((!amb.empty() or !crit_pairs.empty()) and iter < maxiter) {
 
-
       start = std::chrono::high_resolution_clock().now();
       stage_crit_pairs();
       end = std::chrono::high_resolution_clock().now();
       elapsed = end - start;
       crit_pair_time += elapsed.count();
-      
 
       msg("Reducing %d critical pairs.", crit_pairs.size());
       std::vector<poly_id> new_elements = reduction();
@@ -141,7 +175,9 @@ struct f4 {
 
       update_basis_and_amb(new_elements);
 
-      msg("Iteration %d has finished. Basis has now %d elements", iter, basis.size()-1);
+      msg("Iteration %d has finished. Basis has now %d elements",
+          iter,
+          basis.size() - 1);
       iter++;
     }
 
@@ -168,10 +204,10 @@ struct f4 {
     mon_id ci = a.ci();
     mon_id aj = a.aj();
     mon_id cj = a.cj();
-    
+
     poly_id f = poly.multiply_front_and_back(ai, i, ci);
     poly_id g = poly.multiply_front_and_back(aj, j, cj);
-    
+
     crit_pair c(f, g);
     return c;
   }
@@ -180,7 +216,7 @@ struct f4 {
   inline void stage_crit_pairs() {
     if(amb.empty())
       return;
-    
+
     auto minimal_amb = amb.begin();
     size_t d = minimal_amb->first;
     for(const auto& a : minimal_amb->second) {
@@ -192,27 +228,84 @@ struct f4 {
   void compute_ambiguities(mon_id i) {
     std::unordered_set<ambiguity, amb_hash> new_amb;
 
-    // compute all overlaps ABC where a = AB
+    monomial m = mons[i];
+    monomial ab, b, bc, abc;
+    std::vector<std::pair<mon_id, size_t>> overlaps;
+    std::vector<std::pair<mon_id, size_t>> inclusions;
+
     auto s = std::chrono::high_resolution_clock().now();
-    new_amb = lm.compute_overlaps(mons, i);
+    prefix_trie.overlaps_and_inclusions(m, overlaps, inclusions);
 
-    // compute all overlaps ABC where a = BC
-    new_amb.merge(lm_reversed.compute_overlaps_reversed(mons, i));
+    // overlaps with m = AB
+    ab = m;
+    // last k elements of m = AB form overlap B
+    for(auto [j, k] : overlaps) {
+      bc = mons[j];
+      I d = ab.size() + bc.size() - k;
+      if(d > maxdeg)
+        continue;
+      I aj = mons.getid(ab.first(ab.size() - k));
+      I ci = mons.getid(bc.last(bc.size() - k));
+      ambiguity a(d, i, j, 0, ci, aj, 0);
+      new_amb.insert(a);
+    }
+    overlaps.clear();
+
+    // overlaps with m = BC
+    suffix_trie.overlaps_rev(m, overlaps);
+    bc = m;
+    // k determines where B starts in m = BC
+    for(auto [j, k] : overlaps) {
+      ab = mons[j];
+      I d = ab.size() + bc.size() - k;
+      if(d > maxdeg)
+        continue;
+      I ai = mons.getid(ab.first(ab.size() - k));
+      I cj = mons.getid(bc.last(bc.size() - k));
+      ambiguity a(d, j, i, 0, cj, ai, 0);
+      new_amb.insert(a);
+    }
     auto e = std::chrono::high_resolution_clock().now();
-    std::chrono::duration<double> elaps = e - s;
-    overlap_time += elaps.count();
+    std::chrono::duration<double> elapsed = e - s;
+    overlap_time += elapsed.count();
 
-    // compute all inclusions
     s = std::chrono::high_resolution_clock().now();
-    new_amb.merge(lm.compute_inclusions(mons, i));
-    e = std::chrono::high_resolution_clock().now();
-    elaps = e - s;
-    inclusion_time += elaps.count();
+    // inclusions with m = ABC
+    I d = m.size();
+    // k determines where B starts in m = ABC
+    for(auto [j, k] : inclusions) {
+      if(i == j)
+        continue;
+      b = mons[j];
+      I aj = mons.getid(m.first(k));
+      I cj = mons.getid(m.last(d - k - b.size()));
+      ambiguity a(d, j, i, aj, cj, 0, 0);
+      new_amb.insert(a);
+    }
+    inclusions.clear();
 
-    for(const auto& a : new_amb) {
-      if (a.degree() <= maxdeg)
-        amb[a.degree()].insert(a);
-      }
+    // inclusions with m = B
+    b = m;
+    prefix_trie.inclusions(m, inclusions);
+    // last k elements in ABC form C
+    for(auto [j, k] : inclusions) {
+      if(i == j)
+        continue;
+      abc = mons[j];
+      I d = abc.size();
+      if(d > maxdeg)
+        continue;
+      I ai = mons.getid(abc.first(abc.size() - b.size() - k));
+      I ci = mons.getid(abc.last(k));
+      ambiguity a(d, i, j, ai, ci, 0, 0);
+      new_amb.insert(a);
+    }
+    e = std::chrono::high_resolution_clock().now();
+    elapsed = e - s;
+    inclusion_time += elapsed.count();
+
+    for(const auto& a : new_amb)
+      amb[a.degree()].insert(a);
   }
 
   //------------------------------------------------------------------------------
@@ -254,35 +347,33 @@ struct f4 {
   //------------------------------------------------------------------------------
   poly_id find_reducer(mon_id m, bool strategy = false) {
 
-    auto reducers = lm.compute_divisors(mons, m);
+    auto reducers = prefix_trie.divisors(mons[m]);
     if(reducers.empty())
       return 0;
 
-    mon_id lm_id;
+    std::pair<mon_id, size_t> match;
     // strategy 1 : the last one
     if(strategy)
-      lm_id = *std::max_element(reducers.begin(), reducers.end());
+      match = *std::max_element(reducers.begin(), reducers.end());
     // strategy 2 : the one with smallest lm
     else if(true)
-      lm_id = *std::max_element(
-        reducers.begin(), reducers.end(), [this](mon_id a, mon_id b) {
-          return this->mons.cmp(b, a);
+      match = *std::max_element(
+        reducers.begin(), reducers.end(), [this](auto a, auto b) {
+          return this->mons.cmp(b.first, a.first);
         });
     // strategy 3 : the one with largest lm
     else
-      lm_id = *std::max_element(
-        reducers.begin(), reducers.end(), [this](mon_id a, mon_id b) {
-          return this->mons.cmp(a, b);
+      match = *std::max_element(
+        reducers.begin(), reducers.end(), [this](auto a, auto b) {
+          return this->mons.cmp(a.first, b.first);
         });
 
     monomial mm = mons[m];
-    monomial lm = mons[lm_id];
-    auto it = std::search(mm.begin(), mm.end(), lm.begin(), lm.end());
-    assert(it != lm.end());
-    mon_id a = mons.getid(std::span(mm.begin(), it));
-    mon_id b = mons.getid(std::span(it + lm.size(), mm.end()));
+    monomial lm = mons[match.first];
+    mon_id a = mons.getid(mm.first(match.second));
+    mon_id b = mons.getid(mm.last(mm.size() - match.second - lm.size()));
 
-    poly_id res = poly.multiply_front_and_back(a, lm_to_poly[lm_id], b);
+    poly_id res = poly.multiply_front_and_back(a, lm_to_poly[match.first], b);
 
     return res;
   }
@@ -305,7 +396,7 @@ struct f4 {
       auto poly_data = it->second;
       size_t j0 = poly_data[0].first;
       // test if leading monomial already exists
-      if(!lm.compute_divisors(mons,columns[j0]).empty()) {
+      if(!prefix_trie.divisors(mons[columns[j0]]).empty()) {
         continue;
       }
       // new leading monomial, actually make polynomial
@@ -346,14 +437,13 @@ struct f4 {
     sfmpz_mat_t mat;
     set_up_matrix(mat, rows, columns);
     std::cout << "Setting up matrix done\n";
-        
+
     // reduction
     start = std::chrono::high_resolution_clock::now();
     auto [idxs, entries] = multimodular_rref(mat);
     end = std::chrono::high_resolution_clock::now();
     elapsed = end - start;
     reduction_time += elapsed.count();
-    
 
     std::cout << "RRef done\n";
 
@@ -396,7 +486,7 @@ struct f4 {
     fmpz_init(denom);
     fmpz_init(tmp);
     i = 0;
-    
+
     for(auto r : rows) {
       auto row = sparse_mat_row(mat, i++);
       std::span<C> coeffs = poly.get_coefficients(r);
@@ -411,7 +501,7 @@ struct f4 {
         assert(fmpz_divisible(denom, tmp));
         fmpz_divexact(tmp, denom, tmp);
         fmpz_set_mpz(c, mpq_numref(cc));
-        fmpz_mul(c, c, tmp);        
+        fmpz_mul(c, c, tmp);
         _sparse_vec_set_entry(row, col_to_id[*j], c);
       }
     }
@@ -428,19 +518,19 @@ struct f4 {
       // update lm data
       mon_id m_id = poly.get_lm_id(p_id);
       lm_to_poly[m_id] = p_id;
-      
+
       // update tries
       monomial m = mons[m_id];
-      lm.insert_monomial(m);
-      lm_reversed.insert_monomial_reversed(m);
+      prefix_trie.insert(m, m_id);
+      suffix_trie.insert_rev(m, m_id);
 
       // compute ambiguities
       start = std::chrono::high_resolution_clock().now();
       compute_ambiguities(m_id);
       end = std::chrono::high_resolution_clock().now();
       elapsed = end - start;
-      amb_time += elapsed.count(); 
-      
+      amb_time += elapsed.count();
+
       // update basis
       basis.push_back(p_id);
     }
