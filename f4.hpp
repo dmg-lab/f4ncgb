@@ -53,7 +53,8 @@ struct metadata_polynomial {
 
 //------------------------------------------------------------------------------
 
-  template<size_t N, size_t Nvars,
+template<size_t N,
+         size_t Nvars,
          internal::value_concept V = uint8_t,
          typename I = uint32_t,
          typename C = boost::multiprecision::gmp_rational>
@@ -438,6 +439,7 @@ struct f4 {
     set_up_matrix(mat, rows, columns);
     std::cout << "Setting up matrix done\n";
 
+   
     // reduction
     start = std::chrono::high_resolution_clock::now();
     auto [idxs, entries] = multimodular_rref(mat);
@@ -494,15 +496,23 @@ struct f4 {
       // compute common denominator so that we can normalize row
       get_common_denom(denom, tmp, coeffs);
 
+      auto p = poly[r];
+      auto nnz = p.size();
+      sparse_vec_realloc(row, nnz);
+      row->nnz = nnz;
+
       size_t k = 0;
-      for(auto j = poly[r].begin(); j != poly[r].end(); j++) {
-        auto cc = coeffs[k++].data();
+      for(auto it = p.begin(); it != p.end(); it++) {
+        auto cc = coeffs[k].data();
         fmpz_set_mpz(tmp, mpq_denref(cc));
         assert(fmpz_divisible(denom, tmp));
         fmpz_divexact(tmp, denom, tmp);
         fmpz_set_mpz(c, mpq_numref(cc));
         fmpz_mul(c, c, tmp);
-        _sparse_vec_set_entry(row, col_to_id[*j], c);
+
+        row->indices[k] = col_to_id[*it];
+        fmpz_set(row->entries + k, c);
+        k++;
       }
     }
 
@@ -518,6 +528,15 @@ struct f4 {
       // update lm data
       mon_id m_id = poly.get_lm_id(p_id);
       lm_to_poly[m_id] = p_id;
+
+      // std::cout << "New leading monomial = ";
+      // mons.print_monomial(m_id, std::cout);
+      // std::cout << "\n";
+
+      // std::cout << "Coefficients : ";
+      // for(auto c : poly.get_coefficients(p_id))
+      //   std::cout << mpq_rational(c) << ", ";
+      // std:: cout << "\n";
 
       // update tries
       monomial m = mons[m_id];

@@ -135,66 +135,66 @@ void sparse_vec_realloc(sparse_vec_t<T> vec, ulong alloc) {
     return sparse_vec_entry_pointer(vec, ptr - vec->indices);
   }
 
-  // constructors
-  template<typename T>
-  inline void sparse_vec_set(sparse_vec_t<T> vec, const sparse_vec_t<T> src) {
-    vec->nnz = src->nnz;
-    if(vec->alloc < src->nnz)
-      sparse_vec_realloc(vec, src->nnz);
+  // // constructors
+  // template<typename T>
+  // inline void sparse_vec_set(sparse_vec_t<T> vec, const sparse_vec_t<T> src) {
+  //   vec->nnz = src->nnz;
+  //   if(vec->alloc < src->nnz)
+  //     sparse_vec_realloc(vec, src->nnz);
 
-    for(auto i = 0; i < src->nnz; i++) {
-      vec->indices[i] = src->indices[i];
-      if constexpr(!std::is_same_v<T, bool>) {
-        scalar_set(sparse_vec_entry_pointer(vec, i),
-                   sparse_vec_entry_pointer(src, i));
-      }
-    }
-  }
+  //   for(auto i = 0; i < src->nnz; i++) {
+  //     vec->indices[i] = src->indices[i];
+  //     if constexpr(!std::is_same_v<T, bool>) {
+  //       scalar_set(sparse_vec_entry_pointer(vec, i),
+  //                  sparse_vec_entry_pointer(src, i));
+  //     }
+  //   }
+  // }
 
-  template<typename T>
-  inline void sparse_vec_swap(sparse_vec_t<T> vec, sparse_vec_t<T> src) {
-    std::swap(src->indices, vec->indices);
-    std::swap(src->entries, vec->entries);
-    std::swap(src->nnz, vec->nnz);
-    std::swap(src->alloc, vec->alloc);
-  }
+  // template<typename T>
+  // inline void sparse_vec_swap(sparse_vec_t<T> vec, sparse_vec_t<T> src) {
+  //   std::swap(src->indices, vec->indices);
+  //   std::swap(src->entries, vec->entries);
+  //   std::swap(src->nnz, vec->nnz);
+  //   std::swap(src->alloc, vec->alloc);
+  // }
 
   // this raw version assumes that the vec[index] = 0
-  template<typename T>
-  void _sparse_vec_set_entry(sparse_vec_t<T> vec, slong index, const T* val) {
-    if(vec->nnz == vec->alloc) {
-      ulong new_alloc = 2 * vec->alloc;
-      sparse_vec_realloc(vec, new_alloc);
-    }    
-    vec->indices[vec->nnz] = index;
-    if constexpr(!std::is_same_v<T, bool>) {
-      if constexpr(std::is_same_v<T, fmpz>) {
-        scalar_set(sparse_vec_entry_pointer(vec, vec->nnz), val);
-      } else if constexpr(is_scalar_s<T>::value) {
-        scalar_set(sparse_vec_entry_pointer(vec, vec->nnz)->data,
-                   val->data,
-                   vec->entries->rank);
-      } else {
-        // use scalar_set ??
-        *sparse_vec_entry_pointer(vec, vec->nnz) = *val;
-      }
-    }
-    vec->nnz++;
-  }
+  // template<typename T>
+  // void _sparse_vec_set_entry(sparse_vec_t<T> vec, slong index, const T* val) {
+  //   if(vec->nnz == vec->alloc) {
+  //     ulong new_alloc = 2 * vec->alloc;
+  //     sparse_vec_realloc(vec, new_alloc);
+  //   }    
+  //   vec->indices[vec->nnz] = index;
+  //   if constexpr(!std::is_same_v<T, bool>) {
+  //     if constexpr(std::is_same_v<T, fmpz>) {
+  //       scalar_set(sparse_vec_entry_pointer(vec, vec->nnz), val);
+  //     } else if constexpr(is_scalar_s<T>::value) {
+  //       scalar_set(sparse_vec_entry_pointer(vec, vec->nnz)->data,
+  //                  val->data,
+  //                  vec->entries->rank);
+  //     } else {
+  //       // use scalar_set ??
+  //       *sparse_vec_entry_pointer(vec, vec->nnz) = *val;
+  //     }
+  //   }
+  //   vec->nnz++;
+  // }
 
-  template<typename T, typename S>
-  inline void sparse_vec_set_entry(
-    sparse_vec_t<T> vec, slong index, const T* val, bool isbinary = false) {
-    // if val = 0, here we only set it as zero, but not remove it
-    if constexpr(std::is_same_v<T, bool>) {
-      return;
-    } else {
-      T* entry = sparse_vec_entry(vec, index, isbinary);
-      if(entry != NULL)
-        scalar_set(entry, val);
-      _sparse_vec_set_entry(vec, index, val);
-    }
-  }
+  // template<typename T, typename S>
+  // inline void sparse_vec_set_entry(
+  //   sparse_vec_t<T> vec, slong index, const T* val, bool isbinary = false) {
+  //   // if val = 0, here we only set it as zero, but not remove it
+  //   if constexpr(std::is_same_v<T, bool>) {
+  //     return;
+  //   } else {
+  //     T* entry = sparse_vec_entry(vec, index, isbinary);
+  //     if(entry != NULL)
+  //       scalar_set(entry, val);
+  //     _sparse_vec_set_entry(vec, index, val);
+  //   }
+  // }
 
   // TODO: Implement a better sorting algorithm (sort only once)
   template<typename T>
@@ -206,8 +206,8 @@ void sparse_vec_realloc(sparse_vec_t<T> vec, ulong alloc) {
       std::sort(vec->indices, vec->indices + vec->nnz);
       return;
     } else {
-      std::vector<slong> perm(vec->nnz);
-      for(slong i = 0; i < vec->nnz; i++)
+      std::vector<size_t> perm(vec->nnz);
+      for(size_t i = 0; i < vec->nnz; i++)
         perm[i] = i;
 
       std::sort(perm.begin(), perm.end(), [&vec](slong a, slong b) {
@@ -215,7 +215,7 @@ void sparse_vec_realloc(sparse_vec_t<T> vec, ulong alloc) {
       });
 
       bool is_sorted = true;
-      for(slong i = 0; i < vec->nnz; i++) {
+      for(size_t i = 0; i < vec->nnz; i++) {
         if(perm[i] != i) {
           is_sorted = false;
           break;
@@ -298,120 +298,120 @@ void sparse_vec_realloc(sparse_vec_t<T> vec, ulong alloc) {
   }
 
   // we assume that vec and src are sorted, and the result is also sorted
-  static int snmod_vec_add_mul(
-    snmod_vec_t vec, const snmod_vec_t src, const ulong a, field_t F) {
-    if(src->nnz == 0)
-      return 0;
+  // static int snmod_vec_add_mul(
+  //   snmod_vec_t vec, const snmod_vec_t src, const ulong a, field_t F) {
+  //   if(src->nnz == 0)
+  //     return 0;
 
-    auto p = *(F->pvec);
+  //   auto p = *(F->pvec);
 
-    if(vec->nnz == 0) {
-      sparse_vec_set(vec, src);
-      sparse_vec_rescale(vec, &a, F);
-    }
+  //   if(vec->nnz == 0) {
+  //     sparse_vec_set(vec, src);
+  //     sparse_vec_rescale(vec, &a, F);
+  //   }
 
-    ulong na = a;
-    ulong na_pr = n_mulmod_precomp_shoup(na, p.n);
+  //   ulong na = a;
+  //   ulong na_pr = n_mulmod_precomp_shoup(na, p.n);
 
-    if(vec->nnz + src->nnz > vec->alloc)
-      sparse_vec_realloc(vec, vec->nnz + src->nnz);
+  //   if(vec->nnz + src->nnz > vec->alloc)
+  //     sparse_vec_realloc(vec, vec->nnz + src->nnz);
 
-    ulong ptr1 = vec->nnz;
-    ulong ptr2 = src->nnz;
-    ulong ptr = vec->nnz + src->nnz;
-    while(ptr1 > 0 && ptr2 > 0) {
-      if(vec->indices[ptr1 - 1] == src->indices[ptr2 - 1]) {
-        ulong entry
-          = _nmod_add(vec->entries[ptr1 - 1],
-                      n_mulmod_shoup(na, src->entries[ptr2 - 1], na_pr, p.n),
-                      p);
-        if(entry != 0) {
-          vec->indices[ptr - 1] = vec->indices[ptr1 - 1];
-          vec->entries[ptr - 1] = entry;
-          ptr--;
-        }
-        ptr1--;
-        ptr2--;
-      } else if(vec->indices[ptr1 - 1] < src->indices[ptr2 - 1]) {
-        vec->indices[ptr - 1] = src->indices[ptr2 - 1];
-        vec->entries[ptr - 1]
-          = n_mulmod_shoup(na, src->entries[ptr2 - 1], na_pr, p.n);
-        ptr2--;
-        ptr--;
-      } else {
-        vec->indices[ptr - 1] = vec->indices[ptr1 - 1];
-        vec->entries[ptr - 1] = vec->entries[ptr1 - 1];
-        ptr1--;
-        ptr--;
-      }
-    }
-    while(ptr2 > 0) {
-      vec->indices[ptr - 1] = src->indices[ptr2 - 1];
-      vec->entries[ptr - 1]
-        = n_mulmod_shoup(na, src->entries[ptr2 - 1], na_pr, p.n);
-      ptr2--;
-      ptr--;
-    }
+  //   ulong ptr1 = vec->nnz;
+  //   ulong ptr2 = src->nnz;
+  //   ulong ptr = vec->nnz + src->nnz;
+  //   while(ptr1 > 0 && ptr2 > 0) {
+  //     if(vec->indices[ptr1 - 1] == src->indices[ptr2 - 1]) {
+  //       ulong entry
+  //         = _nmod_add(vec->entries[ptr1 - 1],
+  //                     n_mulmod_shoup(na, src->entries[ptr2 - 1], na_pr, p.n),
+  //                     p);
+  //       if(entry != 0) {
+  //         vec->indices[ptr - 1] = vec->indices[ptr1 - 1];
+  //         vec->entries[ptr - 1] = entry;
+  //         ptr--;
+  //       }
+  //       ptr1--;
+  //       ptr2--;
+  //     } else if(vec->indices[ptr1 - 1] < src->indices[ptr2 - 1]) {
+  //       vec->indices[ptr - 1] = src->indices[ptr2 - 1];
+  //       vec->entries[ptr - 1]
+  //         = n_mulmod_shoup(na, src->entries[ptr2 - 1], na_pr, p.n);
+  //       ptr2--;
+  //       ptr--;
+  //     } else {
+  //       vec->indices[ptr - 1] = vec->indices[ptr1 - 1];
+  //       vec->entries[ptr - 1] = vec->entries[ptr1 - 1];
+  //       ptr1--;
+  //       ptr--;
+  //     }
+  //   }
+  //   while(ptr2 > 0) {
+  //     vec->indices[ptr - 1] = src->indices[ptr2 - 1];
+  //     vec->entries[ptr - 1]
+  //       = n_mulmod_shoup(na, src->entries[ptr2 - 1], na_pr, p.n);
+  //     ptr2--;
+  //     ptr--;
+  //   }
 
-    // if ptr1 > 0, and ptr > 0
-    for(size_t i = ptr1; i < ptr; i++) {
-      vec->entries[i] = 0;
-    }
+  //   // if ptr1 > 0, and ptr > 0
+  //   for(size_t i = ptr1; i < ptr; i++) {
+  //     vec->entries[i] = 0;
+  //   }
 
-    vec->nnz += src->nnz;
-    sparse_vec_canonicalize(vec);
-    if(vec->alloc > 4 * vec->nnz)
-      sparse_vec_realloc(vec, 2 * vec->nnz);
+  //   vec->nnz += src->nnz;
+  //   sparse_vec_canonicalize(vec);
+  //   if(vec->alloc > 4 * vec->nnz)
+  //     sparse_vec_realloc(vec, 2 * vec->nnz);
 
-    return 0;
-  }
+  //   return 0;
+  // }
 
-  static inline int snmod_vec_sub_mul(
-    snmod_vec_t vec, const snmod_vec_t src, const ulong a, field_t F) {
-    return snmod_vec_add_mul(vec, src, F->pvec[0].n - a, F);
-  }
+  // static inline int snmod_vec_sub_mul(
+  //   snmod_vec_t vec, const snmod_vec_t src, const ulong a, field_t F) {
+  //   return snmod_vec_add_mul(vec, src, F->pvec[0].n - a, F);
+  // }
 
-  static inline int sparse_vec_add(
-    snmod_vec_t vec, const snmod_vec_t src, field_t F) {
-    return snmod_vec_add_mul(vec, src, (ulong)1, F);
-  }
+  // static inline int sparse_vec_add(
+  //   snmod_vec_t vec, const snmod_vec_t src, field_t F) {
+  //   return snmod_vec_add_mul(vec, src, (ulong)1, F);
+  // }
 
-  static inline int sparse_vec_sub(
-    snmod_vec_t vec, const snmod_vec_t src, field_t F) {
-    return snmod_vec_add_mul(vec, src, F->pvec[0].n - 1, F);
-  }
+  // static inline int sparse_vec_sub(
+  //   snmod_vec_t vec, const snmod_vec_t src, field_t F) {
+  //   return snmod_vec_add_mul(vec, src, F->pvec[0].n - 1, F);
+  // }
 
-  static inline int sparse_vec_sub_mul(
-    snmod_vec_t vec, const snmod_vec_t src, const ulong* a, field_t F) {
-    return snmod_vec_sub_mul(vec, src, *a, F);
-  }
+  // static inline int sparse_vec_sub_mul(
+  //   snmod_vec_t vec, const snmod_vec_t src, const ulong* a, field_t F) {
+  //   return snmod_vec_sub_mul(vec, src, *a, F);
+  // }
 
-  // dot product
-  // return true if the result is zero
-  template<typename T>
-  bool sparse_vec_dot(
-    T * result, const sparse_vec_t<T> v1, const sparse_vec_t<T> v2, field_t F) {
-    if(v1->nnz == 0 || v2->nnz == 0) {
-      scalar_zero(result);
-      return 0;
-    }
-    slong ptr1 = 0, ptr2 = 0;
-    T tmp[1];
-    scalar_init(tmp);
-    while(ptr1 < v1->nnz && ptr2 < v2->nnz) {
-      if(v1->indices[ptr1] == v2->indices[ptr2]) {
-        scalar_mul(tmp, v1->entries + ptr1, v2->entries + ptr2, F);
-        scalar_add(result, result, tmp, F);
-        ptr1++;
-        ptr2++;
-      } else if(v1->indices[ptr1] < v2->indices[ptr2])
-        ptr1++;
-      else
-        ptr2++;
-    }
-    scalar_clear(tmp);
-    return scalar_is_zero(result);
-  }
+  // // dot product
+  // // return true if the result is zero
+  // template<typename T>
+  // bool sparse_vec_dot(
+  //   T * result, const sparse_vec_t<T> v1, const sparse_vec_t<T> v2, field_t F) {
+  //   if(v1->nnz == 0 || v2->nnz == 0) {
+  //     scalar_zero(result);
+  //     return 0;
+  //   }
+  //   slong ptr1 = 0, ptr2 = 0;
+  //   T tmp[1];
+  //   scalar_init(tmp);
+  //   while(ptr1 < v1->nnz && ptr2 < v2->nnz) {
+  //     if(v1->indices[ptr1] == v2->indices[ptr2]) {
+  //       scalar_mul(tmp, v1->entries + ptr1, v2->entries + ptr2, F);
+  //       scalar_add(result, result, tmp, F);
+  //       ptr1++;
+  //       ptr2++;
+  //     } else if(v1->indices[ptr1] < v2->indices[ptr2])
+  //       ptr1++;
+  //     else
+  //       ptr2++;
+  //   }
+  //   scalar_clear(tmp);
+  //   return scalar_is_zero(result);
+  // }
 
   // static std::pair<size_t, char*> snmod_vec_to_binary(sparse_vec_t<ulong>
   // vec) { 	auto ratio = sizeof(ulong) / sizeof(char); 	char* buffer =
