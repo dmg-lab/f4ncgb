@@ -179,7 +179,7 @@ main(int argc, char** argv) {
   boost::mp11::mp_with_index<6>(n, [&maxiter, &context](auto N) {
     f4<N,5> algo;
     // algo.read_input(context);
-    algo.compute_basis(maxiter, 10);
+    algo.compute_basis(maxiter, 13);
   });
 
   print_statistics();

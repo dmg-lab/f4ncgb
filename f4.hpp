@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <concepts>
+#include <coroutine>
 #include <cstdint>
 #include <limits>
 #include <span>
@@ -31,7 +32,7 @@ using namespace boost::multiprecision;
 
 extern double amb_time, crit_pair_time, sym_pre_time, reduction_time,
   reset_time;
-extern double overlap_time, inclusion_time, overlap_map_time;
+extern double overlap_time, inclusion_time, new_elements_time;
 
 std::chrono::time_point<std::chrono::high_resolution_clock> start;
 std::chrono::time_point<std::chrono::high_resolution_clock> end;
@@ -116,6 +117,26 @@ struct f4 {
     parse_res res = parse_rest_into_polynomial_store(context, poly);
   }
 
+  void interreduce_and_add_to_basis(std::vector<poly_id> input) {
+
+    msg("Linearly interreducing input of size %d.", input.size());
+    for(const auto& p : input) {
+      crit_pair c(p, p);
+      crit_pairs.insert(c);
+    }
+    start = std::chrono::high_resolution_clock().now();
+    stage_crit_pairs();
+    end = std::chrono::high_resolution_clock().now();
+    elapsed = end - start;
+    crit_pair_time += elapsed.count();
+
+    std::vector<poly_id> new_elements = reduction(true);
+    msg("Adding %d input elements to basis.", new_elements.size());
+
+    update_basis_and_amb(new_elements);
+    
+  }
+
   //------------------------------------------------------------------------------
 
   std::vector<poly_id> compute_basis(size_t maxiter, size_t maxdeg_ = INT_MAX) {
@@ -155,10 +176,7 @@ struct f4 {
     /* std::vector<poly_id> input = { p1, p2 }; */
 
     // add input to critical pairs
-    for(const auto& p : input) {
-      crit_pair c(p, p);
-      crit_pairs.insert(c);
-    }
+    interreduce_and_add_to_basis(input);
 
     // main loop
     size_t iter = 0;
@@ -176,7 +194,7 @@ struct f4 {
 
       update_basis_and_amb(new_elements);
 
-      msg("Iteration %d has finished. Basis has now %d elements",
+      msg("==== Iteration %d has finished. Basis has now %d elements ====",
           iter,
           basis.size() - 1);
       iter++;
@@ -316,12 +334,15 @@ struct f4 {
     std::unordered_set<poly_id> rows;
 
     for(const auto& [f, g] : crit_pairs) {
+      // add monomials to corresponding sets
       auto mon_it = poly[f];
       done.insert(*mon_it.begin());
       todo.insert(++mon_it.begin(), mon_it.end());
+
       mon_it = poly[g];
       done.insert(*mon_it.begin());
       todo.insert(++mon_it.begin(), mon_it.end());
+
       rows.insert(f);
       rows.insert(g);
     }
@@ -379,7 +400,7 @@ struct f4 {
     return res;
   }
   //------------------------------------------------------------------------------
-  std::vector<poly_id> identify_new_elements(
+  std::vector<poly_id> compute_new_polynomials(
     std::vector<std::pair<size_t, size_t>>& idxs,
     std::vector<C>& coeffs,
     std::vector<mon_id>& columns) {
@@ -387,39 +408,31 @@ struct f4 {
     std::vector<poly_id> res;
     std::vector<std::pair<C, mon_id>> p;
 
-    std::unordered_map<size_t, std::vector<std::pair<size_t, C>>> poly_map;
     size_t k = 0;
-    for(auto [i, j] : idxs) {
-      poly_map[i].emplace_back(j, coeffs[k++]);
-    }
-
-    for(auto it = poly_map.begin(); it != poly_map.end(); it++) {
-      auto poly_data = it->second;
-      size_t j0 = poly_data[0].first;
-      // test if leading monomial already exists
-      if(!prefix_trie.divisors(mons[columns[j0]]).empty()) {
-        continue;
+    size_t cur_i = idxs[0].first;
+    for(auto [i,j] : idxs) {
+      // a new polynomial starts
+      if(i != cur_i) {
+        res.push_back(poly.add_polynomial(p));
+        p.clear();
+        cur_i = i;
       }
-      // new leading monomial, actually make polynomial
-      for(auto [j, c] : poly_data)
-        p.emplace_back(c, columns[j]);
-
-      res.push_back(poly.add_polynomial(p));
-      p.clear();
+      p.emplace_back(coeffs[k++], columns[j]);
     }
+    // don't forget to add last element
+    res.push_back(poly.add_polynomial(p));
+
     return res;
   }
   //------------------------------------------------------------------------------
-  std::vector<poly_id> reduction() {
+  std::vector<poly_id> reduction(bool interreduce = false) {
     // symbolic preprocessing
 
-    std::cout << "Symbolic preprocessing\n";
     start = std::chrono::high_resolution_clock::now();
-    std::unordered_set<poly_id> rows = symbolic_preprocessing();
+    auto rows = symbolic_preprocessing();
     end = std::chrono::high_resolution_clock::now();
     elapsed = end - start;
     sym_pre_time += elapsed.count();
-    std::cout << "Symbolic preprocessing done\n";
 
     // make columns
     // columns are sorted in DESCENDING order
@@ -434,26 +447,23 @@ struct f4 {
     std::sort(columns.begin(), columns.end(), cmp);
 
     // set up matrix
-    std::cout << "Setting  up matrix\n";
     sfmpz_mat_t mat;
     set_up_matrix(mat, rows, columns);
-    std::cout << "Setting up matrix done\n";
 
-   
     // reduction
     start = std::chrono::high_resolution_clock::now();
-    auto [idxs, entries] = multimodular_rref(mat);
+    auto [idxs, entries] = multimodular_gauss_elim(mat, interreduce);
     end = std::chrono::high_resolution_clock::now();
     elapsed = end - start;
     reduction_time += elapsed.count();
 
-    std::cout << "RRef done\n";
-
-    // identify new elements
+    // compute new elements
+    start = std::chrono::high_resolution_clock().now();
     std::vector<poly_id> new_elements
-      = identify_new_elements(idxs, entries, columns);
-
-    std::cout << "Computed new elements\n";
+      = compute_new_polynomials(idxs, entries, columns);
+    end = std::chrono::high_resolution_clock().now();
+    elapsed = end - start;
+    new_elements_time += elapsed.count();
 
     return new_elements;
   }
@@ -483,8 +493,6 @@ struct f4 {
     // set all entries
     fmpz_t denom;
     fmpz_t tmp;
-    fmpz_t c;
-    fmpz_init(c);
     fmpz_init(denom);
     fmpz_init(tmp);
     i = 0;
@@ -507,18 +515,15 @@ struct f4 {
         fmpz_set_mpz(tmp, mpq_denref(cc));
         assert(fmpz_divisible(denom, tmp));
         fmpz_divexact(tmp, denom, tmp);
-        fmpz_set_mpz(c, mpq_numref(cc));
-        fmpz_mul(c, c, tmp);
-
+        fmpz_set_mpz(row->entries + k, mpq_numref(cc));
+        fmpz_mul(row->entries + k, row->entries + k, tmp);
         row->indices[k] = col_to_id[*it];
-        fmpz_set(row->entries + k, c);
         k++;
       }
     }
 
     fmpz_clear(denom);
     fmpz_clear(tmp);
-    fmpz_clear(c);
   }
 
   //------------------------------------------------------------------------------
@@ -528,15 +533,6 @@ struct f4 {
       // update lm data
       mon_id m_id = poly.get_lm_id(p_id);
       lm_to_poly[m_id] = p_id;
-
-      // std::cout << "New leading monomial = ";
-      // mons.print_monomial(m_id, std::cout);
-      // std::cout << "\n";
-
-      // std::cout << "Coefficients : ";
-      // for(auto c : poly.get_coefficients(p_id))
-      //   std::cout << mpq_rational(c) << ", ";
-      // std:: cout << "\n";
 
       // update tries
       monomial m = mons[m_id];

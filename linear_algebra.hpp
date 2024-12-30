@@ -1,11 +1,8 @@
 #pragma once
 
 #include <algorithm>
-#include <array>
 #include <chrono>
-#include <concepts>
 #include <cstdint>
-#include <limits>
 #include <sys/errno.h>
 #include <utility>
 #include <vector>
@@ -98,9 +95,9 @@ height(sfmpz_mat_t mat) {
 void
 reconstruct_mat(fmpz*& entries,
                 std::vector<std::pair<size_t, size_t>>& idxs,
-                std::vector<uint32_mat_t*> rrefs,
-                std::vector<ulong> primes,
-                mpz_int prod) {
+                std::vector<uint32_mat_t*>& rrefs,
+                std::vector<ulong>& primes,
+                std::vector<ulong>& relevant_rows) {
   if(rrefs.size() == 0)
     return;
 
@@ -108,15 +105,13 @@ reconstruct_mat(fmpz*& entries,
 
   // get all (i,j) where at least one rref is nonzero
   std::map<size_t, std::set<size_t>> nnz_pos;
-  for(size_t i = 0; i < n_rows; i++) {
+  for(size_t i : relevant_rows) {
     std::set<size_t> nnz_pos_row;
     for(auto& rref : rrefs) {
       auto row = sparse_mat_row(*rref, i);
-      for(size_t k = 0; k < row->nnz; k++)
-        nnz_pos_row.insert(row->indices[k]);
+      nnz_pos_row.insert(row->indices, row->indices + row->nnz);
     }
-    for(auto& j : nnz_pos_row)
-      nnz_pos[i].insert(j);
+    nnz_pos[i].insert(nnz_pos_row.begin(), nnz_pos_row.end());
   }
   size_t nnz = 0;
   for(const auto& [key, values] : nnz_pos)
@@ -229,10 +224,6 @@ ratrecon(gmp_rational& res, mpz_t u, ratrec_data* data) {
 
   bool success = false;
 
-  mpz_int p1(u);
-  mpz_int p2(data->mod);
-  // std::cout << p1 << " % " << p2 << "\n";
-
   while(mpz_cmp_ui(u, 0) < 0) {
     mpz_add(u, u, data->mod);
   }
@@ -290,7 +281,6 @@ rational_reconstruction(std::vector<gmp_rational>& entries,
 
   bool res = true;
 
-  std::cout << "========= Reconstructing matrix ==============" << "\n";
   entries.reserve(N);
   mpz_t u;
   mpz_init(u);
@@ -311,12 +301,13 @@ rational_reconstruction(std::vector<gmp_rational>& entries,
 //------------------------------------------------------------------------------
 template<typename T>
 void inline copy_to_buffer(T* buffer, size_t N, uint32_vec_t vec) {
-  std::fill(buffer, buffer + N, 0);
   for(size_t i = 0; i < vec->nnz; i++)
     buffer[*(vec->indices + i)] = *(vec->entries + i);
 }
 //------------------------------------------------------------------------------
-void inline copy_from_buffer(int64_t* buffer, size_t N, uint32_vec_t vec) {
+void inline copy_from_buffer_and_clear(int64_t* buffer,
+                                       size_t N,
+                                       uint32_vec_t vec) {
   size_t nnz = 0;
   for(size_t i = 0; i < N; i++)
     if(buffer[i] != 0)
@@ -333,6 +324,7 @@ void inline copy_from_buffer(int64_t* buffer, size_t N, uint32_vec_t vec) {
     vec->indices[j] = i;
     vec->entries[j] = c;
     j++;
+    buffer[i] = 0;
   }
 }
 //------------------------------------------------------------------------------
@@ -358,24 +350,24 @@ void inline xmay(int64_t* x, uint64_t a, uint32_vec_t y, uint64_t p2) {
   }
 }
 //------------------------------------------------------------------------------
-
 pivots
-my_sparse_mat_rref_opt(uint32_mat_t mat,
-                       field_t F,
-                       BS::thread_pool& pool,
-                       rref_option_t opt,
-                       nmod_t mod) {
+gauss_elim(uint32_mat_t mat,
+           field_t F,
+           BS::thread_pool& pool,
+           rref_option_t opt,
+           nmod_t mod) {
   // first canonicalize, sort and compress the matrix
   sparse_mat_compress(mat);
 
   slong* pivots = new slong[mat->ncol];
-  for(size_t i = 0; i < mat->ncol; i++)
-    pivots[i] = -1;
+  std::fill(pivots, pivots + mat->ncol, -1);
 
   int64_t* buffer = new int64_t[mat->ncol];
+  std::fill(buffer, buffer + mat->ncol, 0);
   uint64_t p = mod.n;
+  uint64_t p2 = p * p;
 
-  // sort rows by first index
+  // sort rows by first index and nnz
   std::vector<size_t> rowperm(mat->nrow);
   for(size_t i = 0; i < mat->nrow; i++)
     rowperm[i] = i;
@@ -399,38 +391,33 @@ my_sparse_mat_rref_opt(uint32_mat_t mat,
       pivots[c] = r;
       continue;
     }
+
     // we already have a pivot => reduce this row by all pivots
     copy_to_buffer(buffer, mat->ncol, row);
 
     // reduce current row with all pivots
     for(size_t i = c; i < mat->ncol; i++) {
       auto cc = buffer[i];
-      if(cc != 0)
-        cc %= p;
+      cc %= p;
       buffer[i] = cc;
       if(cc == 0)
         continue;
-
       auto rr = pivots[i];
       if(rr < 0)
         continue;
-
       buffer[i] = 0;
-      xmay(buffer, cc, sparse_mat_row(mat, rr), p * p);
+      xmay(buffer, cc, sparse_mat_row(mat, rr), p2);
     }
     // normalize buffer to be 0 <= buffer < p
     for(size_t i = c; i < mat->ncol; i++)
-      if(buffer[i] != 0) {
-        assert(buffer[i] > 0);
-        buffer[i] %= p;
-      }
+      buffer[i] %= p;
 
     // if we have a zero row, do nothing
     if(std::all_of(
          buffer, buffer + mat->ncol, [](int64_t v) { return v == 0; }))
       continue;
 
-    copy_from_buffer(buffer, mat->ncol, row);
+    copy_from_buffer_and_clear(buffer, mat->ncol, row);
     normalize_row(row, mod);
     pivots[row->indices[0]] = r;
   }
@@ -445,75 +432,37 @@ my_sparse_mat_rref_opt(uint32_mat_t mat,
   return piv;
 }
 //------------------------------------------------------------------------------
+std::vector<size_t> inline compute_relevant_rows(
+  sfmpz_mat_t mat,
+  std::vector<uint32_mat_t*>& rrefs) {
 
-// template<typename T>
-// std::vector<std::pair<slong, slong>>
-// my_sparse_mat_rref(sparse_mat_t<T> mat,
-//                    field_t F,
-//                    BS::thread_pool& pool,
-//                    rref_option_t opt) {
-//   // first canonicalize, sort and compress the matrix
-//   sparse_mat_compress(mat);
+  std::vector<size_t> relevant_rows;
+  std::unordered_set<slong> old_pivot_columns;
 
-//   T scalar[1];
-//   scalar_init(scalar);
+  for(size_t i = 0; i < mat->nrow; i++)
+    old_pivot_columns.insert(sparse_mat_row(mat, i)->indices[0]);
 
-//   slong r;
-//   slong start_row = 0;
-//   slong min_row;
-//   slong min;
-
-//   std::vector<std::pair<slong, slong>> pivots;
-
-//   for(size_t c = 0; c < mat->ncol; c++) {
-//     min_row = -1;
-//     min = mat->ncol + 1;
-//     for(r = start_row; r < mat->nrow; r++) {
-//       auto therow = sparse_mat_row(mat, r);
-//       if(therow->nnz > 0 and therow->nnz < min)
-//         if(therow->indices[0] == c) {
-//           min_row = r;
-//           min = therow->nnz;
-//         }
-//     }
-//     if(min_row == -1)
-//       continue;
-
-//     // will use row r to reduce column c
-//     r = min_row;
-
-//     // rescale row
-//     scalar_inv(scalar, sparse_mat_entry(mat, r, c, true), F);
-//     sparse_vec_rescale(sparse_mat_row(mat, r), scalar, F);
-
-//     // swap row to top
-//     std::swap(mat->rows[start_row], mat->rows[r]);
-//     pivots.emplace_back(start_row, c);
-
-//     // eliminate
-//     auto therow = sparse_mat_row(mat, start_row);
-//     for(size_t i = 0; i < mat->nrow; i++) {
-//       if(i == start_row)
-//         continue;
-//       auto row_i = sparse_mat_row(mat, i);
-//       auto b = sparse_vec_entry(row_i, c);
-//       if(b != NULL) {
-//         auto start = std::chrono::high_resolution_clock().now();
-//         sparse_vec_sub_mul(sparse_mat_row(mat, i), therow, b, F);
-//         auto end = std::chrono::high_resolution_clock().now();
-//         std::chrono::duration<double> elapsed = end - start;
-//         other_time += elapsed.count();
-//       }
-//     }
-//     start_row++;
-//   }
-
-//   return pivots;
-// }
+  for(size_t i = 0; i < mat->nrow; i++) {
+    for(size_t k = 0; k < rrefs.size(); k++) {
+      auto row_ik = sparse_mat_row(*rrefs[k], i);
+      if(row_ik->nnz == 0)
+        continue;
+      // test if we have a new leading monomial
+      if(old_pivot_columns.find(row_ik->indices[0])
+         == old_pivot_columns.end()) {
+        relevant_rows.push_back(i);
+        break;
+      }
+    }
+  }
+  return relevant_rows;
+}
 //------------------------------------------------------------------------------
 
 std::pair<std::vector<std::pair<size_t, size_t>>, std::vector<gmp_rational>>
-multimodular_rref(sfmpz_mat_t& mat, bool proof = true) {
+multimodular_gauss_elim(sfmpz_mat_t mat,
+                        bool interreduce = false,
+                        bool proof = true) {
   field_t F;
   rref_option_t opt;
   opt->verbose = true;
@@ -544,11 +493,12 @@ multimodular_rref(sfmpz_mat_t& mat, bool proof = true) {
 
   size_t MAX_PRIMES = primes.size();
   uint32_t p;
+  nmod_t mod;
 
   while(true) {
     while(prod < M) {
       if(i >= MAX_PRIMES)
-        die(-1, "Multimodular rref is not converging");
+        die(-1, "Multimodular Gaussian elimination is not converging");
       p = primes[i++];
 
       msg("Computing mod %ul", p);
@@ -557,27 +507,14 @@ multimodular_rref(sfmpz_mat_t& mat, bool proof = true) {
 
       uint32_mat_t* nmod_mat = new uint32_mat_t[1];
       sparse_mat_init(*nmod_mat, mat->nrow, mat->ncol);
-      nmod_t mod;
       nmod_init(&mod, p);
       mat_mod(*nmod_mat, mat, mod);
 
-      pivots piv = my_sparse_mat_rref_opt(*nmod_mat, F, pool, opt, mod);
-
-      std::cout << "Done with rref computation\n";
-
-      // auto start = std::chrono::high_resolution_clock().now();
-      // // pivots piv = my_sparse_mat_rref(*nmod_mat, F, pool, opt);
-      // auto end = std::chrono::high_resolution_clock().now();
-      // std::chrono::duration<double> elapsed = end - start;
-      // rref_time += elapsed.count();
-
-      if(best_piv.size()) {
-        if(piv != best_piv) {
-          for(size_t i = 0; i < std::min(best_piv.size(), piv.size()); i++)
-            std::cout << i << " : " << best_piv[i] << " <> " << piv[i] << "\n";
-          std::cout << "\n";
-        }
-      }
+      auto start = std::chrono::high_resolution_clock().now();
+      pivots piv = gauss_elim(*nmod_mat, F, pool, opt, mod);
+      auto end = std::chrono::high_resolution_clock().now();
+      std::chrono::duration<double> elapsed = end - start;
+      rref_time += elapsed.count();
 
       if(cmp_pivots(best_piv, piv) <= 0) {
         best_piv = piv;
@@ -603,11 +540,19 @@ multimodular_rref(sfmpz_mat_t& mat, bool proof = true) {
       }
     }
 
+    // before reconstruction, compute rows with new leading terms
+    std::vector<size_t> relevant_rows;
+    if(interreduce)
+      for(size_t i = 0; i < mat->nrow; i++)
+        relevant_rows.push_back(i);
+    else
+      relevant_rows = compute_relevant_rows(mat, good_rrefs);
+
     // Initialize crt_entries in reconstruction
     // and clear here
     fmpz* crt_entries;
     auto start = std::chrono::high_resolution_clock().now();
-    reconstruct_mat(crt_entries, idxs, good_rrefs, good_primes, prod);
+    reconstruct_mat(crt_entries, idxs, good_rrefs, good_primes, relevant_rows);
     auto end = std::chrono::high_resolution_clock().now();
     std::chrono::duration<double> elapsed = end - start;
     crt_time += elapsed.count();

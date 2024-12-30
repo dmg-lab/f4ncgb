@@ -111,7 +111,7 @@ void die(int error_code, const char *fmt, ...) {
 long long hashmap_hits, hashmap_calls;
 double amb_time, crit_pair_time, sym_pre_time, reduction_time;
 double overlap_time, inclusion_time, crt_time, ratrec_time, rref_time;
-double tt, other_time, overlap_map_time;
+double tt, other_time, new_elements_time;
 
 /*------------------------------------------------------------------------*/
 
@@ -147,10 +147,11 @@ void print_statistics() {
   msg("handling critical pairs:  %22.2f (%2.2f %%)", crit_pair_time, percent_d(crit_pair_time,total_time));
   msg("symbolic preprocessing:   %22.2f (%2.2f %%)", sym_pre_time, percent_d(sym_pre_time,total_time));
   msg("linear algebra:           %22.2f (%2.2f %%)", reduction_time, percent_d(reduction_time,total_time));
-  msg("  other:                  %22.2f (%2.2f %%)", other_time, percent_d(other_time,total_time));
-  msg("  rref:                   %22.2f (%2.2f %%)", rref_time, percent_d(rref_time,total_time));
+  msg("  Gauss elimination:      %22.2f (%2.2f %%)", rref_time, percent_d(rref_time,total_time));
   msg("  CRT:                    %22.2f (%2.2f %%)", crt_time, percent_d(crt_time,total_time));
   msg("  rat. reconstruction:    %22.2f (%2.2f %%)", ratrec_time, percent_d(ratrec_time,total_time));
+  msg("construct new elements:   %22.2f (%2.2f %%)", new_elements_time, percent_d(new_elements_time,total_time));
+  msg("other:                    %22.2f (%2.2f %%)", other_time, percent_d(other_time,total_time));
   msg("");
   msg("total process time:       %22.2f seconds",  process_time());
 }
