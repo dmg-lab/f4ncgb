@@ -9,6 +9,7 @@
 #include <span>
 #include <string>
 #include <utility>
+#include <map>
 #include <vector>
 
 #include <boost/align/align_down.hpp>

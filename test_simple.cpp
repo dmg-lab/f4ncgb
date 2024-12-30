@@ -1,6 +1,5 @@
 #include <boost/test/unit_test.hpp>
 
-#include "./aho_corasick/src/aho_corasick/aho_corasick.hpp"
 #include "kommunopp.hpp"
 #include "monomial_trie.hpp"
 #include "parser.hpp"

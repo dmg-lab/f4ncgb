@@ -16,7 +16,6 @@
 #include <boost/multiprecision/gmp.hpp>
 #include <boost/unordered/unordered_flat_map.hpp>
 
-#include "./aho_corasick/src/aho_corasick/aho_corasick.hpp"
 #include "signal_statistics.hpp"
 
 #include "ambiguity.hpp"
