@@ -154,7 +154,7 @@ main(int argc, char** argv) {
     }
   }
 
-  if(!input_name)
+  if(!input_name || !std::filesystem::exists(input_name))
     die(err_no_file, "no input file given(try '-h')");
   // if(!output_name)
   //   die(err_no_file, "no output file given(try '-h')");
@@ -162,8 +162,7 @@ main(int argc, char** argv) {
   int res = 0;
   init_all_signal_handers();
 
-  std::filesystem::path in = std::filesystem::current_path()
-                             / std::filesystem::path("test_inputs/braid3.ms");
+  std::filesystem::path in = input_name;
   
   parser_context context;
   context.open(in);
