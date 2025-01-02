@@ -179,6 +179,7 @@ class store {
 
   public:
   using length_type = decltype(M::length);
+  using index_type = I;
   using value_type = V;
 
   store() = default;
@@ -220,7 +221,7 @@ class store {
     return std::span<const V>(start, len);
   }
 
-  I next_pos(I pos) {
+  I next_pos(I pos) const {
     if(pos == 0)
       return 1;
     else
@@ -262,7 +263,7 @@ class store {
     using pointer = value_type*;
     using reference = const value_type&;
 
-    pos_iterator(self& s, I pos = 0)
+    pos_iterator(const self& s, I pos = 0)
       : s(s)
       , pos(pos) {}
 
@@ -284,13 +285,21 @@ class store {
       return &a.s != &b.s || a.pos != b.pos;
     };
 
+    pos_iterator operator+(I count) const {
+      pos_iterator it(*this);
+      for(I i = 0; i < count; ++i) {
+        ++it;
+      }
+      return it;
+    }
+
     private:
-    self& s;
+    const self& s;
     I pos;
   };
 
-  pos_iterator begin() { return pos_iterator(*this, 0); }
-  pos_iterator end() { return pos_iterator(*this, size_ + 1); }
+  pos_iterator begin() const { return pos_iterator(*this, 0); }
+  pos_iterator end() const { return pos_iterator(*this, size_ + 1); }
 };
 
 //================================================================
@@ -473,10 +482,10 @@ struct polynomial_metadata : public M {
   I coefficients;
 };
 
-template<metadata_concept PM,
-         metadata_concept MM,
-         value_concept V,
-         typename I,
+template<metadata_concept PM = internal::metadata<uint8_t>,
+         metadata_concept MM = internal::metadata<uint8_t>,
+         value_concept V = uint8_t,
+         typename I = uint32_t,
          typename C = boost::multiprecision::gmp_rational>
 class polynomial_store
   : public store<polynomial_store<PM, MM, V, I, C>,
@@ -547,6 +556,10 @@ class polynomial_store
     return std::span<C>(get_coefficients_raw(m.coefficients), m.length);
   }
 
+  inline std::span<const C> get_coefficients(I id) const {
+    return const_cast<self*>(this)->get_coefficients(id);
+  }
+
   inline std::vector<I> get_monomial_ids(I id) {
     if(id == 0)
       return std::vector<I>(0);
@@ -612,6 +625,7 @@ class polynomial_store
     return multiply_front_or_back_or_both<true, true>(f, p, b);
   }
 
+  const monomial_store_& get_monomial_store() const { return store_; }
   monomial_store_& get_monomial_store() { return store_; }
 
   protected:
@@ -634,4 +648,18 @@ class polynomial_store
   }
 };
 }
+
+int
+coefficient_sign(const boost::multiprecision::backends::gmp_rational& r);
+
+boost::multiprecision::mpq_rational
+coefficient_abs(const boost::multiprecision::backends::gmp_rational& r);
+
+bool
+coefficient_is_posneg_neutral(
+  const boost::multiprecision::backends::gmp_rational& r);
 }
+
+std::ostream&
+operator<<(std::ostream& o,
+           const boost::multiprecision::backends::gmp_rational& r);

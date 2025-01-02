@@ -114,9 +114,19 @@ parse_impl_msolve(parser_context& ctx,
       size_t denominator = 1;
       c = ctx.swallow_whitespace_no_newline();
 
-      if(c == '+' || c == '-' || isdigit_(c)) {
+      if(c == '-') {
+        numerator = -1;
+        c = ctx.getc();
+      } else if(c == '+') {
+        numerator = 1;
+        c = ctx.getc();
+      }
+
+      c = ctx.swallow_whitespace_no_newline();
+
+      if(isdigit_(c)) {
         EXPECT_POSNEGDIGIT();
-        numerator = ctx.read_positive_or_negative_int();
+        numerator = ctx.read_positive_or_negative_int() * numerator;
         c = ctx.swallow_whitespace_no_newline();
         denominator = 1;
         if(c == '/') {
@@ -182,19 +192,32 @@ parse_impl_msolve_header(parser_context& ctx,
   ctx.num_blocks = 1;
 
   if(first_char == ',')
-    return "First character of msolve must be some ident, not ','";
-  if(parser_context::msolve_ident_filter(first_char) && second_char == ',') {
+    RETURN_ERROR("First character of msolve must be some ident, not ','");
+  if(parser_context::msolve_ident_filter(first_char)
+     && (second_char == ',' || second_char == ' ')) {
     // First char was some variable that has to be counted.
+    std::string ident;
+    ident += first_char;
+    ctx.str_to_id(ident);
     ++ctx.num_vars;
   } else if(parser_context::msolve_ident_filter(first_char)
             && parser_context::msolve_ident_filter(second_char)) {
     c = ctx.getc();
     if(c == ',') {
+      std::string ident;
+      ident += first_char;
+      ident += second_char;
+      ctx.str_to_id(ident);
       // Some variable name was started and finished with the third char.
       ++ctx.num_vars;
     } else if(parser_context::msolve_ident_filter(c)) {
       // Some variable name was started but not finished yet, read until finish.
-      ctx.read_ident(parser_context::msolve_ident_filter);
+      std::string ident(ctx.read_ident(parser_context::msolve_ident_filter));
+      std::string prefix;
+      prefix += first_char;
+      prefix += second_char;
+      ident.insert(0, prefix);
+      ctx.str_to_id(ident);
     } else {
       RETURN_ERROR(
         std::format("Unexpected third character for msolve format: '{}'", c));
@@ -219,8 +242,9 @@ parse_impl_msolve_header(parser_context& ctx,
     if(c == '\n') {
       break;
     } else if(c == ',') {
+      ctx.getc();
       ctx.swallow_whitespace_no_newline();
-      ctx.read_ident(parser_context::msolve_ident_filter);
+      ctx.str_to_id(ctx.read_ident(parser_context::msolve_ident_filter));
       ++ctx.num_vars;
     } else {
       RETURN_ERROR(std::format("Unexpected character '{}'", c));
@@ -284,7 +308,7 @@ parse_header(parser_context& ctx) {
   int c = ctx.getc();
   if(c != 'p') {
     ctx.init_symbols();
-    return parse_impl_msolve_header(ctx, 'p', ctx.getc());
+    return parse_impl_msolve_header(ctx, c, ctx.getc());
   }
 
   // File reads "p"

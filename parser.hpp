@@ -1,9 +1,11 @@
 #pragma once
 
+#include "kommunopp.hpp"
 #include <filesystem>
 #include <format>
 #include <memory>
 #include <optional>
+#include <ostream>
 #include <string>
 #include <type_traits>
 
@@ -42,6 +44,7 @@ class parser_symbolic_context {
       return it->second;
     }
     m.insert(map::value_type(s, counter));
+    // std::cout << "Insert " << s << " at " << counter << std::endl;
     return counter++;
   }
 };
@@ -175,6 +178,69 @@ class parser_context {
   }
 
   void init_symbols() { symbols = std::make_unique<parser_symbolic_context>(); }
+
+  bool has_symbols() { return static_cast<bool>(symbols); }
+
+  std::ostream& var_to_ostream(std::ostream& o, parser_symbolic_context::id i) {
+    if(has_symbols())
+      return o << id_to_str(i);
+    else
+      return o << static_cast<int>(i);
+  }
+
+  template<class PS>
+  std::ostream& to_msolve(std::ostream& o, const PS& p) {
+    using monomial_store = PS::monomial_store_;
+    using monomial_ref = PS::value_type;
+    using coefficient = PS::coefficient;
+    using index_type = PS::index_type;
+    using var = PS::monomial;
+    const monomial_store& m = p.get_monomial_store();
+
+    for(index_type i = 1; i <= num_vars; ++i) {
+      var_to_ostream(o, i);
+      if(i < num_vars)
+        o << ",";
+    }
+    o << "\n";
+    o << characteristic << "\n";
+    bool first_poly = true;
+    for(auto poly_it = p.begin() + 1u; poly_it != p.end(); ++poly_it) {
+      auto poly_id = *poly_it;
+      if(first_poly)
+        first_poly = false;
+      else {
+        o << ",\n";
+      }
+      auto coeff_it = p.get_coefficients(poly_id).begin();
+      bool first = true;
+      for(auto mon_id : p[poly_id]) {
+        if(first) {
+          first = false;
+        } else {
+          if(coefficient_sign(*coeff_it) < 0) {
+            o << " - ";
+          } else {
+            o << " + ";
+          }
+        }
+        bool output_asterisk = false;
+        if(coefficient_is_posneg_neutral(*coeff_it)) {
+          ++coeff_it;
+        } else {
+          output_asterisk = true;
+          o << coefficient_abs(*coeff_it++);
+        }
+        for(auto mon : m[mon_id]) {
+          if(output_asterisk)
+            o << "*";
+          output_asterisk = true;
+          var_to_ostream(o, mon);
+        }
+      }
+    }
+    return o;
+  }
 };
 
 parse_res
@@ -243,5 +309,4 @@ parse_rest_into_polynomial_store(parser_context& ctx, PS& s) {
 
   return parse_rest(ctx, add_cb, boundary_cb);
 }
-
 }

@@ -1,12 +1,13 @@
 #include <array>
+#include <boost/test/unit_test_log.hpp>
 #include <cstdio>
 #include <filesystem>
 #include <string>
 
 #include <boost/test/unit_test.hpp>
 
-#include "parser.hpp"
 #include "kommunopp.hpp"
+#include "parser.hpp"
 
 using namespace kommunopp;
 
@@ -29,15 +30,16 @@ get_parse_tests_location() {
 // They are fed using some input files in the parse_tests subdirectory.
 
 static std::optional<std::string>
-null_parser(std::filesystem::path p) {
-  parser_context ctx;
+invoke_parser(parser_context& ctx,
+              internal::polynomial_store<>& ps,
+              std::filesystem::path p) {
   if(auto err = ctx.open(p); err) {
     return err;
   }
-  return parse(
-    ctx,
-    [](uint32_t) { return std::nullopt; },
-    [](long, long, bool) { return std::nullopt; });
+  std::optional<std::string> err = parse_header(ctx);
+  if(err)
+    return err;
+  return parse_rest_into_polynomial_store(ctx, ps);
 }
 
 BOOST_AUTO_TEST_CASE(parse_files) {
@@ -46,21 +48,37 @@ BOOST_AUTO_TEST_CASE(parse_files) {
   std::filesystem::path dir = *dir_optional;
 
   for(auto& e : std::filesystem::directory_iterator(dir)) {
-    BOOST_REQUIRE(e.is_regular_file());
+    if(e.path().extension() != ".ms" && e.path().extension() != ".poly"
+       && e.path().extension() != ".sympoly") {
+      // Only ms, poly, and sympoly files should be tested. Others may
+      // be temporaries.
+      BOOST_TEST_MESSAGE("Skipping file " << e << " because of extension "
+                                          << e.path().extension());
+      continue;
+    }
+    BOOST_REQUIRE(e.is_regular_file() || e.is_symlink());
+    BOOST_TEST_MESSAGE("Parsing file " << e);
+    parser_context ctx;
+    internal::monomial_store<> ms;
+    internal::polynomial_store<> ps(ms);
     if(e.path().filename().string().starts_with("fail_")) {
       // Expect some parse error.
-      auto ret = null_parser(e);
+      auto ret = invoke_parser(ctx, ps, e);
       BOOST_CHECK_MESSAGE(ret.has_value(),
                           "parsing the input "
                             << e.path().filename()
                             << " did not lead to an error as expected!");
     } else {
       // Expect the parsing to be successful.
-      auto ret = null_parser(e);
+      auto ret = invoke_parser(ctx, ps, e);
       BOOST_CHECK_MESSAGE(!ret.has_value(),
                           "parsing the input " << e.path().filename()
                                                << " did lead to an error:\n"
                                                << *ret);
+      // Can also output the parsed files:
+      // 
+      // if(e.path().extension() == ".ms")
+      //   ctx.to_msolve(std::cout, ps);
     }
   }
 }
