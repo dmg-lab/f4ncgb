@@ -140,18 +140,19 @@ void print_statistics() {
   msg("");
   msg("maximum resident set size:  %22.2f MB",
   maximum_resident_set_size() / static_cast<double>((1<<20)));
-  msg("monomial hashmap hitrate: %22.2f %%", percent(hashmap_hits,hashmap_calls)); 
-  msg("computing ambiguities:    %22.2f (%2.2f %%)", amb_time, percent_d(amb_time,total_time));
-  msg("  computing overlaps:     %22.2f (%2.2f %%)", overlap_time, percent_d(overlap_time,total_time));
-  msg("  computing inclusions:   %22.2f (%2.2f %%)", inclusion_time, percent_d(inclusion_time,total_time));
-  msg("handling critical pairs:  %22.2f (%2.2f %%)", crit_pair_time, percent_d(crit_pair_time,total_time));
-  msg("symbolic preprocessing:   %22.2f (%2.2f %%)", sym_pre_time, percent_d(sym_pre_time,total_time));
-  msg("linear algebra:           %22.2f (%2.2f %%)", reduction_time, percent_d(reduction_time,total_time));
-  msg("  Gauss elimination:      %22.2f (%2.2f %%)", rref_time, percent_d(rref_time,total_time));
-  msg("  CRT:                    %22.2f (%2.2f %%)", crt_time, percent_d(crt_time,total_time));
-  msg("  rat. reconstruction:    %22.2f (%2.2f %%)", ratrec_time, percent_d(ratrec_time,total_time));
-  msg("construct new elements:   %22.2f (%2.2f %%)", new_elements_time, percent_d(new_elements_time,total_time));
-  msg("other:                    %22.2f (%2.2f %%)", other_time, percent_d(other_time,total_time));
+  msg("monomial hashmap products:   %22d", hashmap_calls); 
+  msg("monomial hashmap prodhits: %22.2f %%", percent(hashmap_hits,hashmap_calls)); 
+  msg("computing ambiguities:     %22.2f (%2.2f %%)", amb_time, percent_d(amb_time,total_time));
+  msg("  computing overlaps:      %22.2f (%2.2f %%)", overlap_time, percent_d(overlap_time,total_time));
+  msg("  computing inclusions:    %22.2f (%2.2f %%)", inclusion_time, percent_d(inclusion_time,total_time));
+  msg("handling critical pairs:   %22.2f (%2.2f %%)", crit_pair_time, percent_d(crit_pair_time,total_time));
+  msg("symbolic preprocessing:    %22.2f (%2.2f %%)", sym_pre_time, percent_d(sym_pre_time,total_time));
+  msg("linear algebra:            %22.2f (%2.2f %%)", reduction_time, percent_d(reduction_time,total_time));
+  msg("  Gauss elimination:       %22.2f (%2.2f %%)", rref_time, percent_d(rref_time,total_time));
+  msg("  CRT:                     %22.2f (%2.2f %%)", crt_time, percent_d(crt_time,total_time));
+  msg("  rat. reconstruction:     %22.2f (%2.2f %%)", ratrec_time, percent_d(ratrec_time,total_time));
+  msg("construct new elements:    %22.2f (%2.2f %%)", new_elements_time, percent_d(new_elements_time,total_time));
+  msg("other:                     %22.2f (%2.2f %%)", other_time, percent_d(other_time,total_time));
   msg("");
-  msg("total process time:       %22.2f seconds",  process_time());
+  msg("total process time:        %22.2f seconds",  process_time());
 }
