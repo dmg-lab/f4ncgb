@@ -163,7 +163,7 @@ main(int argc, char** argv) {
   init_all_signal_handers();
 
   std::filesystem::path in = input_name;
-  
+
   parser_context context;
   context.open(in);
   parse_res r = parse_header(context);
@@ -176,8 +176,10 @@ main(int argc, char** argv) {
     n = context.num_blocks;
 
   boost::mp11::mp_with_index<6>(n, [&maxiter, &context](auto N) {
-    f4<N,5> algo;
-    // algo.read_input(context);
+    f4<N, 5> algo;
+    if(auto err = algo.read_input(context)) {
+      die(17, "Error in parsing body of input file.");
+    }
     algo.compute_basis(maxiter, 13);
   });
 

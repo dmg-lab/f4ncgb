@@ -6,10 +6,10 @@
 #include <coroutine>
 #include <cstdint>
 #include <limits>
+#include <map>
 #include <span>
 #include <string>
 #include <utility>
-#include <map>
 #include <vector>
 
 #include <boost/align/align_down.hpp>
@@ -114,8 +114,10 @@ struct f4 {
     , suffix_trie() {}
 
   //------------------------------------------------------------------------------
-  inline void read_input(parser_context& context) {
+  inline parse_res read_input(parser_context& context) {
     parse_res res = parse_rest_into_polynomial_store(context, poly);
+    context.to_msolve(std::cout, poly);
+    return res;
   }
 
   void interreduce_and_add_to_basis(std::vector<poly_id> input) {
@@ -135,7 +137,6 @@ struct f4 {
     msg("Adding %d input elements to basis.", new_elements.size());
 
     update_basis_and_amb(new_elements);
-    
   }
 
   //------------------------------------------------------------------------------
@@ -148,33 +149,7 @@ struct f4 {
     // add something at 0th position
     // so that index 0 remains free
     basis.push_back(0);
-    poly_id p1
-      = poly.add_polynomial({ { 1l, { 3, 2, 3 } }, { -1l, { 2, 1, 2 } } });
-    poly_id p2
-      = poly.add_polynomial({ { 1l, { 3, 1, 2 } }, { -1l, { 1, 2, 1 } } });
-    poly_id p3
-      = poly.add_polynomial({ { 1l, { 3, 1, 3 } }, { -1l, { 2, 3, 1 } } });
-    poly_id p4 = poly.add_polynomial({ { 1l, { 3, 3, 3 } },
-                                       { 1l, { 2, 2, 2 } },
-                                       { 1l, { 1, 2, 3 } },
-                                       { 1l, { 1, 1, 1 } } });
-    std::vector<poly_id> input = { p1, p2, p3, p4 };
-
-    /* poly_id p1 = poly.add_polynomial({ { 1l, { 1, 1, 1 } }, { -1l, {} } });
-     */
-    /* poly_id p2 = poly.add_polynomial({ { 1l, { 2, 2, 2 } }, { -1l, {} } });
-     */
-    /* poly_id p3 = poly.add_polynomial( */
-    /*   { { 1l, { 2, 1, 2, 1, 1, 2, 1, 2, 1, 1 } }, { -1l, {} } }); */
-    /* std::vector<poly_id> input = { p1, p2, p3 }; */
-
-    /* poly_id p1 = poly.add_polynomial({ { 1l, { 3, 2 } }, { 1l, { 2, 1 } } });
-     */
-    /* poly_id p2 = poly.add_polynomial({ { 1l, { 3, 3 } }, */
-    /*                                    { 1l, { 3, 2 } }, */
-    /*                                    { -1l, { 2, 3 } }, */
-    /*                                    { -1l, { 2, 2 } } }); */
-    /* std::vector<poly_id> input = { p1, p2 }; */
+    std::vector<poly_id> input(poly.begin() + 1, poly.end());
 
     // add input to critical pairs
     interreduce_and_add_to_basis(input);
@@ -370,7 +345,7 @@ struct f4 {
   //------------------------------------------------------------------------------
   poly_id find_reducer(mon_id m, bool strategy = false) {
 
-    auto &reducers = prefix_trie.divisors(mons[m]);
+    auto& reducers = prefix_trie.divisors(mons[m]);
     if(reducers.empty())
       return 0;
 
@@ -411,7 +386,7 @@ struct f4 {
 
     size_t k = 0;
     size_t cur_i = idxs[0].first;
-    for(auto [i,j] : idxs) {
+    for(auto [i, j] : idxs) {
       // a new polynomial starts
       if(i != cur_i) {
         res.push_back(poly.add_polynomial(p));
