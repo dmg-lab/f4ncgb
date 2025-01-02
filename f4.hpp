@@ -116,7 +116,8 @@ struct f4 {
   //------------------------------------------------------------------------------
   inline parse_res read_input(parser_context& context) {
     parse_res res = parse_rest_into_polynomial_store(context, poly);
-    context.to_msolve(std::cout, poly);
+    // Print in case of doubt.
+    // context.to_msolve(std::cout, poly);
     return res;
   }
 
