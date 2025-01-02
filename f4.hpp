@@ -370,7 +370,7 @@ struct f4 {
   //------------------------------------------------------------------------------
   poly_id find_reducer(mon_id m, bool strategy = false) {
 
-    auto reducers = prefix_trie.divisors(mons[m]);
+    auto &reducers = prefix_trie.divisors(mons[m]);
     if(reducers.empty())
       return 0;
 

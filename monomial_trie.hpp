@@ -175,13 +175,13 @@ struct monomial_trie {
   }
   // -----------------------------------------------------------------
 
-  std::vector<match> inline divisors(const std::span<const V>& dividend) {
-    std::vector<match> res;
+  inline const std::vector<match>& divisors(const std::span<const V>& dividend) {
     size_t D = dividend.size();
-    res.reserve(D);
+    divisors_res.clear();
+    divisors_res.reserve(D);
     for(size_t d = 1; d <= D; d++)
-      prefixes(dividend.last(d), res, D - d);
-    return res;
+      prefixes(dividend.last(d), divisors_res, D - d);
+    return divisors_res;
   }
   // -----------------------------------------------------------------
   void inline overlaps_and_inclusions(const std::span<const V>& word,
@@ -204,6 +204,9 @@ struct monomial_trie {
       }
     }
   }
+
+private:
+    std::vector<match> divisors_res;
 };
 }
 
