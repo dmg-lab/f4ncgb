@@ -22,6 +22,36 @@ set(KOMMUNOPP_TARGETS
   freegb.cpp
 )
 
+if(isMultiConfig)
+    if(NOT "Sanitize" IN_LIST CMAKE_CONFIGURATION_TYPES)
+        list(APPEND CMAKE_CONFIGURATION_TYPES Sanitize)
+    endif()
+else()
+    set(allowedBuildTypes Sanitize Debug Release RelWithDebInfo MinSizeRel)
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "${allowedBuildTypes}")
+
+    if(CMAKE_BUILD_TYPE AND NOT CMAKE_BUILD_TYPE IN_LIST allowedBuildTypes)
+        message(FATAL_ERROR "Invalid build type: ${CMAKE_BUILD_TYPE}")
+    endif()
+endif()
+
+
+set(CMAKE_C_FLAGS_SANITIZE
+    "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address -fno-omit-frame-pointer -fsanitize=undefined" CACHE STRING
+    "Flags used by the C compiler for Sanitize build type or configuration." FORCE)
+
+set(CMAKE_CXX_FLAGS_SANITIZE
+    "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address -fno-omit-frame-pointer -fsanitize=undefined" CACHE STRING
+    "Flags used by the C++ compiler for Sanitize build type or configuration." FORCE)
+
+set(CMAKE_EXE_LINKER_FLAGS_SANITIZE
+    "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} -fsanitize=address -fsanitize=undefined" CACHE STRING
+    "Linker flags to be used to create executables for Sanitize build type." FORCE)
+
+set(CMAKE_SHARED_LINKER_FLAGS_SANITIZE
+    "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} -fsanitize=address -fsanitize=undefined" CACHE STRING
+    "Linker lags to be used to create shared libraries for Sanitize build type." FORCE)
+
 add_library(kommunopp STATIC ${KOMMUNOPP_SRCS})
 
 add_executable(kommunopp_test ${KOMMUNOPP_TEST_SRCS})
@@ -56,6 +86,7 @@ target_compile_options(freegb PRIVATE
           -Wall -Wextra -Wsign-conversion>
      $<$<CXX_COMPILER_ID:MSVC>:
           /W4>)
+
 
 target_link_libraries(kommunopp PUBLIC Boost::boost GMP::GMP)
 target_link_libraries(kommunopp_test PUBLIC Boost::unit_test_framework)
