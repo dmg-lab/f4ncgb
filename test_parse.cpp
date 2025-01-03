@@ -78,7 +78,7 @@ BOOST_AUTO_TEST_CASE(parse_files) {
       // Can also output the parsed files:
       // 
       // if(e.path().extension() == ".ms")
-         ctx.to_msolve(std::cout, ps);
+      //   ctx.to_msolve(std::cout, ps);
     }
   }
 }
