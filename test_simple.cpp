@@ -212,12 +212,15 @@ BOOST_AUTO_TEST_CASE(parse_small_ms_into_polynomial) {
 
   parser_context ctx;
   ctx.open(input);
-  parse_res r = parse_header(ctx);
+  parse_res r = ctx.parse_header();
   BOOST_REQUIRE(!r.has_value());
 
-  BOOST_CHECK(ctx.characteristic == 0);
-  BOOST_CHECK(ctx.num_vars == 2);
-  BOOST_CHECK(ctx.num_blocks == 1);
+  BOOST_CHECK(ctx.characteristic() == 0);
+  BOOST_CHECK(ctx.num_vars() == 2);
+  BOOST_CHECK(ctx.num_blocks() == 1);
+  const auto& b0 = ctx.block(0);
+  BOOST_CHECK(b0[0] == 1);
+  BOOST_CHECK(b0[1] == 2);
 
   r = parse_rest_into_polynomial_store(ctx, ps);
   BOOST_REQUIRE(!r.has_value());

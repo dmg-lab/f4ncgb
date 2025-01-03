@@ -37,7 +37,7 @@ class parser_symbolic_context {
   parser_symbolic_context() = default;
   ~parser_symbolic_context() = default;
 
-  inline std::string_view id_to_str(id i) { return m.right.at(i); }
+  inline std::string_view id_to_str(id i) const { return m.right.at(i); }
   inline id str_to_id(const std::string& s) {
     auto it = m.left.find(s);
     if(it != m.left.end()) {
@@ -60,27 +60,33 @@ class parser_context {
   size_t last_col = 0;
   size_t line = 1;
   size_t col = 1;
+  size_t num_blocks_ = 0;
   std::string filename = "";
   std::string ident = "";
   int c = 0;
+  std::vector<std::vector<parser_symbolic_context::id>> blocks;
 
-  public:
-  parser_context(FILE* in)
-    : f(in) {}
-  parser_context() = default;
-  ~parser_context() = default;
+  parse_res impl_msolve_header(char first_char, char second_char);
+  parse_res impl_msolve(parse_add_cb add_cb,
+                        void* add_cb_userdata,
+                        parse_monomial_boundary_cb boundary_cb,
+                        void* boundary_cb_userdata);
 
-  size_t characteristic = 0;
-  size_t num_blocks = 0;
-  size_t num_vars = 0;
-  std::function<parse_res(parser_context& ctx,
-                          parse_add_cb add_cb,
+  template<parser_symbolic_context::id (*getV)(parser_context&)>
+  parse_res impl_poly_gen(parse_add_cb add_cb,
                           void* add_cb_userdata,
                           parse_monomial_boundary_cb boundary_cb,
-                          void* boundary_cb_userdata)>
-    impl;
+                          void* boundary_cb_userdata);
 
-  parse_res open(std::filesystem::path p);
+  parse_res impl_poly(parse_add_cb add_cb,
+                      void* add_cb_userdata,
+                      parse_monomial_boundary_cb boundary_cb,
+                      void* boundary_cb_userdata);
+
+  parse_res impl_sympoly(parse_add_cb add_cb,
+                         void* add_cb_userdata,
+                         parse_monomial_boundary_cb boundary_cb,
+                         void* boundary_cb_userdata);
 
   inline int current_c() const { return c; }
 
@@ -142,6 +148,12 @@ class parser_context {
     }
     return c;
   }
+  inline int swallow_whitespace_and_newline() {
+    while(c == ' ' || c == '\t' || c == '\n') {
+      getc();
+    }
+    return c;
+  }
 
   static inline bool msolve_ident_filter(char c) {
     return c != '-' && c != '/' && c != '*' && c != '+' && c != ',' && c != ' '
@@ -170,16 +182,56 @@ class parser_context {
     }
   }
 
-  inline std::string_view id_to_str(parser_symbolic_context::id i) {
+  void init_symbols() { symbols = std::make_unique<parser_symbolic_context>(); }
+
+  size_t characteristic_ = 0;
+  size_t num_vars_ = 0;
+
+  static parser_symbolic_context::id read_numeric_var(parser_context& ctx) {
+    return ctx.read_positive_int();
+  }
+  static parser_symbolic_context::id read_symbolic_var(parser_context& ctx) {
+    assert(ctx.has_symbols());
+    if(ctx.current_c() == '0') {
+      ctx.getc(); // Swallow the 0.
+      return 0;
+    }
+    auto ident = ctx.read_ident(parser_context::sympoly_ident_filter);
+    return ctx.str_to_id(ident);
+  }
+
+  public:
+  parser_context(FILE* in)
+    : f(in) {}
+  parser_context() = default;
+  ~parser_context() = default;
+
+  size_t num_blocks() const { return blocks.size(); }
+  const std::vector<parser_symbolic_context::id> block(size_t id) const {
+    assert(id < blocks.size());
+    return blocks[id];
+  }
+
+  std::function<parse_res(parse_add_cb add_cb,
+                          void* add_cb_userdata,
+                          parse_monomial_boundary_cb boundary_cb,
+                          void* boundary_cb_userdata)>
+    impl;
+
+  parse_res open(std::filesystem::path p);
+
+  inline std::string_view id_to_str(parser_symbolic_context::id i) const {
     return symbols->id_to_str(i);
   }
   inline parser_symbolic_context::id str_to_id(const std::string& s) {
     return symbols->str_to_id(s);
   }
 
-  void init_symbols() { symbols = std::make_unique<parser_symbolic_context>(); }
+  bool has_symbols() const { return static_cast<bool>(symbols); }
+  size_t characteristic() const { return characteristic_; }
+  size_t num_vars() const { return num_vars_; }
 
-  bool has_symbols() { return static_cast<bool>(symbols); }
+  parse_res parse_header();
 
   std::ostream& var_to_ostream(std::ostream& o, parser_symbolic_context::id i) {
     if(has_symbols())
@@ -191,19 +243,16 @@ class parser_context {
   template<class PS>
   std::ostream& to_msolve(std::ostream& o, const PS& p) {
     using monomial_store = PS::monomial_store_;
-    using monomial_ref = PS::value_type;
-    using coefficient = PS::coefficient;
     using index_type = PS::index_type;
-    using var = PS::monomial;
     const monomial_store& m = p.get_monomial_store();
 
-    for(index_type i = 1; i <= num_vars; ++i) {
+    for(index_type i = 1; i <= num_vars_; ++i) {
       var_to_ostream(o, i);
-      if(i < num_vars)
+      if(i < num_vars_)
         o << ",";
     }
     o << "\n";
-    o << characteristic << "\n";
+    o << characteristic_ << "\n";
     bool first_poly = true;
     for(auto poly_it = p.begin() + 1u; poly_it != p.end(); ++poly_it) {
       auto poly_id = *poly_it;
@@ -239,12 +288,10 @@ class parser_context {
         }
       }
     }
+    o << std::endl;
     return o;
   }
 };
-
-parse_res
-parse_header(parser_context& ctx);
 
 template<typename AddCB, typename BoundaryCB>
 parse_res
@@ -262,13 +309,13 @@ parse_rest(parser_context& ctx, AddCB add_cb, BoundaryCB boundary_cb) {
     return (*cb)(numerator, denominator, is_rational);
   };
 
-  return ctx.impl(ctx, add_cb_impl, &add_cb, boundary_cb_impl, &boundary_cb);
+  return ctx.impl(add_cb_impl, &add_cb, boundary_cb_impl, &boundary_cb);
 }
 
 template<typename AddCB, typename BoundaryCB>
 parse_res
 parse(parser_context& ctx, AddCB add_cb, BoundaryCB boundary_cb) {
-  parse_res err = parse_header(ctx);
+  parse_res err = ctx.parse_header();
   if(err)
     return err;
   return parse_rest(ctx, add_cb, boundary_cb);

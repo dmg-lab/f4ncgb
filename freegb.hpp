@@ -166,14 +166,14 @@ main(int argc, char** argv) {
 
   parser_context context;
   context.open(in);
-  parse_res r = parse_header(context);
+  parse_res r = context.parse_header();
   if(r.has_value())
     die(17, "Error in parsing input file.");
 
   size_t maxiter = 100;
   size_t n = 0;
-  if(context.num_blocks > 1)
-    n = context.num_blocks;
+  if(context.num_blocks() > 1)
+    n = context.num_blocks();
 
   boost::mp11::mp_with_index<6>(n, [&maxiter, &context](auto N) {
     f4<N, 5> algo;

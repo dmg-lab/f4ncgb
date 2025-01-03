@@ -36,7 +36,7 @@ invoke_parser(parser_context& ctx,
   if(auto err = ctx.open(p); err) {
     return err;
   }
-  std::optional<std::string> err = parse_header(ctx);
+  std::optional<std::string> err = ctx.parse_header();
   if(err)
     return err;
   return parse_rest_into_polynomial_store(ctx, ps);
@@ -78,7 +78,7 @@ BOOST_AUTO_TEST_CASE(parse_files) {
       // Can also output the parsed files:
       // 
       // if(e.path().extension() == ".ms")
-      //   ctx.to_msolve(std::cout, ps);
+         ctx.to_msolve(std::cout, ps);
     }
   }
 }
