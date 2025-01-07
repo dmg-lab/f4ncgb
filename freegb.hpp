@@ -121,7 +121,7 @@ main(int argc, char** argv) {
       if(prime >= 0) {
         die(err_char_sel,
             "Characteristic has alreday been selected (try '-h')");
-      } else if(i + 1 >= argc) {
+      } else if(i + 1 >= argc or !strncmp(argv[i + 1], "-", 1)) {
         die(err_char_sel, "No characteristic provided (try '-h')");
       } else {
         prime = std::atoi(argv[i + 1]);
@@ -131,7 +131,7 @@ main(int argc, char** argv) {
     } else if(!strcmp(argv[i], "-m")) {
       if(maxiter > 0) {
         die(err_maxiter_sel, "Maxiter has alreday been selected (try '-h')");
-      } else if(i + 1 >= argc) {
+      } else if(i + 1 >= argc or !strncmp(argv[i + 1], "-", 1)) {
         die(err_maxiter_sel, "No maxiter value provided (try '-h')");
       } else {
         maxiter = std::strtoul(argv[i + 1], 0, 10);
@@ -141,7 +141,7 @@ main(int argc, char** argv) {
     } else if(!strcmp(argv[i], "-d")) {
       if(maxdeg > 0) {
         die(err_maxdeg_sel, "Maxdeg has alreday been selected (try '-h')");
-      } else if(i + 1 >= argc) {
+      } else if(i + 1 >= argc or !strncmp(argv[i + 1], "-", 1)) {
         die(err_maxdeg_sel, "No maxdeg value provided (try '-h')");
       } else {
         maxdeg = std::strtoul(argv[i + 1], 0, 10);
@@ -151,7 +151,7 @@ main(int argc, char** argv) {
     } else if(!strcmp(argv[i], "-t")) {
       if(threads > 0) {
         die(err_thread_sel, "Threads has alreday been selected (try '-h')");
-      } else if(i + 1 >= argc) {
+      } else if(i + 1 >= argc or !strncmp(argv[i + 1], "-", 1)) {
         die(err_thread_sel, "No number of threads provided (try '-h')");
       } else {
         threads = std::strtoul(argv[i + 1], 0, 10);
