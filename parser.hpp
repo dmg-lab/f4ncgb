@@ -335,6 +335,7 @@ parse_rest_into_polynomial_store(parser_context& ctx, PS& s) {
     if(id) {
       tmp_monomial.push_back(id);
     } else {
+      s.sort_polynomial(tmp_polynomial);
       s.add_polynomial(tmp_polynomial);
       tmp_polynomial.clear();
     }

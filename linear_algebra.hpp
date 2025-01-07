@@ -516,7 +516,6 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
       pivots piv = gauss_elim(*nmod_mat, pool, mod, trace);
       auto end = std::chrono::high_resolution_clock().now();
       std::chrono::duration<double> elapsed = end - start;
-      std::cout << "RREF took " << (double)elapsed.count() << "\n";
       rref_time += elapsed.count();
 
       if(cmp_pivots(best_piv, piv) <= 0) {

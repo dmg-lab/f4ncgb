@@ -1,6 +1,7 @@
 #ifndef FREEGB_H
 #define FREEGB_H
 
+#include <concepts>
 #include <filesystem>
 #include <memory>
 #include <set>

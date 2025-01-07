@@ -157,32 +157,6 @@ struct f4 {
     basis.push_back(0);
     std::vector<poly_id> input(poly.begin() + 1, poly.end());
 
-    // poly_id p1
-    //   = poly.add_polynomial({ { 1l, { 3, 2, 3 } }, { -1l, { 2, 1, 2 } } });
-    // poly_id p2
-    //   = poly.add_polynomial({ { 1l, { 3, 1, 2 } }, { -1l, { 1, 2, 1 } } });
-    // poly_id p3
-    //   = poly.add_polynomial({ { 1l, { 3, 1, 3 } }, { -1l, { 2, 3, 1 } } });
-    // poly_id p4 = poly.add_polynomial({ { 1l, { 3, 3, 3 } },
-    //                                    { 1l, { 2, 2, 2 } },
-    //                                    { 1l, { 1, 2, 3 } },
-    //                                    { 1l, { 1, 1, 1 } } });
-    // std::vector<poly_id> input = { p1, p2, p3, p4 };
-    /* poly_id p1 = poly.add_polynomial({ { 1l, { 1, 1, 1 } }, { -1l, {} } });
-     */
-    /* poly_id p2 = poly.add_polynomial({ { 1l, { 2, 2, 2 } }, { -1l, {} } });
-     */
-    /* poly_id p3 = poly.add_polynomial( */
-    /*   { { 1l, { 2, 1, 2, 1, 1, 2, 1, 2, 1, 1 } }, { -1l, {} } }); */
-    /* std::vector<poly_id> input = { p1, p2, p3 }; */
-
-    // poly_id p1 = poly.add_polynomial({ { 1l, { 3, 2 } }, { 1l, { 2, 1 } } });
-    // poly_id p2 = poly.add_polynomial({ { 1l, { 3, 3 } },
-    //                                    { 1l, { 3, 2 } },
-    //                                    { -1l, { 2, 3 } },
-    //                                    { -1l, { 2, 2 } } });
-    // std::vector<poly_id> input = { p1, p2 };
-
     // add input to critical pairs
     interreduce_and_add_to_basis(input);
 
@@ -246,9 +220,7 @@ struct f4 {
 
     auto minimal_amb = amb.begin();
     size_t d = minimal_amb->first;
-    size_t i = 0;
     for(const auto& a : minimal_amb->second) {
-      /* if(i++ < 5) */
         crit_pairs.insert(to_crit_pair(a));
     }
     amb.erase(d);
@@ -636,7 +608,7 @@ struct f4 {
 
     if(mat->nrow < 20) {
       std::stable_sort(
-        mat->rows, mat->rows + mat->nrow, [&mat](auto a, auto b) {
+        mat->rows, mat->rows + mat->nrow, [](auto a, auto b) {
           auto idx_a = a.indices[0];
           auto idx_b = b.indices[0];
           if(idx_a != idx_b)

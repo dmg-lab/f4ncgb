@@ -440,7 +440,8 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     return o;
   }
 
-  inline bool is_divisible(const std::span<const V>& a, const std::span<const V>& b) {
+  inline bool is_divisible(const std::span<const V>& a,
+                           const std::span<const V>& b) {
     return std::ranges::search(a, b).begin() != a.end();
   }
   inline bool is_divisible(I a, I b) {
@@ -588,6 +589,13 @@ class polynomial_store
       return std::span<V>();
     assert(idx < this->get_metadata(id).length);
     return store_.get((*this)[id][idx]);
+  }
+
+  inline void sort_polynomial(std::vector<std::pair<coefficient, I>>& p) {
+    std::stable_sort(
+      p.begin(), p.end(), [this](const auto& a, const auto& b) {
+        return this->store_.cmp(b.second, a.second);
+      });
   }
 
   inline I get_lm_id(I id) const {
