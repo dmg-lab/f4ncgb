@@ -94,7 +94,6 @@ static inline void scalar_one(fmpq_t a) { fmpq_one(a); }
 static inline void scalar_neg(ulong* a, const ulong* b, const field_t field) {
 	*a = field->pvec[0].n - *b;
 }
-static inline void scalar_neg(fmpq_t a, const fmpq_t b, const field_t field) { fmpq_neg(a, b); }
 
 template <typename T>
 inline void scalar_neg(scalar_s<T>* a, const scalar_s<T>* b, const field_t field) {
@@ -105,13 +104,11 @@ inline void scalar_neg(scalar_s<T>* a, const scalar_s<T>* b, const field_t field
 static inline void scalar_inv(ulong* a, const ulong* b, const field_t field) {
 	*a = nmod_inv(*b, field->pvec[0]);
 }
-static inline void scalar_inv(fmpq_t a, const fmpq_t b, const field_t field) { fmpq_inv(a, b); }
 
 
 static inline void scalar_add(ulong* a, const ulong* b, const ulong* c, const field_t field) {
 	*a = _nmod_add(*b, *c, field->pvec[0]);
 }
-static inline void scalar_add(fmpq_t a, const fmpq_t b, const fmpq_t c, const field_t field) { fmpq_add(a, b, c); }
 
 
 static inline void scalar_sub(ulong* a, const ulong* b, const ulong* c, const field_t field) {

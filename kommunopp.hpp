@@ -431,7 +431,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     return (*this)[get_product_id(a, b)];
   }
 
-  std::ostream& print_monomial(I i, std::ostream& o) {
+  std::ostream& print_monomial(I i, std::ostream& o) const {
     auto m = (*this)[i];
     o << "(";
     for(const auto& v : m)
@@ -440,6 +440,12 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     return o;
   }
 
+  inline bool is_divisible(const std::span<const V>& a, const std::span<const V>& b) {
+    return std::ranges::search(a, b).begin() != a.end();
+  }
+  inline bool is_divisible(I a, I b) {
+    return is_divisible((*this)[a], (*this)[b]);
+  }
   //-----------------------------------------------------------------
   inline bool cmp(I a, I b) {
     // this is a strict order
@@ -460,15 +466,15 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
       a_it.begin(), a_it.end(), b_it.begin(), b_it.end());
   }
 
-  std::ostream& print_ambiguity(const ambiguity& a, std::ostream& o) {
+  std::ostream& print_ambiguity(const ambiguity& a, std::ostream& o) const {
     o << "(" << a.degree() << ", ";
-    this->print_monomial(a.ai(), o);
+    print_monomial(a.ai(), o);
     o << ", ";
-    this->print_monomial(a.ci(), o);
+    print_monomial(a.ci(), o);
     o << ", ";
-    this->print_monomial(a.aj(), o);
+    print_monomial(a.aj(), o);
     o << ", ";
-    this->print_monomial(a.cj(), o);
+    print_monomial(a.cj(), o);
     o << ", " << static_cast<int>(a.i()) << ", " << static_cast<int>(a.j())
       << ")\n";
     return o;

@@ -184,6 +184,7 @@ main(int argc, char** argv) {
   });
 
   print_statistics();
+  reset_all();
 
   return res;
 }

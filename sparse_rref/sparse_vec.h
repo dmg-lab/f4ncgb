@@ -8,7 +8,7 @@ template<typename T>
 struct sparse_vec_struct {
   ulong nnz = 0;
   ulong alloc = 0;
-  slong* indices = NULL;
+  ulong* indices = NULL;
   T* entries = NULL;
 };
 
@@ -65,7 +65,7 @@ inline void
 sparse_vec_init(sparse_vec_t<T> vec, ulong alloc = 1, ulong rank = 1) {
   vec->nnz = 0;
   vec->alloc = alloc;
-  vec->indices = s_malloc<slong>(vec->alloc);
+  vec->indices = s_malloc<ulong>(vec->alloc);
 
   if constexpr(is_scalar_s<T>::value) {
     using S = typename scalar_s_decay<T>::type;
@@ -101,11 +101,11 @@ sparse_vec_clear(sparse_vec_t<T> vec) {
 
 template<typename T>
 inline T*
-sparse_vec_entry(sparse_vec_t<T> vec, slong index, const bool isbinary = true) {
+sparse_vec_entry(sparse_vec_t<T> vec, ulong index, const bool isbinary = true) {
   if(vec->nnz == 0 || index < vec->indices[0]
      || index > vec->indices[vec->nnz - 1])
     return NULL;
-  slong* ptr;
+  ulong* ptr;
   if(isbinary)
     ptr = binarysearch(vec->indices, vec->indices + vec->nnz, index);
   else

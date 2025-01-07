@@ -3,10 +3,12 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <map>
 #include <sys/errno.h>
 #include <utility>
 #include <vector>
 
+#include <boost/bimap.hpp>
 #include <boost/multiprecision/gmp.hpp>
 
 #include "gmp.h"
@@ -300,29 +302,24 @@ rational_reconstruction(std::vector<gmp_rational>& entries,
 }
 //------------------------------------------------------------------------------
 template<typename T>
-void inline copy_to_buffer(T* buffer, size_t N, uint32_vec_t vec) {
+void inline copy_to_buffer(T* buffer, uint32_vec_t vec) {
   for(size_t i = 0; i < vec->nnz; i++)
     buffer[*(vec->indices + i)] = *(vec->entries + i);
 }
 //------------------------------------------------------------------------------
 void inline copy_from_buffer_and_clear(int64_t* buffer,
-                                       size_t N,
+                                       std::vector<size_t>& buffer_ids,
                                        uint32_vec_t vec) {
-  size_t nnz = 0;
-  for(size_t i = 0; i < N; i++)
-    if(buffer[i] != 0)
-      nnz++;
+  size_t nnz = buffer_ids.size();
 
   sparse_vec_clear(vec);
   sparse_vec_realloc(vec, nnz);
   vec->nnz = nnz;
+  
   size_t j = 0;
-  for(size_t i = 0; i < N; i++) {
-    uint32_t c = (uint32_t)buffer[i];
-    if(c == 0)
-      continue;
+  for(size_t i : buffer_ids) {
     vec->indices[j] = i;
-    vec->entries[j] = c;
+    vec->entries[j] = (uint32_t)buffer[i];
     j++;
     buffer[i] = 0;
   }
@@ -340,10 +337,12 @@ void inline normalize_row(uint32_vec_t vec, nmod_t mod) {
 // Compute x - ay mod p
 // but leave out the 0th entry of y
 // because that will be zero anyway
-void inline xmay(int64_t* x, uint64_t a, uint32_vec_t y, uint64_t p2) {
+void inline xmay(int64_t* x, int64_t a, uint32_vec_t y, uint64_t p2) {
+  size_t j;
+  int64_t t;
   for(size_t i = 1; i < y->nnz; i++) {
-    auto j = y->indices[i];
-    int64_t t = x[j];
+    j = y->indices[i];
+    t = x[j];
     t -= a * y->entries[i];
     t += (t >> 63) & p2;
     x[j] = t;
@@ -351,11 +350,7 @@ void inline xmay(int64_t* x, uint64_t a, uint32_vec_t y, uint64_t p2) {
 }
 //------------------------------------------------------------------------------
 pivots
-gauss_elim(uint32_mat_t mat,
-           field_t F,
-           BS::thread_pool& pool,
-           rref_option_t opt,
-           nmod_t mod) {
+gauss_elim(uint32_mat_t mat, BS::thread_pool& pool, nmod_t mod, bool* trace) {
   // first canonicalize, sort and compress the matrix
   sparse_mat_compress(mat);
 
@@ -367,21 +362,23 @@ gauss_elim(uint32_mat_t mat,
   uint64_t p = mod.n;
   uint64_t p2 = p * p;
 
+  std::vector<size_t> buffer_ids;
+  buffer_ids.reserve(32);
+
   // sort rows by first index and nnz
-  std::vector<size_t> rowperm(mat->nrow);
-  for(size_t i = 0; i < mat->nrow; i++)
-    rowperm[i] = i;
-  std::stable_sort(rowperm.begin(), rowperm.end(), [&mat](size_t a, size_t b) {
-    auto idx_a = mat->rows[a].indices[0];
-    auto idx_b = mat->rows[b].indices[0];
-    if(idx_a != idx_b)
-      return idx_a > idx_b;
-    auto nnz_a = mat->rows[a].nnz;
-    auto nnz_b = mat->rows[b].nnz;
-    return nnz_a < nnz_b;
+  std::sort(mat->rows, mat->rows + mat->nrow, [](auto& r1, auto& r2) {
+    auto id1 = r1.indices[0];
+    auto id2 = r2.indices[0];
+    if(id1 != id2)
+      return id1 > id2;
+    return r1.nnz < r2.nnz;
   });
 
-  for(size_t r : rowperm) {
+  for(size_t r = 0; r < mat->nrow; r++) {
+
+    if(trace[r])
+      continue;
+
     auto row = sparse_mat_row(mat, r);
     auto c = row->indices[0];
 
@@ -393,31 +390,38 @@ gauss_elim(uint32_mat_t mat,
     }
 
     // we already have a pivot => reduce this row by all pivots
-    copy_to_buffer(buffer, mat->ncol, row);
+    copy_to_buffer(buffer, row);
+    buffer_ids.clear();
 
     // reduce current row with all pivots
+    auto s = std::chrono::high_resolution_clock().now();
     for(size_t i = c; i < mat->ncol; i++) {
-      auto cc = buffer[i];
+      int64_t cc = buffer[i];
+      if(cc == 0)
+        continue;
       cc %= p;
       buffer[i] = cc;
       if(cc == 0)
         continue;
       auto rr = pivots[i];
-      if(rr < 0)
+      if(rr < 0) {
+        buffer_ids.push_back(i);
         continue;
+      }
       buffer[i] = 0;
       xmay(buffer, cc, sparse_mat_row(mat, rr), p2);
     }
-    // normalize buffer to be 0 <= buffer < p
-    for(size_t i = c; i < mat->ncol; i++)
-      buffer[i] %= p;
+    auto e = std::chrono::high_resolution_clock().now();
+    std::chrono::duration<double> el = e-s;
+    other_time += el.count();
 
-    // if we have a zero row, do nothing
-    if(std::all_of(
-         buffer, buffer + mat->ncol, [](int64_t v) { return v == 0; }))
+    // we have a zero row
+    if(buffer_ids.empty()) {
+      trace[r] = true;
       continue;
+    }
 
-    copy_from_buffer_and_clear(buffer, mat->ncol, row);
+    copy_from_buffer_and_clear(buffer, buffer_ids, row);
     normalize_row(row, mod);
     pivots[row->indices[0]] = r;
   }
@@ -437,7 +441,7 @@ std::vector<size_t> inline compute_relevant_rows(
   std::vector<uint32_mat_t*>& rrefs) {
 
   std::vector<size_t> relevant_rows;
-  std::unordered_set<slong> old_pivot_columns;
+  std::unordered_set<ulong> old_pivot_columns;
 
   for(size_t i = 0; i < mat->nrow; i++)
     old_pivot_columns.insert(sparse_mat_row(mat, i)->indices[0]);
@@ -464,12 +468,6 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
                         bool interreduce = false,
                         bool proof = true) {
   field_t F;
-  rref_option_t opt;
-  opt->verbose = true;
-  opt->is_back_sub = false;
-  opt->print_step = 100;
-  opt->pivot_dir = false;
-  opt->search_depth = INT_MAX;
 
   // TODO : adapt
   BS::thread_pool pool(4);
@@ -484,6 +482,10 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
 
   std::vector<gmp_rational> rat_entries;
   std::vector<std::pair<size_t, size_t>> idxs;
+
+  bool* trace = new bool[mat->nrow];
+  for(size_t i = 0; i < mat->nrow; i++)
+    trace[i] = false;
 
   size_t i = 0;
 
@@ -511,9 +513,10 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
       mat_mod(*nmod_mat, mat, mod);
 
       auto start = std::chrono::high_resolution_clock().now();
-      pivots piv = gauss_elim(*nmod_mat, F, pool, opt, mod);
+      pivots piv = gauss_elim(*nmod_mat, pool, mod, trace);
       auto end = std::chrono::high_resolution_clock().now();
       std::chrono::duration<double> elapsed = end - start;
+      std::cout << "RREF took " << (double)elapsed.count() << "\n";
       rref_time += elapsed.count();
 
       if(cmp_pivots(best_piv, piv) <= 0) {
@@ -560,6 +563,7 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
     start = std::chrono::high_resolution_clock().now();
     bool success
       = rational_reconstruction(rat_entries, crt_entries, prod, idxs.size());
+
     for(size_t i = 0; i < idxs.size(); i++)
       fmpz_clear(crt_entries + i);
     delete[] crt_entries;
@@ -570,6 +574,9 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
     if(!success) {
       msg("Reconstruction unsuccessfull. Increasing bound.");
       M = prod * p * p;
+      // reset trace
+      for(size_t i = 0; i < mat->nrow; i++)
+        trace[i] = false;
       continue;
     }
 
@@ -578,6 +585,8 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
   }
   for(const auto& rref : rrefs)
     sparse_mat_clear(*rref);
+
+  delete[] trace;
 
   return std::make_pair(idxs, rat_entries);
 }

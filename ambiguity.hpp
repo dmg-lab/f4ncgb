@@ -2,55 +2,71 @@
 #define AMBIGUITY_H
 
 #include <algorithm>
-#include <concepts>
 #include <boost/functional/hash.hpp>
+#include <span>
 
 namespace kommunopp {
 
 template<typename I>
-size_t compute_hash(const std::array<I,7>& values) {
-    size_t seed = 0;
-    for (I value : values)
-         boost::hash_combine(seed, value);
-    return seed;
+size_t
+compute_hash(const std::array<I, 7>& values) {
+  size_t seed = 0;
+  for(I value : values)
+    boost::hash_combine(seed, value);
+  return seed;
 }
 
 // container to store when two monomials overlaps
 template<typename I>
 struct ambiguity {
-    std::array<I, 7> values;
-    size_t hash_;
-    
-    ambiguity(I d, I i, I j, I ai, I ci, I aj, I cj) {
-        values[0] = d;
-        values[1] = i; values[2] = j;
-        values[3] = ai; values[4] = ci;
-        values[5] = aj; values[6] = cj;
-        hash_ = compute_hash(values);
-    }
-    
-    inline I degree() const {return values[0];}
-    inline I i() const {return values[1];}
-    inline I j() const {return values[2];}
-    inline I ai() const {return values[3];}
-    inline I ci() const {return values[4];}
-    inline I aj() const {return values[5];}
-    inline I cj() const {return values[6];}
-    
-    // Equality operator for unordered_set
-    bool operator==(const ambiguity& other) const {
-        return (hash_ == other.hash_) and (values == other.values);
-    }
+  std::array<I, 7> values;
+  size_t hash_;
+
+  ambiguity(I d, I i, I j, I ai, I ci, I aj, I cj) {
+    values[0] = d;
+    values[1] = i;
+    values[2] = j;
+    values[3] = ai;
+    values[4] = ci;
+    values[5] = aj;
+    values[6] = cj;
+    hash_ = compute_hash(values);
+  }
+
+  inline I degree() const { return values[0]; }
+  inline I i() const { return values[1]; }
+  inline I j() const { return values[2]; }
+  inline I ai() const { return values[3]; }
+  inline I ci() const { return values[4]; }
+  inline I aj() const { return values[5]; }
+  inline I cj() const { return values[6]; }
+
+  // Equality operator for unordered_set
+  bool operator==(const ambiguity& other) const {
+    return (hash_ == other.hash_) and (values == other.values);
+  }
 };
 
 // Custom hash function
 template<typename I>
 struct ambiguity_hash {
-    size_t operator()(const ambiguity<I>& a) const { return a.hash_; }
+  size_t operator()(const ambiguity<I>& a) const { return a.hash_; }
 };
 
+template<class T, std::size_t N, std::size_t M>
+constexpr bool startswith(std::span<T, N> data, std::span<T, M> prefix)
+{
+    return data.size() >= prefix.size()
+        && std::equal(prefix.begin(), prefix.end(), data.begin());
+}
+ 
+template<class T, std::size_t N, std::size_t M>
+constexpr bool endswith(std::span<T, N> data, std::span<T, M> suffix)
+{
+    return data.size() >= suffix.size()
+        && std::equal(data.end() - suffix.size(), data.end(),
+                      suffix.end() - suffix.size());
+}  
 }
 
-#endif // AMBIGUITY_H
-
-
+#endif// AMBIGUITY_H

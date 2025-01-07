@@ -132,8 +132,8 @@ struct monomial_trie {
   void inline overlaps_rev(const std::span<const V>& word,
                            std::vector<match>& overlaps) {
 
-    size_t D = word.size();
-    for(size_t d = 1; d < D; d++) {
+    int D = word.size();
+    for(auto d = 1; d < D; d++) {
       size_t cur_idx = 0;
       // iterate over suffix of length d
       // but in reversed order
