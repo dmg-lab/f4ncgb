@@ -503,7 +503,7 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
         die(-1, "Multimodular Gaussian elimination is not converging");
       p = primes[i++];
 
-      msg("Computing mod %ul", p);
+      msg("Computing mod %lu", p);
 
       field_init(F, FIELD_Fp, std::vector<ulong>{ p });
 

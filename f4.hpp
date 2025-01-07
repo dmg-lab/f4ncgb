@@ -107,15 +107,21 @@ struct f4 {
   monomial_trie prefix_trie;
   monomial_trie suffix_trie;
 
+  size_t characteristic = 0;
   size_t iter = 0;
   size_t maxiter = UINT_MAX;
   size_t maxdeg = UINT_MAX;
+  size_t threads = 1;
 
-  f4()
+  f4(size_t prime_, size_t maxiter_, size_t maxdeg_, size_t threads_)
     : mons()
     , poly(mons)
     , prefix_trie()
-    , suffix_trie() {}
+    , suffix_trie()
+    , characteristic(prime_)
+    , maxiter(maxiter_)
+    , maxdeg(maxdeg_)
+    , threads(threads_) {}
 
   //------------------------------------------------------------------------------
   inline parse_res read_input(parser_context& context) {
@@ -145,13 +151,7 @@ struct f4 {
   }
   //------------------------------------------------------------------------------
 
-  std::vector<poly_id> compute_basis(size_t maxiter_,
-                                     size_t maxdeg_ = UINT_MAX) {
-    msg("Computing Gröbner basis");
-
-    maxdeg = maxdeg_;
-    maxiter = maxiter_;
-
+  std::vector<poly_id> compute_basis() {
     // add something at 0th position
     // so that index 0 remains free
     basis.push_back(0);
@@ -162,7 +162,7 @@ struct f4 {
 
     // main loop
     iter = 0;
-    while((!amb.empty() or !crit_pairs.empty()) and iter < maxiter) {
+    while((!amb.empty() or !crit_pairs.empty()) and iter <= maxiter) {
 
       start = std::chrono::high_resolution_clock().now();
       stage_crit_pairs();
@@ -221,7 +221,7 @@ struct f4 {
     auto minimal_amb = amb.begin();
     size_t d = minimal_amb->first;
     for(const auto& a : minimal_amb->second) {
-        crit_pairs.insert(to_crit_pair(a));
+      crit_pairs.insert(to_crit_pair(a));
     }
     amb.erase(d);
   }
@@ -607,16 +607,15 @@ struct f4 {
     set_up_matrix(mat, rows, columns);
 
     if(mat->nrow < 20) {
-      std::stable_sort(
-        mat->rows, mat->rows + mat->nrow, [](auto a, auto b) {
-          auto idx_a = a.indices[0];
-          auto idx_b = b.indices[0];
-          if(idx_a != idx_b)
-            return idx_a > idx_b;
-          auto nnz_a = a.nnz;
-          auto nnz_b = b.nnz;
-          return nnz_a < nnz_b;
-        });
+      std::stable_sort(mat->rows, mat->rows + mat->nrow, [](auto a, auto b) {
+        auto idx_a = a.indices[0];
+        auto idx_b = b.indices[0];
+        if(idx_a != idx_b)
+          return idx_a > idx_b;
+        auto nnz_a = a.nnz;
+        auto nnz_b = b.nnz;
+        return nnz_a < nnz_b;
+      });
 
       sparse_mat_write(mat, std::cout);
     }
