@@ -1,8 +1,9 @@
 cmake_minimum_required(VERSION 3.12)
 project(kommunopp)
 
-# Always use the Boost-provided module.
-cmake_policy(SET CMP0167 NEW)
+if(POLICY CMP0267)
+  cmake_policy(SET CMP0167 NEW)
+endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
