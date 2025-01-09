@@ -157,7 +157,7 @@ class parser_context {
 
   static inline bool msolve_ident_filter(char c) {
     return c != '-' && c != '/' && c != '*' && c != '+' && c != ',' && c != ' '
-           && c != '\n' && c != '\t';
+           && c != '\n' && c != '\t' && c != '^';
   }
   static inline bool sympoly_ident_filter(char c) {
     return c != ' ' && c != '\n' && c != '\t';

@@ -151,9 +151,20 @@ parser_context::impl_msolve(parse_add_cb add_cb,
           = read_ident(parser_context::msolve_ident_filter);
         auto id = str_to_id(ident);
 
-        ADD(id);
-
         c = swallow_whitespace_no_newline();
+
+        if(c == '^') {
+          getc();
+          c = swallow_whitespace_no_newline();
+          EXPECT_DIGIT();
+          size_t sup = read_positive_int();
+          c = swallow_whitespace_no_newline();
+          for(size_t i = 0; i < sup; ++i) {
+            ADD(id);
+          }
+        } else {
+          ADD(id);
+        }
       }
 
       // Submit the current monomial.
