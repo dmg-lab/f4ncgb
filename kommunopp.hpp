@@ -592,10 +592,9 @@ class polynomial_store
   }
 
   inline void sort_polynomial(std::vector<std::pair<coefficient, I>>& p) {
-    std::stable_sort(
-      p.begin(), p.end(), [this](const auto& a, const auto& b) {
-        return this->store_.cmp(b.second, a.second);
-      });
+    std::stable_sort(p.begin(), p.end(), [this](const auto& a, const auto& b) {
+      return this->store_.cmp(b.second, a.second);
+    });
   }
 
   inline I get_lm_id(I id) const {
@@ -641,6 +640,17 @@ class polynomial_store
 
   const monomial_store_& get_monomial_store() const { return store_; }
   monomial_store_& get_monomial_store() { return store_; }
+
+  std::ostream& print_polynomial(I i, std::ostream& o) const {
+    auto c = this->get_coefficients(i);
+    size_t j = 0;
+    for(auto m : (*this)[i]) {
+      o << boost::multiprecision::mpq_rational(c[j++]);
+      o << "*";
+      store_.print_monomial(m, o);
+    }
+    return o;
+  }
 
   protected:
   monomial_store_& store_;

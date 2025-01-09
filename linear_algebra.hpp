@@ -18,19 +18,15 @@
 #include "sparse_rref/sparse_mat.h"
 #include "sparse_rref/sparse_vec.h"
 
+#include "primes.hpp"
+
 extern double crt_time, ratrec_time, rref_time, other_time;
 
 using namespace boost::multiprecision;
 
 namespace kommunopp {
 
-std::vector<uint32_t> primes
-  = { 2147483647, 2147483629, 2147483587, 2147483579, 2147483563, 2147483549,
-      2147483543, 2147483497, 2147483489, 2147483477, 2147483423, 2147483399,
-      2147483353, 2147483323, 2147483269, 2147483249, 2147483237, 2147483179,
-      2147483171, 2147483137, 2147483123, 2147483077, 2147483069, 2147483059,
-      2147483053, 2147483033, 2147483029, 2147482951, 2147482949, 2147482943,
-      2147482937 };
+extern std::vector<uint32_t> primes;
 
 typedef sparse_vec_t<fmpz> sfmpz_vec_t;
 typedef sparse_mat_t<fmpz> sfmpz_mat_t;
@@ -96,7 +92,7 @@ height(sfmpz_mat_t mat) {
 //------------------------------------------------------------------------------
 
 void
-reconstruct_mat(fmpz*& entries,
+crt_reconstruction(fmpz*& entries,
                 std::vector<std::pair<size_t, size_t>>& idxs,
                 std::vector<uint32_mat_t*>& rrefs,
                 std::vector<ulong>& primes,
@@ -282,9 +278,9 @@ rational_reconstruction(std::vector<gmp_rational>& entries,
   mpz_fdiv_q_2exp(data.N, data.mod, 1);
   mpz_sqrt(data.N, data.N);
 
-  bool res = true;
-
   entries.reserve(N);
+
+  bool res = true;
   mpz_t u;
   mpz_init(u);
   for(size_t i = 0; i < N; i++) {
@@ -554,8 +550,11 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
     // Initialize crt_entries in reconstruction
     // and clear here
     fmpz* crt_entries;
+    idxs.clear();
+    rat_entries.clear();
+
     auto start = std::chrono::high_resolution_clock().now();
-    reconstruct_mat(crt_entries, idxs, good_rrefs, good_primes, relevant_rows);
+    crt_reconstruction(crt_entries, idxs, good_rrefs, good_primes, relevant_rows);
     auto end = std::chrono::high_resolution_clock().now();
     std::chrono::duration<double> elapsed = end - start;
     crt_time += elapsed.count();

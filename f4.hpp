@@ -57,13 +57,13 @@ struct metadata_polynomial {
 
 //------------------------------------------------------------------------------
 
-template<size_t N,
-         size_t Nvars,
+template<size_t Nvars,
+         size_t Nblocks,
          internal::value_concept V = uint8_t,
          typename I = uint32_t,
          typename C = boost::multiprecision::gmp_rational>
 struct f4 {
-  using MM = metadata_monomial<N>;
+  using MM = metadata_monomial<Nblocks>;
   using PM = metadata_polynomial<1>;
   using coefficient = C;
   using monomial_store = internal::monomial_store<MM, V, I>;
@@ -571,10 +571,11 @@ struct f4 {
     for(auto [i, j] : idxs) {
       // a new polynomial starts
       if(i != cur_i) {
-        res.push_back(poly.add_polynomial(p));
+        res.push_back(poly.add_polynomial(p));        
         p.clear();
         cur_i = i;
       }
+      assert(mpq_rational(coeffs[k]) != 0);
       p.emplace_back(coeffs[k++], columns[j]);
     }
     // don't forget to add last element

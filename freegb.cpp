@@ -15,10 +15,13 @@
 #include "signal_statistics.hpp"
 
 #include <boost/program_options.hpp>
-
 #include <config.hpp>
 
 namespace po = boost::program_options;
+
+
+static const size_t MAX_VARS = 10;
+static const size_t MAX_BLOCKS = 3;
 
 // / Name of the input file
 static std::string input_name = "";
@@ -128,12 +131,19 @@ main(int argc, char** argv) {
     die(17, "Error in parsing input file.");
   }
 
-  size_t n = 0;
+  size_t nvars = context.num_vars();
+  size_t nblocks = 0;
   if(context.num_blocks() > 1)
-    n = context.num_blocks();
+    nblocks = context.num_blocks();
 
-  boost::mp11::mp_with_index<6>(n, [&context](auto N) {
-    f4<N, 5> algo((size_t)prime, maxiter, maxdeg, threads);
+  if(nvars > MAX_VARS)
+    die(4, "More variables than current compilation allows\n");
+  if(nblocks > MAX_BLOCKS)
+    die(4, "More blocks than current compilation allows\n");
+
+  boost::mp11::mp_with_index<MAX_VARS>(nvars, [&context,nblocks] (auto Nvars) {
+    boost::mp11::mp_with_index<MAX_BLOCKS>(nblocks, [&context, Nvars](auto Nblocks) {
+    f4<Nvars, Nblocks> algo((size_t)prime, maxiter, maxdeg, threads);
     if(auto err = algo.read_input(context)) {
       std::cerr << *err << std::endl;
       die(17, "Error in parsing body of input file.");
@@ -151,7 +161,7 @@ main(int argc, char** argv) {
     }
 
     algo.compute_basis();
-  });
+  });});
 
   print_statistics();
   reset_all();
