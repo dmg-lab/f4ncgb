@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 project(kommunopp)
 
-if(POLICY CMP0267)
+if(POLICY CMP0167)
   cmake_policy(SET CMP0167 NEW)
 endif()
 
