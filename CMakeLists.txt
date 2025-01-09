@@ -36,6 +36,8 @@ else()
     endif()
 endif()
 
+# Do more optimizations in release mode.
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 set(CMAKE_C_FLAGS_SANITIZE
     "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address -fno-omit-frame-pointer -fsanitize=undefined" CACHE STRING
