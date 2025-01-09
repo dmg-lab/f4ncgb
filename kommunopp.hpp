@@ -314,7 +314,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
   using base = store<self, M, V, I>;
   friend base;
 
-  using ambiguity = ambiguity<I>;
+  using ambiguity_ = ambiguity<I>;
   using amb_hash = ambiguity_hash<I>;
 
   boost::unordered_flat_map<std::span<const V>,
@@ -467,7 +467,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
       a_it.begin(), a_it.end(), b_it.begin(), b_it.end());
   }
 
-  std::ostream& print_ambiguity(const ambiguity& a, std::ostream& o) const {
+  std::ostream& print_ambiguity(const ambiguity_& a, std::ostream& o) const {
     o << "(" << a.degree() << ", ";
     print_monomial(a.ai(), o);
     o << ", ";
