@@ -10,6 +10,7 @@
 
 #include <boost/bimap.hpp>
 #include <boost/multiprecision/gmp.hpp>
+#include <boost/unordered/unordered_flat_set.hpp>
 
 #include "gmp.h"
 #include "signal_statistics.hpp"
@@ -315,7 +316,7 @@ void inline copy_from_buffer_and_clear(int64_t* buffer,
   sparse_vec_clear(vec);
   sparse_vec_realloc(vec, nnz);
   vec->nnz = nnz;
-  
+
   size_t j = 0;
   for(size_t i : buffer_ids) {
     vec->indices[j] = i;
@@ -412,7 +413,7 @@ gauss_elim(uint32_mat_t mat, BS::thread_pool& pool, nmod_t mod, bool* trace) {
       xmay(buffer, cc, sparse_mat_row(mat, rr), p2);
     }
     auto e = std::chrono::high_resolution_clock().now();
-    std::chrono::duration<double> el = e-s;
+    std::chrono::duration<double> el = e - s;
     other_time += el.count();
 
     // we have a zero row
@@ -441,7 +442,7 @@ std::vector<size_t> inline compute_relevant_rows(
   std::vector<uint32_mat_t*>& rrefs) {
 
   std::vector<size_t> relevant_rows;
-  std::unordered_set<ulong> old_pivot_columns;
+  boost::unordered_flat_set<ulong> old_pivot_columns;
 
   for(size_t i = 0; i < mat->nrow; i++)
     old_pivot_columns.insert(sparse_mat_row(mat, i)->indices[0]);
