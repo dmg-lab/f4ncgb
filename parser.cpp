@@ -187,8 +187,9 @@ parser_context::impl_msolve_header(char first_char, char second_char) {
   // Msolve always has 1 block.
   num_blocks_ = 1;
 
-  if(first_char == ',')
+  if(first_char == ',') {
     RETURN_ERROR("First character of msolve must be some ident, not ','");
+  }
   if(parser_context::msolve_ident_filter(first_char)
      && (second_char == ',' || second_char == ' ')) {
     // First char was some variable that has to be counted.
@@ -405,7 +406,8 @@ parser_context::parse_header() {
   getc();
   if(c != 'p') {
     init_symbols();
-    return impl_msolve_header(c, getc());
+    char first = c;
+    return impl_msolve_header(first, getc());
   }
 
   // File reads "p"
