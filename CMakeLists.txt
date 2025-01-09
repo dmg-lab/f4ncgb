@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(kommunopp)
+project(kommunopp VERSION 0.1)
 
 if(POLICY CMP0167)
   cmake_policy(SET CMP0167 NEW)
@@ -22,6 +22,8 @@ set(KOMMUNOPP_TEST_SRCS
 set(KOMMUNOPP_TARGETS
   freegb.cpp
 )
+
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/config.hpp.in" "${CMAKE_CURRENT_BINARY_DIR}/config.hpp")
 
 if(isMultiConfig)
     if(NOT "Sanitize" IN_LIST CMAKE_CONFIGURATION_TYPES)
@@ -68,7 +70,7 @@ set_property(TARGET kommunopp_test PROPERTY CXX_STANDARD 20)
 set_property(TARGET freegb PROPERTY CXX_STANDARD 20)
 
 
-find_package(Boost COMPONENTS unit_test_framework REQUIRED)
+find_package(Boost COMPONENTS unit_test_framework program_options REQUIRED)
 find_package(GMP REQUIRED)
 find_package(Flint REQUIRED)
 
@@ -93,8 +95,10 @@ target_compile_options(freegb PRIVATE
 
 target_link_libraries(kommunopp PUBLIC Boost::boost GMP::GMP)
 target_link_libraries(kommunopp_test PUBLIC Boost::unit_test_framework)
-target_link_libraries(freegb PUBLIC Boost::boost GMP::GMP)
+target_link_libraries(freegb PUBLIC Boost::boost Boost::program_options GMP::GMP)
 target_link_libraries(freegb PUBLIC Flint::Flint)
+
+target_include_directories(freegb PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 include(CheckIPOSupported)
 check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)

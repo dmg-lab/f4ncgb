@@ -1,4 +1,7 @@
+#include <boost/program_options/options_description.hpp>
+#include <boost/program_options/positional_options.hpp>
 #include <concepts>
+#include <cstdlib>
 #include <filesystem>
 #include <memory>
 #include <set>
@@ -11,43 +14,18 @@
 #include "parser.hpp"
 #include "signal_statistics.hpp"
 
-#define VERSION "0.1"
-/*------------------------------------------------------------------------*/
-// / Manual, will be printed with command line '-h'
-static const char* USAGE
-  = "\n"
-    "### USAGE ###\n"
-    "usage : freegb <input file> [<output file>] [<option> ...] \n"
-    "\n"
-    "\n"
-    "<input file> = path to an input file in either msolve format or in "
-    "(sym)poly format\n"
-    "<output file> = path to an output file that will contain the (partial) "
-    "Gröbner basis\n"
-    "<option> = the following options are available \n"
-    "       -h | --help      print this command line summary \n"
-    "       -v<1,2,3,4>      different levels of verbosity \n"
-    "                        Default: -v1. \n"
-    "       -p PRIME         characteristic of the coefficient field.  \n"
-    "                        Either 0 (computation over QQ) or a prime < "
-    "2^31.\n"
-    "                        Default: -p 0. \n"
-    "       -m MAXITER       Maximal number of iterations of the F4-algorithm. "
-    "\n"
-    "                        to be performed. \n"
-    "                        Default: -m 10. \n"
-    "       -d MAXDEG        Maximal degree of ambiguities that are "
-    "considered. \n"
-    "                        Default: -d UINT_MAX. \n"
-    "       -t  THR          Number of threads to be used. \n"
-    "                        Default: -t 1. \n";
+#include <boost/program_options.hpp>
+
+#include <config.hpp>
+
+namespace po = boost::program_options;
 
 // / Name of the input file
-static const char* input_name = 0;
+static std::string input_name = "";
 
 // / \brief
 // / Name of output file
-static const char* output_name = 0;
+static std::string output_name = "";
 
 // / Selected prime, maxiter, maxdeg, and number of threads
 static int64_t prime = -1;
@@ -95,90 +73,47 @@ using namespace kommunopp;
 */
 int
 main(int argc, char** argv) {
+  // clang-format off
+  po::options_description desc("freegb, version " FREEGB_VERSION "\n"
+                               "Copyright(C) 2024 Clemens Hofstadler, Maximilian Heisinger\n"
+                               "JKU Linz, Austria\n"
+                               "USAGE");
+  desc.add_options()
+    ("help,h", "produce help message")
+    ("version", "produce version message")
+    ("input,i", po::value<std::string>(&input_name)->default_value(""), "set the input file (either msolve, poly, or sympoly; switched according to content)")
+    ("output,o", po::value<std::string>(&output_name)->default_value(""), "set the output file")
+    ("verbosity,v", po::value<int>(&verbose)->default_value(1), "set the verbosity level")
+    ("prime,p", po::value<int64_t>(&prime)->default_value(0), "characteristic of the coefficient field. Either 0 (computation over QQ) or a prime < 2^31")
+    ("maxiter,m", po::value<size_t>(&maxiter)->default_value(10), "Maximal number of iterations of the F4-algorithm to be performed.")
+    ("maxdeg,d", po::value<size_t>(&maxdeg)->default_value(UINT_MAX), "Maximal degree of ambiguities that are considered.")
+    ("threads,t", po::value<size_t>(&threads)->default_value(1), "Number of threads to be used.")
+  ;
 
-  msg("freegb Version " VERSION);
-  msg("");
-  msg("Copyright(C) 2024 Clemens Hofstadler, Maximilian Heisinger");
-  msg("JKU Linz, Austria");
+  po::positional_options_description positional_desc;
+  positional_desc.add("input", 1);
+  // clang-format on
 
-  for(int i = 1; i < argc; i++) {
-    if(!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
-      fputs(USAGE, stdout);
-      fflush(stdout);
-      exit(0);
-    } else if(!strcmp(argv[i], "-v1")) {
-      verbose = 1;
-    } else if(!strcmp(argv[i], "-v2")) {
-      verbose = 2;
-    } else if(!strcmp(argv[i], "-v3")) {
-      verbose = 3;
-    } else if(!strcmp(argv[i], "-v4")) {
-      verbose = 4;
-    } else if(!strcmp(argv[i], "-p")) {
-      if(prime >= 0) {
-        die(err_char_sel,
-            "Characteristic has alreday been selected (try '-h')");
-      } else if(i + 1 >= argc or !strncmp(argv[i + 1], "-", 1)) {
-        die(err_char_sel, "No characteristic provided (try '-h')");
-      } else {
-        prime = std::atoi(argv[i + 1]);
-        i++;
-        continue;
-      }
-    } else if(!strcmp(argv[i], "-m")) {
-      if(maxiter > 0) {
-        die(err_maxiter_sel, "Maxiter has alreday been selected (try '-h')");
-      } else if(i + 1 >= argc or !strncmp(argv[i + 1], "-", 1)) {
-        die(err_maxiter_sel, "No maxiter value provided (try '-h')");
-      } else {
-        maxiter = std::strtoul(argv[i + 1], 0, 10);
-        i++;
-        continue;
-      }
-    } else if(!strcmp(argv[i], "-d")) {
-      if(maxdeg > 0) {
-        die(err_maxdeg_sel, "Maxdeg has alreday been selected (try '-h')");
-      } else if(i + 1 >= argc or !strncmp(argv[i + 1], "-", 1)) {
-        die(err_maxdeg_sel, "No maxdeg value provided (try '-h')");
-      } else {
-        maxdeg = std::strtoul(argv[i + 1], 0, 10);
-        i++;
-        continue;
-      }
-    } else if(!strcmp(argv[i], "-t")) {
-      if(threads > 0) {
-        die(err_thread_sel, "Threads has alreday been selected (try '-h')");
-      } else if(i + 1 >= argc or !strncmp(argv[i + 1], "-", 1)) {
-        die(err_thread_sel, "No number of threads provided (try '-h')");
-      } else {
-        threads = std::strtoul(argv[i + 1], 0, 10);
-        i++;
-        continue;
-      }
-    } else if(output_name) {
-      die(err_wrong_arg,
-          "too many arguments '%s', '%s', and '%s'(try '-h')",
-          input_name,
-          output_name,
-          argv[i]);
-    } else if(input_name) {
-      output_name = argv[i];
-    } else {
-      input_name = argv[i];
-    }
+  po::variables_map vm;
+  po::store(po::command_line_parser(argc, argv)
+              .options(desc)
+              .positional(positional_desc)
+              .run(),
+            vm);
+  po::notify(vm);
+
+  if(vm.count("help")) {
+    desc.print(std::cout);
+    return EXIT_SUCCESS;
   }
 
-  if(!input_name || !std::filesystem::exists(input_name))
-    die(err_no_file, "no input file given(try '-h')");
+  if(vm.count("version")) {
+    std::cerr << FREEGB_VERSION << std::endl;
+    return EXIT_SUCCESS;
+  }
 
-  if(prime < 0)
-    prime = 0;
-  if(maxiter == 0)
-    maxiter = 10;
-  if(maxdeg == 0)
-    maxdeg = UINT_MAX;
-  if(threads == 0)
-    threads = 1;
+  if(!std::filesystem::exists(input_name))
+    die(err_no_file, "no input file given(try '-h')");
 
   int res = 0;
   init_all_signal_handers();
@@ -206,7 +141,7 @@ main(int argc, char** argv) {
 
     if(verbose > 1 or true) {
       msg("==== Input Parameters ====");
-      if(!output_name)
+      if(output_name == "")
         msg("No output file specified. Writing output to console.");
       msg("Computing in characteristic %lu.", prime);
       msg("Executing at most %lu iterations.", maxiter);
