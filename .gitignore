@@ -6,3 +6,4 @@ build-*
 /build-release/
 .DS_Store
 /.dir-locals.el
+\#*\#
