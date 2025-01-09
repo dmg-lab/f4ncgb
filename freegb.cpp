@@ -188,8 +188,10 @@ main(int argc, char** argv) {
   parser_context context;
   context.open(in);
   parse_res r = context.parse_header();
-  if(r.has_value())
+  if(r.has_value()) {
+    std::cerr << *r << std::endl;
     die(17, "Error in parsing input file.");
+  }
 
   size_t n = 0;
   if(context.num_blocks() > 1)
@@ -198,6 +200,7 @@ main(int argc, char** argv) {
   boost::mp11::mp_with_index<6>(n, [&context](auto N) {
     f4<N, 5> algo((size_t)prime, maxiter, maxdeg, threads);
     if(auto err = algo.read_input(context)) {
+      std::cerr << *err << std::endl;
       die(17, "Error in parsing body of input file.");
     }
 
