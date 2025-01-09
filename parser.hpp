@@ -136,7 +136,7 @@ class parser_context {
     }
     do {
       num *= 10;
-      num += (static_cast<size_t>(c) - '0');
+      num += static_cast<long>(static_cast<size_t>(c) - '0');
       getc();
     } while(c >= '0' && c <= '9');
     return num * (neg ? -1 : 1);
