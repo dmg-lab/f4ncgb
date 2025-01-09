@@ -184,8 +184,6 @@ parse_res
 parser_context::impl_msolve_header(char first_char, char second_char) {
   // Handle the first two characters first, then process the rest of the input.
 
-  int c = current_c();
-
   // Msolve always has 1 block.
   num_blocks_ = 1;
 
@@ -220,6 +218,9 @@ parser_context::impl_msolve_header(char first_char, char second_char) {
       RETURN_ERROR(
         std::format("Unexpected third character for msolve format: '{}'", c));
     }
+  } else if(first_char == ' ' && second_char == ' ') {
+    // Swallow up to the first new character.
+    c = swallow_whitespace_and_newline();
   } else {
     RETURN_ERROR(std::format(
       "Unexpected start for msolve format: \"{}{}\"", first_char, second_char));
