@@ -57,8 +57,7 @@ struct metadata_polynomial {
 
 //------------------------------------------------------------------------------
 
-template<size_t Nvars,
-         size_t Nblocks,
+template<size_t Nblocks,
          internal::value_concept V = uint8_t,
          typename I = uint32_t,
          typename C = boost::multiprecision::gmp_rational>
@@ -77,7 +76,7 @@ struct f4 {
   using amb_hash = ambiguity_hash<mon_id>;
   using crit_pair = std::pair<poly_id, poly_id>;
 
-  using monomial_trie = monomial_trie<Nvars, V, I>;
+  using monomial_trie = monomial_trie<V, I>;
 
   // Custom hash function for std::span
   struct monomial_hash {
@@ -113,11 +112,11 @@ struct f4 {
   size_t maxdeg = UINT_MAX;
   size_t threads = 1;
 
-  f4(size_t prime_, size_t maxiter_, size_t maxdeg_, size_t threads_)
+  f4(size_t nvars, size_t prime_, size_t maxiter_, size_t maxdeg_, size_t threads_)
     : mons()
     , poly(mons)
-    , prefix_trie()
-    , suffix_trie()
+    , prefix_trie(nvars)
+    , suffix_trie(nvars)
     , characteristic(prime_)
     , maxiter(maxiter_)
     , maxdeg(maxdeg_)
@@ -299,7 +298,6 @@ struct f4 {
 
     auto s = std::chrono::high_resolution_clock().now();
     prefix_trie.overlaps_and_inclusions(m, overlaps, inclusions);
-
     // overlaps with m = AB
     ab = m;
     // last k elements of m = AB form overlap B
@@ -316,7 +314,7 @@ struct f4 {
     overlaps.clear();
 
     // overlaps with m = BC
-    suffix_trie.overlaps_rev(m, overlaps);
+    suffix_trie.overlaps_rev(m, overlaps);    
     bc = m;
     // k determines where B starts in m = BC
     for(auto [j, k] : overlaps) {
@@ -350,7 +348,7 @@ struct f4 {
 
     // inclusions with m = B
     b = m;
-    prefix_trie.inclusions(m, inclusions);
+    prefix_trie.inclusions(m, inclusions);    
     // last k elements in ABC form C
     for(auto [j, k] : inclusions) {
       if(i == j)
@@ -571,7 +569,7 @@ struct f4 {
     for(auto [i, j] : idxs) {
       // a new polynomial starts
       if(i != cur_i) {
-        res.push_back(poly.add_polynomial(p));        
+        res.push_back(poly.add_polynomial(p));
         p.clear();
         cur_i = i;
       }
@@ -712,7 +710,7 @@ struct f4 {
         monomial m = mons[m_id];
         prefix_trie.insert(m, m_id);
         suffix_trie.insert_rev(m, m_id);
-
+        
         // compute ambiguities
         start = std::chrono::high_resolution_clock().now();
         compute_ambiguities(m_id);

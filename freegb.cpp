@@ -21,7 +21,7 @@
 
 namespace po = boost::program_options;
 
-static const size_t MAX_VARS = 10;
+
 static const size_t MAX_BLOCKS = 3;
 
 // / Name of the input file
@@ -90,15 +90,12 @@ process(po::variables_map& vm) {
   if(context.num_blocks() > 1)
     nblocks = context.num_blocks();
 
-  if(nvars > MAX_VARS)
-    die(4, "More variables than current compilation allows\n");
   if(nblocks > MAX_BLOCKS)
     die(4, "More blocks than current compilation allows\n");
 
-  boost::mp11::mp_with_index<MAX_VARS>(nvars, [&context, nblocks](auto Nvars) {
     boost::mp11::mp_with_index<MAX_BLOCKS>(
-      nblocks, [&context, Nvars](auto Nblocks) {
-        f4<Nvars, Nblocks> algo((size_t)prime, maxiter, maxdeg, threads);
+      nblocks, [&context, nvars](auto Nblocks) {
+      f4<Nblocks> algo(nvars,(size_t)prime, maxiter, maxdeg, threads);
         if(auto err = algo.read_input(context)) {
           std::cerr << *err << std::endl;
           die(17, "Error in parsing body of input file.");
@@ -117,7 +114,6 @@ process(po::variables_map& vm) {
 
         algo.compute_basis();
       });
-  });
 
   print_statistics();
   reset_all();
@@ -185,6 +181,5 @@ main(int argc, char** argv) {
     }
     res = err_exception;
   }
-
   return res;
 }

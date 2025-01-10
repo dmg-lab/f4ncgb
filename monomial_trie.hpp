@@ -1,41 +1,43 @@
 #ifndef MONOMIAL_TRIE_H
 #define MONOMIAL_TRIE_H
 
+#include <algorithm>
 #include <cstdint>
 #include <span>
 #include <vector>
 
 #include "kommunopp.hpp"
 
-
 namespace kommunopp {
 
-template<size_t N, typename I = uint32_t>
-struct trienode {
-  uint64_t children[N + 1] = {};
-  I is_word = 0;
-};
+// template<size_t N, typename I = uint32_t>
+// struct trienode {
+//   uint64_t children[N + 1] = {};
+//   I is_word = 0;
+// };
 
-template<size_t N, internal::value_concept V = uint8_t, typename I = uint32_t>
+template<internal::value_concept V = uint8_t, typename I = uint32_t>
 struct monomial_trie {
-  std::vector<trienode<N, I>> nodes;
-  size_t child_size = N + 1;
+  std::vector<uint64_t> nodes;
+  size_t child_size;
 
   using match = std::pair<I, size_t>;
 
-  monomial_trie() {
-    nodes.reserve(1024);
-    nodes.emplace_back();
+  monomial_trie(size_t n)
+    : child_size(n) {
+    nodes.reserve((child_size + 1) * 1024);
+    // insert root
+    nodes.insert(nodes.end(), child_size + 1, 0);
   }
   // -----------------------------------------------------------------
 
   void print() {
     size_t i = 0;
-    for(auto n : nodes) {
-      std::cout << "nodes[" << i++ << "] = " << (int)n.is_word;
+    while(i < nodes.size()) {
+      std::cout << "nodes[" << i << "] = " << nodes[i++];
       std::cout << " : [";
-      for(auto c : n.children)
-        std::cout << (int)c << ", ";
+      for(size_t j = 1; j < child_size + 1; j++)
+        std::cout << nodes[i++] << ", ";
       std::cout << "]\n";
     }
   }
@@ -48,14 +50,14 @@ struct monomial_trie {
     size_t cur_idx = 0;
 
     for(auto c : entry) {
-      if(nodes[cur_idx].children[c] == 0) {
-        nodes[cur_idx].children[c] = nodes.size();
-        nodes.emplace_back();
+      if(nodes[cur_idx + c] == 0) {
+        nodes[cur_idx + c] = nodes.size();
+        nodes.insert(nodes.end(), child_size + 1, 0);
       }
-      cur_idx = nodes[cur_idx].children[c];
+      cur_idx = nodes[cur_idx + c];
     }
-    assert(nodes[cur_idx].is_word == 0);
-    nodes[cur_idx].is_word = id;
+    assert(nodes[cur_idx] == 0);
+    nodes[cur_idx] = id;
   }
   // -----------------------------------------------------------------
 
@@ -64,19 +66,19 @@ struct monomial_trie {
 
     for(auto it = entry.rbegin(); it != entry.rend(); it++) {
       auto c = *it;
-      if(!nodes[cur_idx].children[c]) {
-        nodes[cur_idx].children[c] = nodes.size();
-        nodes.emplace_back();
+      if(nodes[cur_idx + c] == 0) {
+        nodes[cur_idx + c] = nodes.size();
+        nodes.insert(nodes.end(), child_size + 1, 0);
       }
-      cur_idx = nodes[cur_idx].children[c];
+      cur_idx = nodes[cur_idx + c];
     }
-    nodes[cur_idx].is_word = id;
+    nodes[cur_idx] = id;
   }
   // -----------------------------------------------------------------
   size_t inline starts_sequence(size_t idx, const std::span<const V>& word) {
-    size_t cur_idx = idx;
+    auto cur_idx = idx;
     for(auto c : word) {
-      cur_idx = nodes[cur_idx].children[c];
+      cur_idx = nodes[cur_idx + c];
       if(cur_idx == 0)
         break;
     }
@@ -88,14 +90,14 @@ struct monomial_trie {
                             std::vector<match>& res,
                             size_t depth) const {
 
-    auto node = nodes[idx];
-    if(node.is_word)
-      res.emplace_back(node.is_word, depth);
+    auto word = nodes[idx];
+    if(word != 0)
+      res.emplace_back(word, depth);
 
     // Recursively visit all children
-    for(size_t i = 1; i < child_size; i++) {
-      I child_idx = node.children[i];
-      if(child_idx)
+    for(size_t i = idx + 1; i < idx + 1 + child_size; i++) {
+      auto child_idx = nodes[i];
+      if(child_idx != 0)
         collect_words(child_idx, res, depth);
     }
   }
@@ -104,14 +106,15 @@ struct monomial_trie {
                                      std::vector<match>& res,
                                      size_t depth) const {
 
-    auto node = nodes[idx];
-    if(node.is_word)
-      res.emplace_back(node.is_word, depth);
+    auto word = nodes[idx];
+    if(word != 0)
+      res.emplace_back(word, depth);
 
     // Recursively visit all children
-    for(auto c : node.children) {
-      if(c)
-        collect_words_adaptive(c, res, depth + 1);
+    for(size_t i = idx + 1; i < idx + 1 + child_size; i++) {
+      auto child_idx = nodes[i];
+      if(child_idx != 0)
+        collect_words_adaptive(child_idx, res, depth + 1);
     }
   }
   // -----------------------------------------------------------------
@@ -119,7 +122,7 @@ struct monomial_trie {
                          std::vector<match>& inclusions) {
 
     size_t end_idx;
-    for(size_t idx = 0; idx < nodes.size(); idx++) {
+    for(size_t idx = 0; idx < nodes.size(); idx += child_size + 1) {
       end_idx = starts_sequence(idx, word);
       if(end_idx == 0)
         continue;
@@ -138,15 +141,16 @@ struct monomial_trie {
       // iterate over suffix of length d
       // but in reversed order
       for(auto it = word.rbegin() + d; it != word.rend(); it++) {
-        cur_idx = nodes[cur_idx].children[*it];
+        cur_idx = nodes[cur_idx + *it];
         if(cur_idx == 0)
           break;
       }
       if(cur_idx) {
         // compute overlaps, but skip current node
         // as this is an inclusion
-        for(auto c : nodes[cur_idx].children) {
-          if(c)
+        for(size_t i = 1; i < child_size + 1; i++) {
+          auto c = nodes[cur_idx + i];
+          if(c != 0)
             collect_words(c, overlaps, D - d);
         }
       }
@@ -154,28 +158,29 @@ struct monomial_trie {
   }
   // -----------------------------------------------------------------
 
-  size_t prefixes(const std::span<const V>& prefix,
+  size_t inline prefixes(const std::span<const V>& prefix,
                   std::vector<match>& res,
                   size_t depth) {
     size_t cur_idx = 0;
 
     // check if prefix actually appears
     for(auto c : prefix) {
-      auto n = nodes[cur_idx];
-      if(n.is_word)
-        res.emplace_back(n.is_word, depth);
-      cur_idx = n.children[c];
+      auto word = nodes[cur_idx];
+      if(word)
+        res.emplace_back(word, depth);
+      cur_idx = nodes[cur_idx + c];
       // no more matching prefixes
       if(cur_idx == 0)
         return cur_idx;
     }
-    if(nodes[cur_idx].is_word)
-      res.emplace_back(nodes[cur_idx].is_word, depth);
+    if(nodes[cur_idx])
+      res.emplace_back(nodes[cur_idx], depth);
     return cur_idx;
   }
   // -----------------------------------------------------------------
 
-  inline const std::vector<match>& divisors(const std::span<const V>& dividend) {
+  inline const std::vector<match>& divisors(
+    const std::span<const V>& dividend) {
     size_t D = dividend.size();
     divisors_res.clear();
     divisors_res.reserve(D);
@@ -198,15 +203,16 @@ struct monomial_trie {
 
       // compute overlaps, but skip current node
       // as this is an inclusion
-      for(auto c : nodes[cur_idx].children) {
-        if(c)
-          collect_words(c, overlaps, d);
+      for(size_t i = cur_idx + 1; i < cur_idx + 1 + child_size; i++) {
+        auto child_idx = nodes[i];
+        if(child_idx)
+          collect_words(child_idx, overlaps, d);
       }
     }
   }
 
-private:
-    std::vector<match> divisors_res;
+  private:
+  std::vector<match> divisors_res;
 };
 }
 
