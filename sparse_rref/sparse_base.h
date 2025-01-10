@@ -94,18 +94,6 @@ struct field_struct {
 };
 typedef struct field_struct field_t[1];
 
-// rref_option
-
-struct rref_option {
-	bool verbose = false;
-	bool is_back_sub = true;
-	bool pivot_dir = true; // true: row, false: col
-	uint8_t method = 0;
-	int print_step = 100;
-	int search_depth = INT_MAX;
-};
-typedef struct rref_option rref_option_t[1];
-
 namespace sparse_base {
 	// string
 	inline void DeleteSpaces(std::string& str) {

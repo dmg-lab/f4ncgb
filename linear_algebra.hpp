@@ -23,8 +23,8 @@ using namespace boost::multiprecision;
 
 namespace kommunopp {
 
-  extern std::vector<uint32_t> PRIMES;
-  static size_t const MAX_PRIMES = PRIMES.size();
+extern std::vector<uint32_t> PRIMES;
+static size_t const MAX_PRIMES = PRIMES.size();
 
 typedef sparse_vec_t<fmpz> sfmpz_vec_t;
 typedef sparse_mat_t<fmpz> sfmpz_mat_t;
@@ -461,7 +461,6 @@ std::pair<std::vector<std::pair<size_t, size_t>>, std::vector<gmp_rational>>
 multimodular_gauss_elim(sfmpz_mat_t mat,
                         bool interreduce = false,
                         bool proof = true) {
-  field_t F;
 
   std::vector<std::unique_ptr<sparse_mat_struct<uint32_t>>> rrefs;
   pivots best_piv;
@@ -494,8 +493,6 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
       p = PRIMES[i++];
 
       msg("Computing mod %lu", p);
-
-      field_init(F, FIELD_Fp, std::vector<ulong>{ p });
 
       std::unique_ptr<sparse_mat_struct<uint32_t>> nmod_mat
         = std::make_unique<sparse_mat_struct<uint32_t>>();
