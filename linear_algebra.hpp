@@ -344,9 +344,7 @@ void inline xmay(int64_t* x, int64_t a, uint32_vec_t y, uint64_t p2) {
 }
 //------------------------------------------------------------------------------
 pivots
-gauss_elim(uint32_mat_t mat, BS::thread_pool& pool, nmod_t mod, bool* trace) {
-  (void)pool;
-
+gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
   // first canonicalize, sort and compress the matrix
   sparse_mat_compress(mat);
 
@@ -464,9 +462,6 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
                         bool proof = true) {
   field_t F;
 
-  // TODO : adapt
-  BS::thread_pool pool(4);
-
   std::vector<uint32_mat_t*> rrefs;
   pivots best_piv;
   std::vector<pivots> pivs;
@@ -508,7 +503,7 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
       mat_mod(*nmod_mat, mat, mod);
 
       KOMMUNOPP_TIME(rref);
-      pivots piv(gauss_elim(*nmod_mat, pool, mod, trace));
+      pivots piv(gauss_elim(*nmod_mat, mod, trace));
       KOMMUNOPP_PROFILE(timer.~adding_timer());
 
       if(cmp_pivots(best_piv, piv) <= 0) {
