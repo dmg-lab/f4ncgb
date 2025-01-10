@@ -100,6 +100,17 @@ target_link_libraries(freegb PUBLIC Flint::Flint)
 
 target_include_directories(freegb PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
+  target_link_libraries(freegb PUBLIC dl boost_stacktrace_backtrace)
+  target_link_libraries(kommunopp PUBLIC dl boost_stacktrace_backtrace)
+  set_property(TARGET freegb PROPERTY ENABLE_EXPORTS ON)
+  set_property(TARGET kommunopp PROPERTY ENABLE_EXPORTS ON)
+  target_compile_definitions(kommunopp PUBLIC BOOST_STACKTRACE_LINK)
+  target_compile_definitions(kommunopp PUBLIC _GLIBCXX_ASSERTIONS)
+  target_compile_options(kommunopp PUBLIC "-g;-fno-inline")
+  target_link_options(kommunopp PUBLIC "-no-pie")
+endif()
+
 include(CheckIPOSupported)
 check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
 
