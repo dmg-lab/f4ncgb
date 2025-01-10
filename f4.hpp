@@ -45,13 +45,13 @@ namespace kommunopp {
 
 template<size_t N>
 struct metadata_monomial {
-  uint8_t length = 0;
+  uint16_t length = 0;
   uint16_t t[N];
 };
 
 template<size_t N>
 struct metadata_polynomial {
-  uint8_t length = 0;
+  uint16_t length = 0;
   uint16_t t[N];
 };
 

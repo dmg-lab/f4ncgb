@@ -32,21 +32,29 @@ struct monomial_store_overrun_exception : public std::exception {
     return "monomial_store is overful";
   }
 };
-struct monomial_length_overrun_exception : public std::exception {
-  virtual const char* what() const throw() {
-    return "tried to create a monomial that was too long";
-  }
+struct length_overrun_exception : public std::exception {
+  size_t size;
+  size_t capacity;
+  std::string msg;
+  length_overrun_exception(size_t size, size_t capacity)
+    : size(size)
+    , capacity(capacity)
+    , msg(std::format("tried to create a length of {} but the highest possible "
+                      "fitting length is {}",
+                      size,
+                      capacity)) {}
+  virtual const char* what() const throw() { return msg.c_str(); }
 };
 struct scratch_insertion_with_zero_length_exception : public std::exception {
   size_t size;
-  std::string what_;
+  std::string msg;
   scratch_insertion_with_zero_length_exception(size_t size)
     : size(size)
-    , what_(std::format(
+    , msg(std::format(
         "Tried to call insert_scratch() on a store where the current metadata "
         "wasn't assigned a length, size of the store was {}",
         size)) {}
-  virtual const char* what() const throw() { return what_.c_str(); }
+  virtual const char* what() const throw() { return msg.c_str(); }
 };
 
 template<typename length_type = uint8_t>
@@ -160,7 +168,7 @@ class store {
 
     M* metadata = reinterpret_cast<M*>(std::assume_aligned<alignof(M)>(ptr));
     if(metadata->length == 0) {
-      throw_with_trace( scratch_insertion_with_zero_length_exception(size_));
+      throw_with_trace(scratch_insertion_with_zero_length_exception(size_));
     }
 
     std::byte* ptr_start = static_cast<std::byte*>(ptr);
@@ -390,7 +398,9 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
       = static_cast<size_t>(base::get_length(a)) + base::get_length(b);
     if(length_combined
        > std::numeric_limits<typename base::length_type>::max()) {
-      throw_with_trace( monomial_length_overrun_exception());
+      throw_with_trace(length_overrun_exception(
+        length_combined,
+        std::numeric_limits<typename base::length_type>::max()));
     }
     auto [m, vv] = base::new_scratch(length_combined);
     m.length = length_combined;
@@ -423,7 +433,9 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
                                    + base::get_length(b) + base::get_length(c);
     if(length_combined
        > std::numeric_limits<typename base::length_type>::max()) {
-      throw_with_trace( monomial_length_overrun_exception());
+      throw_with_trace(length_overrun_exception(
+        length_combined,
+        std::numeric_limits<typename base::length_type>::max()));
     }
     auto [m, vv] = base::new_scratch(length_combined);
     m.length = length_combined;
@@ -550,6 +562,10 @@ class polynomial_store
   inline I commit() { return this->insert_scratch(); }
 
   inline I add_polynomial(const polynomial_vec& p) {
+    if(p.size() > std::numeric_limits<typename base::length_type>::max()) {
+      throw_with_trace(length_overrun_exception(
+        p.size(), std::numeric_limits<typename base::length_type>::max()));
+    }
     auto [m, monomials, coefficients] = add(p.size());
     for(size_t i = 0; i < p.size(); ++i) {
       C* c = new(coefficients + i) C;
