@@ -116,7 +116,7 @@ crt_reconstruction(fmpz*& entries,
   size_t len = primes.size();
   idxs.reserve(sparse_mat_nnz(rrefs[0]));
   fmpz* moduli = new fmpz[len];
-  for(size_t i = 0; i < len; ++i)
+  for(size_t i = 0; i < len; i++)
     fmpz_init_set_ui(moduli + i, primes[i]);
   entries = new fmpz[nnz];
   for(size_t i = 0; i < nnz; i++)
