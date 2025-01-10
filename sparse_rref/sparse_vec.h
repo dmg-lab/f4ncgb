@@ -32,11 +32,7 @@ sparse_vec_realloc(sparse_vec_t<T> vec, ulong alloc) {
   if(vec->alloc > old_alloc) {
     // enlarge: init later
     vec->indices = s_realloc(vec->indices, vec->alloc);
-    if constexpr(is_scalar_s<T>::value) {
-      vec->entries = s_realloc(vec->entries, vec->alloc, vec->entries->rank);
-    } else {
-      vec->entries = s_realloc(vec->entries, vec->alloc);
-    }
+    vec->entries = s_realloc(vec->entries, vec->alloc);
 
     if constexpr(std::is_same_v<T, fmpz>) {
       for(ulong i = old_alloc; i < vec->alloc; i++)
@@ -49,11 +45,7 @@ sparse_vec_realloc(sparse_vec_t<T> vec, ulong alloc) {
         fmpz_clear((fmpz*)(vec->entries) + i);
     }
     vec->indices = s_realloc(vec->indices, vec->alloc);
-    if constexpr(is_scalar_s<T>::value) {
-      vec->entries = s_realloc(vec->entries, vec->alloc, vec->entries->rank);
-    } else {
-      vec->entries = s_realloc(vec->entries, vec->alloc);
-    }
+    vec->entries = s_realloc(vec->entries, vec->alloc);
   }
 }
 
@@ -62,26 +54,17 @@ sparse_vec_realloc(sparse_vec_t<T> vec, ulong alloc) {
 // alloc at least 1 to make sure that indices and entries are not NULL
 template<typename T>
 inline void
-sparse_vec_init(sparse_vec_t<T> vec, ulong alloc = 1, ulong rank = 1) {
+sparse_vec_init(sparse_vec_t<T> vec, ulong alloc = 1) {
   vec->nnz = 0;
   vec->alloc = alloc;
   vec->indices = s_malloc<ulong>(vec->alloc);
-
-  if constexpr(is_scalar_s<T>::value) {
-    using S = typename scalar_s_decay<T>::type;
-    vec->entries = s_malloc<S>(alloc, rank);
-    vec->entries->rank = rank;
-  } else {
-    vec->entries = s_malloc<T>(alloc);
-    if constexpr(std::is_same_v<T, fmpz>) {
-      for(ulong i = 0; i < alloc; i++)
-        fmpz_init(vec->entries + i);
-    }
+  vec->entries = s_malloc<T>(alloc);
+  if constexpr(std::is_same_v<T, fmpz>) {
+    for(ulong i = 0; i < alloc; i++)
+      fmpz_init(vec->entries + i);
   }
 }
 
-// just set vec to zero vector
-#define sparse_vec_zero(__vec) ((__vec)->nnz = 0)
 
 // set zero and clear memory
 template<typename T>
@@ -149,25 +132,12 @@ print_vec_info(const sparse_vec_t<T> vec) {
   std::cout << "-------------------" << std::endl;
   std::cout << "nnz: " << vec->nnz << std::endl;
   std::cout << "alloc: " << vec->alloc << std::endl;
-  if constexpr(is_scalar_s<T>::value) {
-    std::cout << "rank: " << vec->entries->rank << std::endl;
-  }
   std::cout << "indices: ";
   for(size_t i = 0; i < vec->nnz; i++)
     std::cout << vec->indices[i] << " ";
   std::cout << "\nentries: ";
-  if constexpr(is_scalar_s<T>::value) {
-    for(size_t i = 0; i < vec->nnz; i++) {
-      auto data = vec->entries[i].data;
-      for(size_t j = 0; j < vec->entries->rank - 1; j++)
-        std::cout << data[j] << ", ";
-      std::cout << data[vec->entries->rank - 1] << ";";
-      std::cout << std::endl;
-    }
-  } else {
-    for(size_t i = 0; i < vec->nnz; i++)
-      std::cout << scalar_to_str(vec->entries + i) << " ";
-  }
+  for(size_t i = 0; i < vec->nnz; i++)
+    std::cout << scalar_to_str(vec->entries + i) << " ";
   std::cout << std::endl;
 }
 

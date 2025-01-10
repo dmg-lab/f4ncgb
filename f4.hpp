@@ -611,6 +611,8 @@ struct f4 {
       = compute_new_polynomials(idxs, entries, columns);
     KOMMUNOPP_PROFILE(timer2.~adding_timer());
 
+    sparse_mat_clear(mat);
+
     return new_elements;
   }
   //------------------------------------------------------------------------------

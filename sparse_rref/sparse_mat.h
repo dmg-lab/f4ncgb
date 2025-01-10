@@ -25,18 +25,12 @@ typedef sparse_mat_t<fmpz> sfmpz_mat_t;
 
 template<typename T>
 inline void
-_sparse_mat_init(sparse_mat_t<T> mat, ulong nrow, ulong ncol, ulong alloc) {
+sparse_mat_init(sparse_mat_t<T> mat, ulong nrow, ulong ncol) {
   mat->nrow = nrow;
   mat->ncol = ncol;
   mat->rows = s_malloc<sparse_vec_struct<T>>(nrow);
   for(size_t i = 0; i < nrow; i++)
-    sparse_vec_init(sparse_mat_row(mat, i), alloc);
-}
-
-template<typename T>
-inline void
-sparse_mat_init(sparse_mat_t<T> mat, ulong nrow, ulong ncol) {
-  _sparse_mat_init(mat, nrow, ncol, 1ULL);
+    sparse_vec_init(sparse_mat_row(mat, i), 1ULL);
 }
 
 template<typename T>
