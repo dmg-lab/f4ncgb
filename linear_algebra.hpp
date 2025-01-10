@@ -527,6 +527,7 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
         good_primes.push_back(used_primes[r]);
         good_rrefs.push_back(rrefs[r].get());
         good_pivs.push_back(pivs[r]);
+        assert(r < used_primes.size());
         prod = prod * used_primes[r];
       }
     }
