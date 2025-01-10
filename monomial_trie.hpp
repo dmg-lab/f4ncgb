@@ -10,12 +10,6 @@
 
 namespace kommunopp {
 
-// template<size_t N, typename I = uint32_t>
-// struct trienode {
-//   uint64_t children[N + 1] = {};
-//   I is_word = 0;
-// };
-
 template<internal::value_concept V = uint8_t, typename I = uint32_t>
 struct monomial_trie {
   std::vector<uint64_t> nodes;
@@ -76,7 +70,7 @@ struct monomial_trie {
   }
   // -----------------------------------------------------------------
   size_t inline starts_sequence(size_t idx, const std::span<const V>& word) {
-    auto cur_idx = idx;
+    uint64_t cur_idx = idx;
     for(auto c : word) {
       cur_idx = nodes[cur_idx + c];
       if(cur_idx == 0)
@@ -90,13 +84,13 @@ struct monomial_trie {
                             std::vector<match>& res,
                             size_t depth) const {
 
-    auto word = nodes[idx];
+    uint64_t word = nodes[idx];
     if(word != 0)
       res.emplace_back(word, depth);
 
     // Recursively visit all children
     for(size_t i = idx + 1; i < idx + 1 + child_size; i++) {
-      auto child_idx = nodes[i];
+      uint64_t child_idx = nodes[i];
       if(child_idx != 0)
         collect_words(child_idx, res, depth);
     }
@@ -106,13 +100,13 @@ struct monomial_trie {
                                      std::vector<match>& res,
                                      size_t depth) const {
 
-    auto word = nodes[idx];
+    uint64_t word = nodes[idx];
     if(word != 0)
       res.emplace_back(word, depth);
 
     // Recursively visit all children
     for(size_t i = idx + 1; i < idx + 1 + child_size; i++) {
-      auto child_idx = nodes[i];
+      uint64_t child_idx = nodes[i];
       if(child_idx != 0)
         collect_words_adaptive(child_idx, res, depth + 1);
     }
@@ -136,8 +130,8 @@ struct monomial_trie {
                            std::vector<match>& overlaps) {
 
     int D = word.size();
-    for(auto d = 1; d < D; d++) {
-      size_t cur_idx = 0;
+    for(size_t d = 1; d < D; d++) {
+      uint64_t cur_idx = 0;
       // iterate over suffix of length d
       // but in reversed order
       for(auto it = word.rbegin() + d; it != word.rend(); it++) {
@@ -149,9 +143,9 @@ struct monomial_trie {
         // compute overlaps, but skip current node
         // as this is an inclusion
         for(size_t i = 1; i < child_size + 1; i++) {
-          auto c = nodes[cur_idx + i];
-          if(c != 0)
-            collect_words(c, overlaps, D - d);
+          uint64_t child_idx = nodes[cur_idx + i];
+          if(child_idx != 0)
+            collect_words(child_idx, overlaps, D - d);
         }
       }
     }
@@ -165,7 +159,7 @@ struct monomial_trie {
 
     // check if prefix actually appears
     for(auto c : prefix) {
-      auto word = nodes[cur_idx];
+      uint64_t word = nodes[cur_idx];
       if(word)
         res.emplace_back(word, depth);
       cur_idx = nodes[cur_idx + c];
@@ -197,14 +191,14 @@ struct monomial_trie {
     for(size_t d = 1; d <= D; d++) {
 
       // compute inclusions
-      auto cur_idx = prefixes(word.last(d), inclusions, D - d);
+      uint64_t cur_idx = prefixes(word.last(d), inclusions, D - d);
       if(cur_idx == 0)
         continue;
 
       // compute overlaps, but skip current node
       // as this is an inclusion
       for(size_t i = cur_idx + 1; i < cur_idx + 1 + child_size; i++) {
-        auto child_idx = nodes[i];
+        uint64_t child_idx = nodes[i];
         if(child_idx)
           collect_words(child_idx, overlaps, d);
       }
