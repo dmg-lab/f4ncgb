@@ -9,7 +9,6 @@
 
 #include <boost/bimap.hpp>
 #include <boost/multiprecision/gmp.hpp>
-#include <boost/unordered/unordered_flat_set.hpp>
 
 #include "gmp.h"
 #include "signal_statistics.hpp"
@@ -437,7 +436,7 @@ std::vector<size_t> inline compute_relevant_rows(
   std::vector<uint32_mat_t*>& rrefs) {
 
   std::vector<size_t> relevant_rows;
-  boost::unordered_flat_set<ulong> old_pivot_columns;
+  boost::unordered_set<ulong> old_pivot_columns;
 
   for(size_t i = 0; i < mat->nrow; i++)
     old_pivot_columns.insert(sparse_mat_row(mat, i)->indices[0]);

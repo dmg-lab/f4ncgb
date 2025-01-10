@@ -12,8 +12,8 @@
 #include <boost/align/align_up.hpp>
 #include <boost/container/small_vector.hpp>
 #include <boost/multiprecision/gmp.hpp>
-#include <boost/unordered/unordered_flat_map.hpp>
-#include <boost/unordered/unordered_flat_set.hpp>
+#include <boost/unordered/unordered_map.hpp>
+#include <boost/unordered/unordered_set.hpp>
 
 #include "ambiguity.hpp"
 #include "gmp.h"
@@ -89,9 +89,9 @@ struct f4 {
   monomial_store mons;
   polynomial_store poly;
   std::vector<poly_id> basis;
-  std::map<size_t, boost::unordered_flat_set<ambiguity, amb_hash>> amb;
+  std::map<size_t, boost::unordered_set<ambiguity, amb_hash>> amb;
   std::set<crit_pair> crit_pairs;
-  boost::unordered_flat_map<mon_id, poly_id> lm_to_poly;
+  boost::unordered_map<mon_id, poly_id> lm_to_poly;
   monomial_trie prefix_trie;
   monomial_trie suffix_trie;
 
@@ -241,7 +241,7 @@ struct f4 {
   }
   //------------------------------------------------------------------------------
   void gebauer_moeller(
-    boost::unordered_flat_set<ambiguity, amb_hash>& new_amb) {
+    boost::unordered_set<ambiguity, amb_hash>& new_amb) {
     // first index is always the newer polynomial
 
     auto cmp = [this](ambiguity& a, ambiguity& b) {
@@ -280,7 +280,7 @@ struct f4 {
   }
   //------------------------------------------------------------------------------
   void compute_ambiguities(mon_id i) {
-    boost::unordered_flat_set<ambiguity, amb_hash> new_amb;
+    boost::unordered_set<ambiguity, amb_hash> new_amb;
 
     monomial m = mons[i];
     monomial ab, b, bc, abc;
@@ -362,10 +362,10 @@ struct f4 {
   }
 
   //------------------------------------------------------------------------------
-  boost::unordered_flat_set<poly_id> symbolic_preprocessing() {
-    boost::unordered_flat_set<mon_id> todo;
-    boost::unordered_flat_set<mon_id> done;
-    boost::unordered_flat_set<poly_id> rows;
+  boost::unordered_set<poly_id> symbolic_preprocessing() {
+    boost::unordered_set<mon_id> todo;
+    boost::unordered_set<mon_id> done;
+    boost::unordered_set<poly_id> rows;
 
     for(const auto& [f, g] : crit_pairs) {
       // add monomials to corresponding sets
@@ -471,11 +471,11 @@ struct f4 {
   }
   //------------------------------------------------------------------------------
 
-  boost::unordered_flat_set<poly_id> symbolic_preprocessing_orig() {
+  boost::unordered_set<poly_id> symbolic_preprocessing_orig() {
     KOMMUNOPP_TIME(sym_pre);
-    boost::unordered_flat_set<mon_id> todo;
-    boost::unordered_flat_set<mon_id> done;
-    boost::unordered_flat_set<poly_id> rows;
+    boost::unordered_set<mon_id> todo;
+    boost::unordered_set<mon_id> done;
+    boost::unordered_set<poly_id> rows;
 
     for(const auto& [f, g] : crit_pairs) {
       // add monomials to corresponding sets
@@ -578,7 +578,7 @@ struct f4 {
 
     // make columns
     // columns are sorted in DESCENDING order
-    boost::unordered_flat_set<mon_id> col_set;
+    boost::unordered_set<mon_id> col_set;
     for(const auto r : rows) {
       auto p = poly[r];
       col_set.insert(p.begin(), p.end());
@@ -629,10 +629,10 @@ struct f4 {
   }
   //------------------------------------------------------------------------------
   void set_up_matrix(sfmpz_mat_t mat,
-                     boost::unordered_flat_set<poly_id>& rows,
+                     boost::unordered_set<poly_id>& rows,
                      std::vector<mon_id>& columns) {
 
-    boost::unordered_flat_map<mon_id, size_t> col_to_id;
+    boost::unordered_map<mon_id, size_t> col_to_id;
     size_t i = 0;
     for(auto c : columns)
       col_to_id[c] = i++;
