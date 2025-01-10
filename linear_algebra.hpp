@@ -91,20 +91,20 @@ height(sfmpz_mat_t mat) {
 void
 crt_reconstruction(fmpz*& entries,
                    std::vector<std::pair<size_t, size_t>>& idxs,
-                   std::vector<uint32_mat_t*>& rrefs,
+                   std::vector<sparse_mat_struct<uint32_t>*>& rrefs,
                    std::vector<ulong>& primes,
                    std::vector<ulong>& relevant_rows) {
   if(rrefs.size() == 0)
     return;
 
-  size_t n_rows = (*rrefs[0])->nrow;
+  size_t n_rows = rrefs[0]->nrow;
 
   // get all (i,j) where at least one rref is nonzero
   std::map<size_t, std::set<size_t>> nnz_pos;
   for(size_t i : relevant_rows) {
     std::set<size_t> nnz_pos_row;
     for(auto& rref : rrefs) {
-      auto row = sparse_mat_row(*rref, i);
+      auto row = sparse_mat_row(rref, i);
       nnz_pos_row.insert(row->indices, row->indices + row->nnz);
     }
     nnz_pos[i].insert(nnz_pos_row.begin(), nnz_pos_row.end());
@@ -114,7 +114,7 @@ crt_reconstruction(fmpz*& entries,
     nnz += values.size();
 
   size_t len = primes.size();
-  idxs.reserve(sparse_mat_nnz(*rrefs[0]));
+  idxs.reserve(sparse_mat_nnz(rrefs[0]));
   fmpz* moduli = new fmpz[len];
   for(size_t i = 0; i < len; ++i)
     fmpz_init_set_ui(moduli + i, primes[i]);
@@ -137,7 +137,7 @@ crt_reconstruction(fmpz*& entries,
     for(auto j : nnz_pos[i]) {
       idxs.emplace_back(i, j);
       for(size_t k = 0; k < rrefs.size(); k++) {
-        auto c = sparse_mat_entry(*rrefs[k], i, j);
+        auto c = sparse_mat_entry(rrefs[k], i, j);
         if(c == nullptr)
           fmpz_set_ui(inputs + k, 0);
         else
@@ -431,7 +431,7 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
 //------------------------------------------------------------------------------
 std::vector<size_t> inline compute_relevant_rows(
   sfmpz_mat_t mat,
-  std::vector<uint32_mat_t*>& rrefs) {
+  std::vector<sparse_mat_struct<uint32_t>*>& rrefs) {
 
   std::vector<size_t> relevant_rows;
   boost::unordered_set<ulong> old_pivot_columns;
@@ -441,7 +441,7 @@ std::vector<size_t> inline compute_relevant_rows(
 
   for(size_t i = 0; i < mat->nrow; i++) {
     for(size_t k = 0; k < rrefs.size(); k++) {
-      auto row_ik = sparse_mat_row(*rrefs[k], i);
+      auto row_ik = sparse_mat_row(rrefs[k], i);
       if(row_ik->nnz == 0)
         continue;
       // test if we have a new leading monomial
@@ -462,11 +462,11 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
                         bool proof = true) {
   field_t F;
 
-  std::vector<uint32_mat_t*> rrefs;
+  std::vector<std::unique_ptr<sparse_mat_struct<uint32_t>>> rrefs;
   pivots best_piv;
   std::vector<pivots> pivs;
   std::vector<ulong> used_primes;
-  std::vector<uint32_mat_t*> good_rrefs;
+  std::vector<sparse_mat_struct<uint32_t>*> good_rrefs;
   std::vector<pivots> good_pivs;
   std::vector<ulong> good_primes;
 
@@ -497,24 +497,25 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
 
       field_init(F, FIELD_Fp, std::vector<ulong>{ p });
 
-      uint32_mat_t* nmod_mat = new uint32_mat_t[1];
-      sparse_mat_init(*nmod_mat, mat->nrow, mat->ncol);
+      std::unique_ptr<sparse_mat_struct<uint32_t>> nmod_mat
+        = std::make_unique<sparse_mat_struct<uint32_t>>();
+      sparse_mat_init(nmod_mat.get(), mat->nrow, mat->ncol);
       nmod_init(&mod, p);
-      mat_mod(*nmod_mat, mat, mod);
+      mat_mod(nmod_mat.get(), mat, mod);
 
       KOMMUNOPP_TIME(rref);
-      pivots piv(gauss_elim(*nmod_mat, mod, trace));
+      pivots piv(gauss_elim(nmod_mat.get(), mod, trace));
       KOMMUNOPP_PROFILE(timer.~adding_timer());
 
       if(cmp_pivots(best_piv, piv) <= 0) {
         best_piv = piv;
         pivs.push_back(piv);
-        rrefs.push_back(nmod_mat);
+        rrefs.push_back(std::move(nmod_mat));
         used_primes.push_back(p);
         prod = prod * p;
       } else {
         msg("Excluding prime %d (bad pivots)", p);
-        sparse_mat_clear(*nmod_mat);
+        sparse_mat_clear(nmod_mat.get());
       }
     }
     prod = 1;
@@ -524,7 +525,7 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
     for(size_t r = 0; r < rrefs.size(); r++) {
       if(cmp_pivots(best_piv, pivs[r]) <= 0) {
         good_primes.push_back(used_primes[r]);
-        good_rrefs.push_back(rrefs[r]);
+        good_rrefs.push_back(rrefs[r].get());
         good_pivs.push_back(pivs[r]);
         prod = prod * used_primes[r];
       }
@@ -572,7 +573,7 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
       break;
   }
   for(const auto& rref : rrefs)
-    sparse_mat_clear(*rref);
+    sparse_mat_clear(rref.get());
 
   delete[] trace;
 
