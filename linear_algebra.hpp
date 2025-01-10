@@ -23,7 +23,8 @@ using namespace boost::multiprecision;
 
 namespace kommunopp {
 
-extern std::vector<uint32_t> primes;
+  extern std::vector<uint32_t> PRIMES;
+  static size_t const MAX_PRIMES = PRIMES.size();
 
 typedef sparse_vec_t<fmpz> sfmpz_vec_t;
 typedef sparse_mat_t<fmpz> sfmpz_mat_t;
@@ -483,7 +484,6 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
   mpz_int prod = 1;
   mpz_int M = mat->ncol * 10000000 * (h + 100) * h + 1;
 
-  size_t MAX_PRIMES = primes.size();
   uint32_t p;
   nmod_t mod;
 
@@ -491,7 +491,7 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
     while(prod < M) {
       if(i >= MAX_PRIMES)
         die(-1, "Multimodular Gaussian elimination is not converging");
-      p = primes[i++];
+      p = PRIMES[i++];
 
       msg("Computing mod %lu", p);
 
