@@ -384,7 +384,6 @@ struct f4 {
 
     size_t k = 0;
     while(!todo.empty()) {
-      auto s = std::chrono::high_resolution_clock().now();
       mon_id m = *todo.begin();
       todo.erase(todo.begin());
       done.insert(m);
@@ -403,14 +402,11 @@ struct f4 {
         if(!done.count(mm))
           todo.insert(mm);
       }
-      auto e = std::chrono::high_resolution_clock().now();
-      std::chrono::duration<double> el = e - s;
 
       auto n = todo.begin();
       while(n != todo.end()) {
         if(mons.is_divisible(*n, g)) {
           k++;
-          auto s = std::chrono::high_resolution_clock().now();
           done.insert(*n);
           auto nn = mons[*n];
           auto i = std::distance(nn.begin(),
@@ -425,8 +421,6 @@ struct f4 {
             if(!done.count(mm))
               todo.insert(mm);
           }
-          auto e = std::chrono::high_resolution_clock().now();
-          std::chrono::duration<double> el = e - s;
         } else
           n++;
       }
