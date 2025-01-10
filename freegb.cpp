@@ -117,6 +117,8 @@ process(po::variables_map& vm) {
 
   print_statistics();
   reset_all();
+
+  return 0;
 }
 
 /**
