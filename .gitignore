@@ -7,3 +7,5 @@ build-*
 .DS_Store
 /.dir-locals.el
 \#*\#
+perf.data
+perf.data.old
