@@ -1,12 +1,11 @@
 #ifndef SIGNAL_STATISTICS_H_
 #define SIGNAL_STATISTICS_H_
 
-#include <stdarg.h>
-#include <signal.h>
+#include <cstdarg>
+#include <cstddef>
+#include <csignal>
 #include <sys/time.h>
 #include <sys/resource.h>
-
-#include <iostream>
 
 extern void(*original_SIGINT_handler)(int);
 extern void(*original_SIGSEGV_handler)(int);

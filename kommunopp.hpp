@@ -3,10 +3,10 @@
 #include <algorithm>
 #include <concepts>
 #include <cstdint>
+#include <format>
 #include <iterator>
 #include <limits>
 #include <span>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -35,6 +35,17 @@ struct monomial_length_overrun_exception : public std::exception {
   virtual const char* what() const throw() {
     return "tried to create a monomial that was too long";
   }
+};
+struct scratch_insertion_with_zero_length_exception : public std::exception {
+  size_t size;
+  std::string what_;
+  scratch_insertion_with_zero_length_exception(size_t size)
+    : size(size)
+    , what_(std::format(
+        "Tried to call insert_scratch() on a store where the current metadata "
+        "wasn't assigned a length, size of the store was {}",
+        size)) {}
+  virtual const char* what() const throw() { return what_.c_str(); }
 };
 
 template<typename length_type = uint8_t>
@@ -147,7 +158,9 @@ class store {
     void* ptr = boost::alignment::align_up(pool_.get() + size_, alignof(M));
 
     M* metadata = reinterpret_cast<M*>(std::assume_aligned<alignof(M)>(ptr));
-    assert(metadata->length > 0);
+    if(metadata->length == 0) {
+      throw scratch_insertion_with_zero_length_exception(size_);
+    }
 
     std::byte* ptr_start = static_cast<std::byte*>(ptr);
     ptr = boost::alignment::align_up(static_cast<std::byte*>(ptr) + sizeof(M),
