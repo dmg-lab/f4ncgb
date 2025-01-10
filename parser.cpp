@@ -381,7 +381,7 @@ parser_context::impl_poly_gen(parse_add_cb add_cb,
   // are read.
   size_t block = 0;
   while(block < num_blocks_) {
-    if constexpr(getV == &read_numeric_var) {
+    if constexpr(std::is_same_v<typeof(getV), typeof(read_numeric_var)>) {
       EXPECT_DIGIT();
     }
     parser_symbolic_context::id v = getV(*this);
