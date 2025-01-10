@@ -1,26 +1,19 @@
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/positional_options.hpp>
 #include <boost/program_options/variables_map.hpp>
-#include <concepts>
 #include <cstdlib>
 #include <filesystem>
-#include <memory>
-#include <set>
-#include <sstream>
 #include <string.h>
-#include <vector>
 
-#include "debug.hpp"
 #include "f4.hpp"
-#include "kommunopp.hpp"
 #include "parser.hpp"
+#include "profiling.hpp"
 #include "signal_statistics.hpp"
 
 #include <boost/program_options.hpp>
 #include <config.hpp>
 
 namespace po = boost::program_options;
-
 
 static const size_t MAX_BLOCKS = 3;
 
@@ -40,15 +33,6 @@ static size_t threads = 0;
 // ERROR CODES:
 
 static int err_no_file = 10;// no input file given
-static int err_char_sel
-  = 11;// characteristic has already been selected/not selected
-static int err_maxiter_sel
-  = 12;                        // maxiter has already been selected/not selected
-static int err_maxdeg_sel = 13;// maxdeg has already been selected/not selected
-static int err_thread_sel
-  = 14;// number of threads has already been selected/not selected
-static int err_wrong_arg = 15;// wrong number of arguments given
-static int err_exception = 16;
 
 /*------------------------------------------------------------------------*/
 /**
@@ -70,56 +54,6 @@ reset_all() {
 /*------------------------------------------------------------------------*/
 
 using namespace kommunopp;
-
-static int
-process(po::variables_map& vm) {
-  init_all_signal_handers();
-
-  std::filesystem::path in = input_name;
-
-  parser_context context;
-  context.open(in);
-  parse_res r = context.parse_header();
-  if(r.has_value()) {
-    std::cerr << *r << std::endl;
-    die(17, "Error in parsing input file.");
-  }
-
-  size_t nvars = context.num_vars();
-  size_t nblocks = 0;
-  if(context.num_blocks() > 1)
-    nblocks = context.num_blocks();
-
-  if(nblocks > MAX_BLOCKS)
-    die(4, "More blocks than current compilation allows\n");
-
-    boost::mp11::mp_with_index<MAX_BLOCKS>(
-      nblocks, [&context, nvars](auto Nblocks) {
-      f4<Nblocks> algo(nvars,(size_t)prime, maxiter, maxdeg, threads);
-        if(auto err = algo.read_input(context)) {
-          std::cerr << *err << std::endl;
-          die(17, "Error in parsing body of input file.");
-        }
-
-        if(verbose > 1 or true) {
-          msg("==== Input Parameters ====");
-          if(output_name == "")
-            msg("No output file specified. Writing output to console.");
-          msg("Computing in characteristic %lu.", prime);
-          msg("Executing at most %lu iterations.", maxiter);
-          msg("Considering ambiguities up to degree %lu.", maxdeg);
-          msg("Using %lu threads.", threads);
-          msg("==== Starting Gröbner Basis Computation ====");
-        }
-
-        algo.compute_basis();
-      });
-
-  print_statistics();
-  reset_all();
-
-  return 0;
-}
 
 /**
     Main Function of freegb.
@@ -172,12 +106,49 @@ main(int argc, char** argv) {
 
   int res = 0;
 
-  try {
-    res = process(vm);
-  } catch(const std::exception& e) {
-    std::cerr << "*** [freegb] encountered exception:" << std::endl;
-    std::cerr << e.what() << '\n';
-    res = err_exception;
+  init_all_signal_handers();
+
+  std::filesystem::path in = input_name;
+
+  parser_context context;
+  context.open(in);
+  parse_res r = context.parse_header();
+  if(r.has_value()) {
+    std::cerr << *r << std::endl;
+    die(17, "Error in parsing input file.");
   }
+
+  size_t nvars = context.num_vars();
+  size_t nblocks = 0;
+  if(context.num_blocks() > 1)
+    nblocks = context.num_blocks();
+
+  if(nblocks > MAX_BLOCKS)
+    die(4, "More blocks than current compilation allows\n");
+
+  boost::mp11::mp_with_index<MAX_BLOCKS>(
+    nblocks, [&context, nvars](auto Nblocks) {
+      f4<Nblocks> algo(nvars, (size_t)prime, maxiter, maxdeg, threads);
+      if(auto err = algo.read_input(context)) {
+        std::cerr << *err << std::endl;
+        die(17, "Error in parsing body of input file.");
+      }
+
+      if(verbose > 1 or true) {
+        msg("==== Input Parameters ====");
+        if(output_name == "")
+          msg("No output file specified. Writing output to console.");
+        msg("Computing in characteristic %lu.", prime);
+        msg("Executing at most %lu iterations.", maxiter);
+        msg("Considering ambiguities up to degree %lu.", maxdeg);
+        msg("Using %lu threads.", threads);
+        msg("==== Starting Gröbner Basis Computation ====");
+      }
+
+      algo.compute_basis();
+    });
+
+  KOMMUNOPP_PROFILE(gstats.print());
+  reset_all();
   return res;
 }

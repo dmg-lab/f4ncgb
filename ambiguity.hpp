@@ -54,19 +54,20 @@ struct ambiguity_hash {
 };
 
 template<class T, std::size_t N, std::size_t M>
-constexpr bool startswith(std::span<T, N> data, std::span<T, M> prefix)
-{
-    return data.size() >= prefix.size()
-        && std::equal(prefix.begin(), prefix.end(), data.begin());
+constexpr bool
+startswith(std::span<T, N> data, std::span<T, M> prefix) {
+  return data.size() >= prefix.size()
+         && std::equal(prefix.begin(), prefix.end(), data.begin());
 }
- 
+
 template<class T, std::size_t N, std::size_t M>
-constexpr bool endswith(std::span<T, N> data, std::span<T, M> suffix)
-{
-    return data.size() >= suffix.size()
-        && std::equal(data.end() - suffix.size(), data.end(),
-                      suffix.end() - suffix.size());
-}  
+constexpr bool
+endswith(std::span<T, N> data, std::span<T, M> suffix) {
+  return data.size() >= suffix.size()
+         && std::equal(data.end() - static_cast<long>(suffix.size()),
+                       data.end(),
+                       suffix.end() - static_cast<long>(suffix.size()));
+}
 }
 
 #endif// AMBIGUITY_H

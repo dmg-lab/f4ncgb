@@ -1,7 +1,6 @@
 #ifndef MONOMIAL_TRIE_H
 #define MONOMIAL_TRIE_H
 
-#include <algorithm>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -83,7 +82,6 @@ struct monomial_trie {
   void inline collect_words(size_t idx,
                             std::vector<match>& res,
                             size_t depth) const {
-
     uint64_t word = nodes[idx];
     if(word != 0)
       res.emplace_back(word, depth);
@@ -129,12 +127,13 @@ struct monomial_trie {
   void inline overlaps_rev(const std::span<const V>& word,
                            std::vector<match>& overlaps) {
 
-    int D = word.size();
-    for(size_t d = 1; d < D; d++) {
+    long D = static_cast<long>(word.size());
+    for(long d = 1; d < D; d++) {
       uint64_t cur_idx = 0;
       // iterate over suffix of length d
       // but in reversed order
-      for(auto it = word.rbegin() + d; it != word.rend(); it++) {
+      for(auto it = word.rbegin() + static_cast<long>(d); it != word.rend();
+          it++) {
         cur_idx = nodes[cur_idx + *it];
         if(cur_idx == 0)
           break;
@@ -144,8 +143,12 @@ struct monomial_trie {
         // as this is an inclusion
         for(size_t i = 1; i < child_size + 1; i++) {
           uint64_t child_idx = nodes[cur_idx + i];
-          if(child_idx != 0)
-            collect_words(child_idx, overlaps, D - d);
+          if(child_idx != 0) {
+            assert(D >= d);
+            collect_words(child_idx,
+                          overlaps,
+                          static_cast<size_t>(D) - static_cast<size_t>(d));
+          }
         }
       }
     }
@@ -153,8 +156,8 @@ struct monomial_trie {
   // -----------------------------------------------------------------
 
   size_t inline prefixes(const std::span<const V>& prefix,
-                  std::vector<match>& res,
-                  size_t depth) {
+                         std::vector<match>& res,
+                         size_t depth) {
     size_t cur_idx = 0;
 
     // check if prefix actually appears

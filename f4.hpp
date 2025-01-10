@@ -2,14 +2,9 @@
 
 #include <algorithm>
 #include <chrono>
-#include <concepts>
-#include <coroutine>
 #include <cstdint>
-#include <limits>
-#include <memory>
 #include <ostream>
 #include <span>
-#include <string>
 #include <utility>
 #include <vector>
 
@@ -19,27 +14,21 @@
 #include <boost/multiprecision/gmp.hpp>
 #include <boost/unordered/unordered_flat_map.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
-#include <unordered_set>
 
 #include "ambiguity.hpp"
 #include "gmp.h"
 #include "kommunopp.hpp"
 #include "linear_algebra.hpp"
-#include "monomial_trie.hpp"
 #include "parser.hpp"
+#include "profiling.hpp"
 #include "signal_statistics.hpp"
 #include "sparse_rref/sparse_mat.h"
 #include "sparse_rref/sparse_vec.h"
 
+#include "monomial_trie.hpp"
+extern template struct kommunopp::monomial_trie<uint8_t, uint32_t>;
+
 using namespace boost::multiprecision;
-
-extern double amb_time, crit_pair_time, sym_pre_time, reduction_time,
-  reset_time;
-extern double overlap_time, inclusion_time, new_elements_time;
-
-std::chrono::time_point<std::chrono::high_resolution_clock> start;
-std::chrono::time_point<std::chrono::high_resolution_clock> end;
-std::chrono::duration<double> elapsed;
 
 namespace kommunopp {
 
@@ -112,7 +101,11 @@ struct f4 {
   size_t maxdeg = UINT_MAX;
   size_t threads = 1;
 
-  f4(size_t nvars, size_t prime_, size_t maxiter_, size_t maxdeg_, size_t threads_)
+  f4(size_t nvars,
+     size_t prime_,
+     size_t maxiter_,
+     size_t maxdeg_,
+     size_t threads_)
     : mons()
     , poly(mons)
     , prefix_trie(nvars)
@@ -137,11 +130,11 @@ struct f4 {
       crit_pair c(p, p);
       crit_pairs.insert(c);
     }
-    start = std::chrono::high_resolution_clock().now();
-    stage_crit_pairs();
-    end = std::chrono::high_resolution_clock().now();
-    elapsed = end - start;
-    crit_pair_time += elapsed.count();
+
+    {
+      KOMMUNOPP_TIME(crit_pair);
+      stage_crit_pairs();
+    }
 
     std::vector<poly_id> new_elements = reduction(true);
     msg("Adding %d input elements to basis.", new_elements.size());
@@ -162,12 +155,10 @@ struct f4 {
     // main loop
     iter = 0;
     while((!amb.empty() or !crit_pairs.empty()) and iter <= maxiter) {
-
-      start = std::chrono::high_resolution_clock().now();
-      stage_crit_pairs();
-      end = std::chrono::high_resolution_clock().now();
-      elapsed = end - start;
-      crit_pair_time += elapsed.count();
+      {
+        KOMMUNOPP_TIME(crit_pair);
+        stage_crit_pairs();
+      }
 
       msg("Reducing %d critical pairs.", crit_pairs.size());
       std::vector<poly_id> new_elements = reduction();
@@ -296,75 +287,73 @@ struct f4 {
     std::vector<std::pair<mon_id, size_t>> overlaps;
     std::vector<std::pair<mon_id, size_t>> inclusions;
 
-    auto s = std::chrono::high_resolution_clock().now();
-    prefix_trie.overlaps_and_inclusions(m, overlaps, inclusions);
-    // overlaps with m = AB
-    ab = m;
-    // last k elements of m = AB form overlap B
-    for(auto [j, k] : overlaps) {
-      bc = mons[j];
-      I d = ab.size() + bc.size() - k;
-      if(d > maxdeg)
-        continue;
-      I aj = mons.getid(ab.first(ab.size() - k));
-      I ci = mons.getid(bc.last(bc.size() - k));
-      ambiguity a(d, i, j, 0, ci, aj, 0);
-      new_amb.insert(a);
-    }
-    overlaps.clear();
+    {
+      KOMMUNOPP_TIME(overlap);
+      prefix_trie.overlaps_and_inclusions(m, overlaps, inclusions);
+      // overlaps with m = AB
+      ab = m;
+      // last k elements of m = AB form overlap B
+      for(auto [j, k] : overlaps) {
+        bc = mons[j];
+        I d = ab.size() + bc.size() - k;
+        if(d > maxdeg)
+          continue;
+        I aj = mons.getid(ab.first(ab.size() - k));
+        I ci = mons.getid(bc.last(bc.size() - k));
+        ambiguity a(d, i, j, 0, ci, aj, 0);
+        new_amb.insert(a);
+      }
+      overlaps.clear();
 
-    // overlaps with m = BC
-    suffix_trie.overlaps_rev(m, overlaps);    
-    bc = m;
-    // k determines where B starts in m = BC
-    for(auto [j, k] : overlaps) {
-      ab = mons[j];
-      I d = ab.size() + bc.size() - k;
-      if(d > maxdeg)
-        continue;
-      I ai = mons.getid(ab.first(ab.size() - k));
-      I cj = mons.getid(bc.last(bc.size() - k));
-      ambiguity a(d, i, j, ai, 0, 0, cj);
-      new_amb.insert(a);
+      // overlaps with m = BC
+      suffix_trie.overlaps_rev(m, overlaps);
+      bc = m;
+      // k determines where B starts in m = BC
+      for(auto [j, k] : overlaps) {
+        ab = mons[j];
+        I d = ab.size() + bc.size() - k;
+        if(d > maxdeg)
+          continue;
+        I ai = mons.getid(ab.first(ab.size() - k));
+        I cj = mons.getid(bc.last(bc.size() - k));
+        ambiguity a(d, i, j, ai, 0, 0, cj);
+        new_amb.insert(a);
+      }
     }
-    auto e = std::chrono::high_resolution_clock().now();
-    std::chrono::duration<double> elapsed = e - s;
-    overlap_time += elapsed.count();
 
-    s = std::chrono::high_resolution_clock().now();
-    // inclusions with m = ABC
-    I d = m.size();
-    // k determines where B starts in m = ABC
-    for(auto [j, k] : inclusions) {
-      if(i == j)
-        continue;
-      b = mons[j];
-      I aj = mons.getid(m.first(k));
-      I cj = mons.getid(m.last(d - k - b.size()));
-      ambiguity a(d, i, j, 0, 0, aj, cj);
-      new_amb.insert(a);
-    }
-    inclusions.clear();
+    {
+      KOMMUNOPP_TIME(inclusion);
+      // inclusions with m = ABC
+      I d = m.size();
+      // k determines where B starts in m = ABC
+      for(auto [j, k] : inclusions) {
+        if(i == j)
+          continue;
+        b = mons[j];
+        I aj = mons.getid(m.first(k));
+        I cj = mons.getid(m.last(d - k - b.size()));
+        ambiguity a(d, i, j, 0, 0, aj, cj);
+        new_amb.insert(a);
+      }
+      inclusions.clear();
 
-    // inclusions with m = B
-    b = m;
-    prefix_trie.inclusions(m, inclusions);    
-    // last k elements in ABC form C
-    for(auto [j, k] : inclusions) {
-      if(i == j)
-        continue;
-      abc = mons[j];
-      I d = abc.size();
-      if(d > maxdeg)
-        continue;
-      I ai = mons.getid(abc.first(abc.size() - b.size() - k));
-      I ci = mons.getid(abc.last(k));
-      ambiguity a(d, i, j, ai, ci, 0, 0);
-      new_amb.insert(a);
+      // inclusions with m = B
+      b = m;
+      prefix_trie.inclusions(m, inclusions);
+      // last k elements in ABC form C
+      for(auto [j, k] : inclusions) {
+        if(i == j)
+          continue;
+        abc = mons[j];
+        I d = abc.size();
+        if(d > maxdeg)
+          continue;
+        I ai = mons.getid(abc.first(abc.size() - b.size() - k));
+        I ci = mons.getid(abc.last(k));
+        ambiguity a(d, i, j, ai, ci, 0, 0);
+        new_amb.insert(a);
+      }
     }
-    e = std::chrono::high_resolution_clock().now();
-    elapsed = e - s;
-    inclusion_time += elapsed.count();
 
     gebauer_moeller(new_amb);
 
@@ -483,6 +472,7 @@ struct f4 {
   //------------------------------------------------------------------------------
 
   boost::unordered_flat_set<poly_id> symbolic_preprocessing_orig() {
+    KOMMUNOPP_TIME(sym_pre);
     boost::unordered_flat_set<mon_id> todo;
     boost::unordered_flat_set<mon_id> done;
     boost::unordered_flat_set<poly_id> rows;
@@ -584,11 +574,7 @@ struct f4 {
   //------------------------------------------------------------------------------
   std::vector<poly_id> reduction(bool interreduce = false) {
     // symbolic preprocessing
-    start = std::chrono::high_resolution_clock::now();
     auto rows = symbolic_preprocessing_orig();
-    end = std::chrono::high_resolution_clock::now();
-    elapsed = end - start;
-    sym_pre_time += elapsed.count();
 
     // make columns
     // columns are sorted in DESCENDING order
@@ -621,19 +607,15 @@ struct f4 {
     }
 
     // reduction
-    start = std::chrono::high_resolution_clock::now();
+    KOMMUNOPP_PROFILE(auto timer = gstats.time(gstats.reduction));
     auto [idxs, entries] = multimodular_gauss_elim(mat, interreduce);
-    end = std::chrono::high_resolution_clock::now();
-    elapsed = end - start;
-    reduction_time += elapsed.count();
+    KOMMUNOPP_PROFILE(timer.~adding_timer());
 
     // compute new elements
-    start = std::chrono::high_resolution_clock().now();
+    KOMMUNOPP_PROFILE(auto timer2 = gstats.time(gstats.new_elements));
     std::vector<poly_id> new_elements
       = compute_new_polynomials(idxs, entries, columns);
-    end = std::chrono::high_resolution_clock().now();
-    elapsed = end - start;
-    new_elements_time += elapsed.count();
+    KOMMUNOPP_PROFILE(timer2.~adding_timer());
 
     return new_elements;
   }
@@ -710,13 +692,10 @@ struct f4 {
         monomial m = mons[m_id];
         prefix_trie.insert(m, m_id);
         suffix_trie.insert_rev(m, m_id);
-        
+
         // compute ambiguities
-        start = std::chrono::high_resolution_clock().now();
+        KOMMUNOPP_TIME(amb);
         compute_ambiguities(m_id);
-        end = std::chrono::high_resolution_clock().now();
-        elapsed = end - start;
-        amb_time += elapsed.count();
       }
 
       // update basis

@@ -17,13 +17,11 @@
 #include <boost/unordered/unordered_flat_map.hpp>
 
 #include "debug.hpp"
+#include "profiling.hpp"
 #include "signal_statistics.hpp"
 
 #include "ambiguity.hpp"
 #include "gmp.h"
-
-extern long long hashmap_hits, hashmap_calls;
-extern long long monomial_hits, monomial_calls;
 
 namespace kommunopp {
 
@@ -352,6 +350,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
   inline void new_entry(I id) { map_.insert(std::pair((*this)[id + 1], id)); }
 
   std::optional<I> find(const std::span<const V>& v) const {
+    KOMMUNOPP_PROFILE(gstats.store_find_calls++);
     if(v.size() == 0)
       return 0;
 
@@ -359,6 +358,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     if(it == map_.end())
       return std::nullopt;
 
+    KOMMUNOPP_PROFILE(gstats.store_find_hits++);
     return it->second + 1;
   }
 
@@ -420,12 +420,12 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
   inline I get_product_id(I a, I b, I c) {
     std::tuple<I, I, I> prod_tuple{ a, b, c };
 
-    hashmap_calls++;
+    KOMMUNOPP_PROFILE(gstats.hashmap_calls++);
 
     {
       auto it = products_.find(prod_tuple);
       if(it != products_.end()) {
-        hashmap_hits++;
+        KOMMUNOPP_PROFILE(gstats.hashmap_hits++);
         return it->second;
       }
     }

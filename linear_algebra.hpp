@@ -1,7 +1,6 @@
 #pragma once
 
 #include <algorithm>
-#include <chrono>
 #include <cstdint>
 #include <map>
 #include <sys/errno.h>
@@ -19,8 +18,7 @@
 #include "sparse_rref/sparse_vec.h"
 
 #include "primes.hpp"
-
-extern double crt_time, ratrec_time, rref_time, other_time;
+#include "profiling.hpp"
 
 using namespace boost::multiprecision;
 
@@ -93,10 +91,10 @@ height(sfmpz_mat_t mat) {
 
 void
 crt_reconstruction(fmpz*& entries,
-                std::vector<std::pair<size_t, size_t>>& idxs,
-                std::vector<uint32_mat_t*>& rrefs,
-                std::vector<ulong>& primes,
-                std::vector<ulong>& relevant_rows) {
+                   std::vector<std::pair<size_t, size_t>>& idxs,
+                   std::vector<uint32_mat_t*>& rrefs,
+                   std::vector<ulong>& primes,
+                   std::vector<ulong>& relevant_rows) {
   if(rrefs.size() == 0)
     return;
 
@@ -127,7 +125,7 @@ crt_reconstruction(fmpz*& entries,
 
   fmpz_multi_CRT_t crt_base;
   fmpz_multi_CRT_init(crt_base);
-  int res = fmpz_multi_CRT_precompute(crt_base, moduli, len);
+  int res = fmpz_multi_CRT_precompute(crt_base, moduli, static_cast<long>(len));
   if(!res)
     die(12, "Problem with CRT");
 
@@ -341,13 +339,15 @@ void inline xmay(int64_t* x, int64_t a, uint32_vec_t y, uint64_t p2) {
     j = y->indices[i];
     t = x[j];
     t -= a * y->entries[i];
-    t += (t >> 63) & p2;
+    t += static_cast<uint64_t>(t >> 63) & p2;
     x[j] = t;
   }
 }
 //------------------------------------------------------------------------------
 pivots
 gauss_elim(uint32_mat_t mat, BS::thread_pool& pool, nmod_t mod, bool* trace) {
+  (void)pool;
+
   // first canonicalize, sort and compress the matrix
   sparse_mat_compress(mat);
 
@@ -382,7 +382,7 @@ gauss_elim(uint32_mat_t mat, BS::thread_pool& pool, nmod_t mod, bool* trace) {
     // we found a new pivot => rescale and insert in pivots
     if(pivots[c] < 0) {
       normalize_row(row, mod);
-      pivots[c] = r;
+      pivots[c] = static_cast<mp_limb_signed_t>(r);
       continue;
     }
 
@@ -391,26 +391,25 @@ gauss_elim(uint32_mat_t mat, BS::thread_pool& pool, nmod_t mod, bool* trace) {
     buffer_ids.clear();
 
     // reduce current row with all pivots
-    auto s = std::chrono::high_resolution_clock().now();
-    for(size_t i = c; i < mat->ncol; i++) {
-      int64_t cc = buffer[i];
-      if(cc == 0)
-        continue;
-      cc %= p;
-      buffer[i] = cc;
-      if(cc == 0)
-        continue;
-      auto rr = pivots[i];
-      if(rr < 0) {
-        buffer_ids.push_back(i);
-        continue;
+    {
+      KOMMUNOPP_TIME(other);
+      for(size_t i = c; i < mat->ncol; i++) {
+        int64_t cc = buffer[i];
+        if(cc == 0)
+          continue;
+        cc %= p;
+        buffer[i] = cc;
+        if(cc == 0)
+          continue;
+        auto rr = pivots[i];
+        if(rr < 0) {
+          buffer_ids.push_back(i);
+          continue;
+        }
+        buffer[i] = 0;
+        xmay(buffer, cc, sparse_mat_row(mat, rr), p2);
       }
-      buffer[i] = 0;
-      xmay(buffer, cc, sparse_mat_row(mat, rr), p2);
     }
-    auto e = std::chrono::high_resolution_clock().now();
-    std::chrono::duration<double> el = e - s;
-    other_time += el.count();
 
     // we have a zero row
     if(buffer_ids.empty()) {
@@ -420,7 +419,7 @@ gauss_elim(uint32_mat_t mat, BS::thread_pool& pool, nmod_t mod, bool* trace) {
 
     copy_from_buffer_and_clear(buffer, buffer_ids, row);
     normalize_row(row, mod);
-    pivots[row->indices[0]] = r;
+    pivots[row->indices[0]] = static_cast<mp_limb_signed_t>(r);
   }
 
   std::vector<size_t> piv;
@@ -509,11 +508,9 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
       nmod_init(&mod, p);
       mat_mod(*nmod_mat, mat, mod);
 
-      auto start = std::chrono::high_resolution_clock().now();
-      pivots piv = gauss_elim(*nmod_mat, pool, mod, trace);
-      auto end = std::chrono::high_resolution_clock().now();
-      std::chrono::duration<double> elapsed = end - start;
-      rref_time += elapsed.count();
+      KOMMUNOPP_TIME(rref);
+      pivots piv(gauss_elim(*nmod_mat, pool, mod, trace));
+      KOMMUNOPP_PROFILE(timer.~adding_timer());
 
       if(cmp_pivots(best_piv, piv) <= 0) {
         best_piv = piv;
@@ -553,22 +550,20 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
     idxs.clear();
     rat_entries.clear();
 
-    auto start = std::chrono::high_resolution_clock().now();
-    crt_reconstruction(crt_entries, idxs, good_rrefs, good_primes, relevant_rows);
-    auto end = std::chrono::high_resolution_clock().now();
-    std::chrono::duration<double> elapsed = end - start;
-    crt_time += elapsed.count();
+    {
+      KOMMUNOPP_TIME(crt);
+      crt_reconstruction(
+        crt_entries, idxs, good_rrefs, good_primes, relevant_rows);
+    }
 
-    start = std::chrono::high_resolution_clock().now();
+    KOMMUNOPP_PROFILE(auto timer = gstats.time(gstats.ratrec));
     bool success
       = rational_reconstruction(rat_entries, crt_entries, prod, idxs.size());
+    KOMMUNOPP_PROFILE(timer.~adding_timer());
 
     for(size_t i = 0; i < idxs.size(); i++)
       fmpz_clear(crt_entries + i);
     delete[] crt_entries;
-    end = std::chrono::high_resolution_clock().now();
-    elapsed = end - start;
-    ratrec_time += elapsed.count();
 
     if(!success) {
       msg("Reconstruction unsuccessfull. Increasing bound.");

@@ -13,6 +13,7 @@ set(KOMMUNOPP_SRCS
   kommunopp.cpp
   signal_statistics.cpp
   parser.cpp
+  monomial_trie.cpp
 )
 
 set(KOMMUNOPP_TEST_SRCS
@@ -20,6 +21,10 @@ set(KOMMUNOPP_TEST_SRCS
   test_simple.cpp
   test_parse.cpp
 )
+
+if(ENABLE_PROFILING)
+  set(KOMMUNOPP_SRCS ${KOMMUNOPP_SRCS} profiling.cpp)
+endif()
 
 set(KOMMUNOPP_TARGETS
   freegb.cpp
@@ -93,7 +98,6 @@ target_compile_options(freegb PRIVATE
           -Wall -Wextra -Wsign-conversion>
      $<$<CXX_COMPILER_ID:MSVC>:
           /W4>)
-
 
 target_link_libraries(kommunopp PUBLIC Boost::boost GMP::GMP)
 target_link_libraries(kommunopp_test PUBLIC Boost::unit_test_framework)

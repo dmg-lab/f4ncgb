@@ -12,27 +12,6 @@ extern void(*original_SIGSEGV_handler)(int);
 extern void(*original_SIGABRT_handler)(int);
 extern void(*original_SIGTERM_handler)(int);
 
-extern int van_mon_depth_count;
-extern int child_superset_count;
-extern int degree_three_polys_count;
-extern int degree_three_of_child_count;
-extern int grandchild_is_subset_of_child_count;
-extern int grandchild_is_superset_child_count;
-extern int grand_children_are_equal_count;
-extern int two_subsets_count;
-extern int l_f_count;
-extern int lin_gb_count;
-extern int child_l_f_count;
-extern int children_share_l_f_count;
-extern int totalcount;
-extern int equiv_gate_count;
-extern bool miter_inp;
-extern bool mult_inp;
-extern const char * bench;
-
-extern bool msolve;
-
-
 /**
     Returns name of signal
 

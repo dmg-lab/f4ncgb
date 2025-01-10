@@ -20,24 +20,6 @@ void(*original_SIGABRT_handler)(int);
 void(*original_SIGTERM_handler)(int);
 /*------------------------------------------------------------------------*/
 const char * bench = 0;
-int van_mon_depth_count = 0;
-int child_superset_count= 0;
-int degree_three_polys_count= 0;
-int degree_three_of_child_count= 0;
-int grandchild_is_subset_of_child_count= 0;
-int grandchild_is_superset_child_count= 0;
-int two_subsets_count= 0;
-int grand_children_are_equal_count=0;
-int l_f_count=0;
-int child_l_f_count=0;
-int children_share_l_f_count = 0;
-int totalcount = 0;
-int equiv_gate_count = 0;
-int lin_gb_count = 0;
-int count_cocoa_calls = 0;
-bool miter_inp = 0;
-bool mult_inp = 0;
-bool msolve = 0;
 
 const char * signal_name(int sig) {
   switch (sig) {
@@ -108,55 +90,3 @@ void die(int error_code, const char *fmt, ...) {
   exit(error_code);
 }
 
-/*------------------------------------------------------------------------*/
-// Global variables
-
-long long hashmap_hits = 0, hashmap_calls = 0;
-long long monomial_hits = 0, monomial_calls = 0;
-double amb_time = 0, crit_pair_time = 0, sym_pre_time = 0, reduction_time = 0;
-double overlap_time = 0, inclusion_time = 0, crt_time = 0, ratrec_time = 0, rref_time = 0;
-double tt = 0, other_time = 0, new_elements_time = 0;
-
-/*------------------------------------------------------------------------*/
-
-size_t maximum_resident_set_size() {
-  struct rusage u;
-  if (getrusage(RUSAGE_SELF, &u)) return 0;
-  return((size_t) u.ru_maxrss) << 10;
-}
-
-/*------------------------------------------------------------------------*/
-
-double process_time() {
-  struct rusage u;
-  if (getrusage(RUSAGE_SELF, &u)) return 0;
-  double res = u.ru_utime.tv_sec + 1e-6 * u.ru_utime.tv_usec;
-  res += u.ru_stime.tv_sec + 1e-6 * u.ru_stime.tv_usec;
-  return res;
-}
-
-static double percent(unsigned a, unsigned b) { return b ? 100.0*a/b : 0; }
-static double percent_d(double a, double b) { return b ? 100.0*a/b : 0; }
-/*------------------------------------------------------------------------*/
-
-void print_statistics() {
-  auto total_time = process_time();
-  msg("");
-  msg("maximum resident set size:  %22.2f MB",
-  maximum_resident_set_size() / static_cast<double>((1<<20)));
-  msg("monomial hashmap products:   %22d", hashmap_calls); 
-  msg("monomial hashmap prodhits: %22.2f %%", percent(hashmap_hits,hashmap_calls)); 
-  msg("computing ambiguities:     %22.2f (%2.2f %%)", amb_time, percent_d(amb_time,total_time));
-  msg("  computing overlaps:      %22.2f (%2.2f %%)", overlap_time, percent_d(overlap_time,total_time));
-  msg("  computing inclusions:    %22.2f (%2.2f %%)", inclusion_time, percent_d(inclusion_time,total_time));
-  msg("handling critical pairs:   %22.2f (%2.2f %%)", crit_pair_time, percent_d(crit_pair_time,total_time));
-  msg("symbolic preprocessing:    %22.2f (%2.2f %%)", sym_pre_time, percent_d(sym_pre_time,total_time));
-  msg("linear algebra:            %22.2f (%2.2f %%)", reduction_time, percent_d(reduction_time,total_time));
-  msg("  Gauss elimination:       %22.2f (%2.2f %%)", rref_time, percent_d(rref_time,total_time));
-  msg("  CRT:                     %22.2f (%2.2f %%)", crt_time, percent_d(crt_time,total_time));
-  msg("  rat. reconstruction:     %22.2f (%2.2f %%)", ratrec_time, percent_d(ratrec_time,total_time));
-  msg("construct new elements:    %22.2f (%2.2f %%)", new_elements_time, percent_d(new_elements_time,total_time));
-  msg("other:                     %22.2f (%2.2f %%)", other_time, percent_d(other_time,total_time));
-  msg("");
-  msg("total process time:        %22.2f seconds",  process_time());
-}
