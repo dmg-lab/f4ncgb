@@ -111,10 +111,11 @@ void die(int error_code, const char *fmt, ...) {
 /*------------------------------------------------------------------------*/
 // Global variables
 
-long long hashmap_hits, hashmap_calls;
-double amb_time, crit_pair_time, sym_pre_time, reduction_time;
-double overlap_time, inclusion_time, crt_time, ratrec_time, rref_time;
-double tt, other_time, new_elements_time;
+long long hashmap_hits = 0, hashmap_calls = 0;
+long long monomial_hits = 0, monomial_calls = 0;
+double amb_time = 0, crit_pair_time = 0, sym_pre_time = 0, reduction_time = 0;
+double overlap_time = 0, inclusion_time = 0, crt_time = 0, ratrec_time = 0, rref_time = 0;
+double tt = 0, other_time = 0, new_elements_time = 0;
 
 /*------------------------------------------------------------------------*/
 

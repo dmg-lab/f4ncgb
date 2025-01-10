@@ -23,6 +23,7 @@
 #include "gmp.h"
 
 extern long long hashmap_hits, hashmap_calls;
+extern long long monomial_hits, monomial_calls;
 
 namespace kommunopp {
 
@@ -141,7 +142,7 @@ class store {
   /// committed using insert_scratch.
   inline std::pair<M&, V*> new_scratch(I space = 32) {
     if(capacity() - space * sizeof(V) - sizeof(M) < size_) {
-      throw_with_trace(monomial_store_overrun_exception());
+      throw monomial_store_overrun_exception();
     }
 
     void* ptr = boost::alignment::align_up(pool_.get() + size_, alignof(M));
@@ -168,7 +169,7 @@ class store {
 
     M* metadata = reinterpret_cast<M*>(std::assume_aligned<alignof(M)>(ptr));
     if(metadata->length == 0) {
-      throw_with_trace(scratch_insertion_with_zero_length_exception(size_));
+      throw scratch_insertion_with_zero_length_exception(size_);
     }
 
     std::byte* ptr_start = static_cast<std::byte*>(ptr);
@@ -398,9 +399,9 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
       = static_cast<size_t>(base::get_length(a)) + base::get_length(b);
     if(length_combined
        > std::numeric_limits<typename base::length_type>::max()) {
-      throw_with_trace(length_overrun_exception(
+      throw length_overrun_exception(
         length_combined,
-        std::numeric_limits<typename base::length_type>::max()));
+        std::numeric_limits<typename base::length_type>::max());
     }
     auto [m, vv] = base::new_scratch(length_combined);
     m.length = length_combined;
@@ -433,9 +434,9 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
                                    + base::get_length(b) + base::get_length(c);
     if(length_combined
        > std::numeric_limits<typename base::length_type>::max()) {
-      throw_with_trace(length_overrun_exception(
+      throw length_overrun_exception(
         length_combined,
-        std::numeric_limits<typename base::length_type>::max()));
+        std::numeric_limits<typename base::length_type>::max());
     }
     auto [m, vv] = base::new_scratch(length_combined);
     m.length = length_combined;
@@ -563,8 +564,8 @@ class polynomial_store
 
   inline I add_polynomial(const polynomial_vec& p) {
     if(p.size() > std::numeric_limits<typename base::length_type>::max()) {
-      throw_with_trace(length_overrun_exception(
-        p.size(), std::numeric_limits<typename base::length_type>::max()));
+      throw length_overrun_exception(
+        p.size(), std::numeric_limits<typename base::length_type>::max());
     }
     auto [m, monomials, coefficients] = add(p.size());
     for(size_t i = 0; i < p.size(); ++i) {

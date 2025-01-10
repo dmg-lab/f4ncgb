@@ -175,10 +175,6 @@ main(int argc, char** argv) {
   } catch(const std::exception& e) {
     std::cerr << "*** [freegb] encountered exception:" << std::endl;
     std::cerr << e.what() << '\n';
-    const boost::stacktrace::stacktrace* st = boost::get_error_info<traced>(e);
-    if(st) {
-      std::cerr << *st << '\n';
-    }
     res = err_exception;
   }
   return res;

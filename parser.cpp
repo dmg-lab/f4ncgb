@@ -47,8 +47,7 @@ find_in_path(std::string command) {
     path = path.substr(pos + 1);
   }
 
-  kommunopp::throw_with_trace(
-                              std::runtime_error("Could not find "s + command + " in PATH!"));
+  throw std::runtime_error("Could not find "s + command + " in PATH!");
 
   // This is just to make the compiler happy.
   exit(EXIT_FAILURE);
@@ -65,8 +64,7 @@ popen_with_found_bin(const std::string& command,
     = abs_command + " " + args + " \"" + path.string() + "\" 2>/dev/null";
   FILE* handle = popen(cmd.c_str(), "r");
   if(!handle) {
-    kommunopp::throw_with_trace(
-      std::runtime_error("Coult not popen()! Error: "s + strerror(errno)));
+    throw std::runtime_error("Coult not popen()! Error: "s + strerror(errno));
   }
   return handle;
 }

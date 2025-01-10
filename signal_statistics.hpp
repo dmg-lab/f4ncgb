@@ -80,12 +80,6 @@ void die(int error_code, const char *fmt,...);
 void msg(const char *fmt, ...);
 /*------------------------------------------------------------------------*/
 
-// / Time measures used for verify/certify modus
-extern double init_time;          // /< measure initializing time
-extern double slicing_elim_time;  // /< measure time used to eliminate & slice
-extern double reduction_time;     // /< measure time used to reduce
-extern double substitution_time;  // /< measure time used in substitution
-extern int count_cocoa_calls;
 /**
     Determines max used memory
 */
