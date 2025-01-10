@@ -16,6 +16,7 @@
 #include <boost/multiprecision/gmp.hpp>
 #include <boost/unordered/unordered_flat_map.hpp>
 
+#include "debug.hpp"
 #include "signal_statistics.hpp"
 
 #include "ambiguity.hpp"
@@ -132,7 +133,7 @@ class store {
   /// committed using insert_scratch.
   inline std::pair<M&, V*> new_scratch(I space = 32) {
     if(capacity() - space * sizeof(V) - sizeof(M) < size_) {
-      throw monomial_store_overrun_exception();
+      throw_with_trace(monomial_store_overrun_exception());
     }
 
     void* ptr = boost::alignment::align_up(pool_.get() + size_, alignof(M));
@@ -159,7 +160,7 @@ class store {
 
     M* metadata = reinterpret_cast<M*>(std::assume_aligned<alignof(M)>(ptr));
     if(metadata->length == 0) {
-      throw scratch_insertion_with_zero_length_exception(size_);
+      throw_with_trace( scratch_insertion_with_zero_length_exception(size_));
     }
 
     std::byte* ptr_start = static_cast<std::byte*>(ptr);
@@ -389,7 +390,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
       = static_cast<size_t>(base::get_length(a)) + base::get_length(b);
     if(length_combined
        > std::numeric_limits<typename base::length_type>::max()) {
-      throw monomial_length_overrun_exception();
+      throw_with_trace( monomial_length_overrun_exception());
     }
     auto [m, vv] = base::new_scratch(length_combined);
     m.length = length_combined;
@@ -422,7 +423,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
                                    + base::get_length(b) + base::get_length(c);
     if(length_combined
        > std::numeric_limits<typename base::length_type>::max()) {
-      throw monomial_length_overrun_exception();
+      throw_with_trace( monomial_length_overrun_exception());
     }
     auto [m, vv] = base::new_scratch(length_combined);
     m.length = length_combined;
