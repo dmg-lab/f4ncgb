@@ -1,7 +1,7 @@
 #ifndef SCALAR_H
 #define SCALAR_H
 
-#include <string>
+#include <algorithm>
 #include "flint/fmpz.h"
 
 template <typename T> inline T* binarysearch(T* begin, T* end, T val) {
@@ -13,13 +13,6 @@ template <typename T> inline T* binarysearch(T* begin, T* end, T val) {
 }
 
 // scalar
-static inline void scalar_init(fmpz_t a) { fmpz_init(a); }
-
-static inline void scalar_clear(fmpz_t a) { fmpz_clear(a); }
-
-template<typename T>
-static inline std::string scalar_to_str(T* a) { return std::to_string(*a); }
-
 static inline bool scalar_is_zero(const fmpz_t a) { return fmpz_is_zero(a); }
 static inline bool scalar_is_zero(const uint32_t* a) { return (*a) == 0; }
 

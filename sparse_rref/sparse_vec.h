@@ -1,7 +1,7 @@
 #ifndef SPARSE_VEC_H
 #define SPARSE_VEC_H
 
-#include "flint/nmod_vec.h"
+#include <iostream>
 #include "scalar.h"
 
 // Memory management
@@ -93,7 +93,7 @@ sparse_vec_clear(sparse_vec_t<T> vec) {
   s_free(vec->indices);
   vec->indices = NULL;
   if constexpr(std::is_same_v<T, fmpz>) {
-    for(auto i = 0; i < vec->alloc; i++)
+    for(size_t i = 0; i < vec->alloc; i++)
       fmpz_clear(vec->entries + i);
   }
   s_free(vec->entries);
@@ -155,7 +155,7 @@ print_vec_info(const sparse_vec_t<T> vec) {
     std::cout << vec->indices[i] << " ";
   std::cout << "\nentries: ";
   for(size_t i = 0; i < vec->nnz; i++)
-    std::cout << scalar_to_str(vec->entries + i) << " ";
+    std::cout << std::to_string(vec->entries + i) << " ";
   std::cout << std::endl;
 }
 

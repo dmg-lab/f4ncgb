@@ -1,7 +1,6 @@
 #ifndef SPARSE_MAT_H
 #define SPARSE_MAT_H
 
-#include "gmp.h"
 #include "sparse_vec.h"
 #include <boost/multiprecision/gmp.hpp>
 
