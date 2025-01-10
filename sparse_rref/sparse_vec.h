@@ -4,6 +4,24 @@
 #include "flint/nmod_vec.h"
 #include "scalar.h"
 
+// Memory management
+
+template <typename T>
+inline T* s_malloc(const size_t size) {
+  return (T*)std::malloc(size * sizeof(T));
+}
+
+
+template <typename T>
+inline void s_free(T* s) {
+	std::free(s);
+}
+
+template <typename T>
+inline T* s_realloc(T* s, const size_t size) {
+  return (T*)std::realloc(s, size * sizeof(T));
+}
+
 template<typename T>
 struct sparse_vec_struct {
   ulong nnz = 0;

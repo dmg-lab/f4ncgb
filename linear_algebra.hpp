@@ -2,17 +2,17 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <map>
 #include <sys/errno.h>
 #include <utility>
 #include <vector>
+#include <flint/nmod.h>
 
 #include <boost/bimap.hpp>
 #include <boost/multiprecision/gmp.hpp>
 
 #include "gmp.h"
 #include "signal_statistics.hpp"
-#include "sparse_rref/scalar.h"
+
 #include "sparse_rref/sparse_mat.h"
 #include "sparse_rref/sparse_vec.h"
 

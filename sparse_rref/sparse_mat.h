@@ -5,7 +5,6 @@
 #include "sparse_vec.h"
 #include <boost/multiprecision/gmp.hpp>
 
-constexpr double SPARSE_BOUND = 0.1;
 
 template<typename T>
 struct sparse_mat_struct {
@@ -51,15 +50,6 @@ sparse_mat_nnz(const sparse_mat_t<T> mat) {
   for(size_t i = 0; i < mat->nrow; i++)
     nnz += sparse_mat_row(mat, i)->nnz;
   return nnz;
-}
-
-template<typename T>
-inline ulong
-sparse_mat_alloc(const sparse_mat_t<T> mat) {
-  ulong alloc = 0;
-  for(size_t i = 0; i < mat->nrow; i++)
-    alloc += sparse_mat_row(mat, i)->alloc;
-  return alloc;
 }
 
 template<typename T>
