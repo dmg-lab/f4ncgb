@@ -9,8 +9,8 @@
 #include <utility>
 #include <vector>
 
-#include <boost/bimap.hpp>
 #include <boost/multiprecision/gmp.hpp>
+#include <boost/unordered_set.hpp>
 
 #include "gmp.h"
 #include "signal_statistics.hpp"
@@ -388,37 +388,34 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
     buffer_ids.clear();
 
     // reduce current row with all pivots
-    {
-      KOMMUNOPP_TIME(other);
-      int64_t cc;
-      slong rr;
-      for(size_t i = c; i < mat->ncol; i++) {
-        cc = buffer[i];
-        if(cc == 0)
-          continue;
-        cc %= p;
-        buffer[i] = cc;
-        if(cc == 0)
-          continue;
-        rr = pivots[i];
-        if(rr < 0) {
-          buffer_ids.push_back(i);
-          continue;
-        }
-        buffer[i] = 0;
-        xmay(buffer, cc, sparse_mat_row(mat, rr), p2);
-      }
-
-      // we have a zero row
-      if(buffer_ids.empty()) {
-        trace[r] = true;
+    int64_t cc;
+    slong rr;
+    for(size_t i = c; i < mat->ncol; i++) {
+      cc = buffer[i];
+      if(cc == 0)
+        continue;
+      cc %= p;
+      buffer[i] = cc;
+      if(cc == 0)
+        continue;
+      rr = pivots[i];
+      if(rr < 0) {
+        buffer_ids.push_back(i);
         continue;
       }
-
-      copy_from_buffer_and_clear(buffer, buffer_ids, row);
-      normalize_row(row, mod);
-      pivots[row->indices[0]] = static_cast<slong>(r);
+      buffer[i] = 0;
+      xmay(buffer, cc, sparse_mat_row(mat, rr), p2);
     }
+
+    // we have a zero row
+    if(buffer_ids.empty()) {
+      trace[r] = true;
+      continue;
+    }
+
+    copy_from_buffer_and_clear(buffer, buffer_ids, row);
+    normalize_row(row, mod);
+    pivots[row->indices[0]] = static_cast<slong>(r);
   }
 
   std::vector<size_t> piv;
@@ -457,7 +454,26 @@ std::vector<size_t> inline compute_relevant_rows(
   return relevant_rows;
 }
 //------------------------------------------------------------------------------
+std::vector<size_t> inline compute_relevant_rows(sfmpz_mat_t mat,
+                                                 uint32_mat_t rref) {
 
+  std::vector<size_t> relevant_rows;
+  boost::unordered_set<ulong> old_pivot_columns;
+
+  for(size_t i = 0; i < mat->nrow; i++)
+    old_pivot_columns.insert(sparse_mat_row(mat, i)->indices[0]);
+
+  for(size_t i = 0; i < rref->nrow; i++) {
+    auto row = sparse_mat_row(rref, i);
+    if(row->nnz == 0)
+      continue;
+    // test if we have a new leading monomial
+    if(old_pivot_columns.find(row->indices[0]) == old_pivot_columns.end())
+      relevant_rows.push_back(i);
+  }
+  return relevant_rows;
+}
+//------------------------------------------------------------------------------
 std::pair<std::vector<std::pair<size_t, size_t>>, std::vector<gmp_rational>>
 multimodular_gauss_elim(sfmpz_mat_t mat,
                         bool interreduce = false,
@@ -577,5 +593,71 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
   delete[] trace;
 
   return std::make_pair(idxs, rat_entries);
+}
+
+std::pair<std::vector<std::pair<size_t, size_t>>,
+          std::vector<gmp_rational>> inline nmod_gauss_elim(sfmpz_mat_t mat,
+                                                            size_t p,
+                                                            bool interreduce
+                                                            = false) {
+
+  // not needed but use it to avoid code duplication
+  bool* trace = new bool[mat->nrow];
+  for(size_t i = 0; i < mat->nrow; i++)
+    trace[i] = false;
+
+  nmod_t mod;
+  nmod_init(&mod, p);
+
+  uint32_mat_t nmod_mat;
+  sparse_mat_init(nmod_mat, mat->nrow, mat->ncol);
+  mat_mod(nmod_mat, mat, mod);
+
+  KOMMUNOPP_TIME(rref);
+  gauss_elim(nmod_mat, mod, trace);
+  KOMMUNOPP_PROFILE(timer.~adding_timer());
+
+  // compute rows with new leading terms
+  std::vector<size_t> relevant_rows;
+  if(interreduce)
+    for(size_t i = 0; i < mat->nrow; i++)
+      relevant_rows.push_back(i);
+  else
+    relevant_rows = compute_relevant_rows(mat, nmod_mat);
+
+  // compute nonzero indices & entries
+  std::vector<std::pair<size_t, size_t>> idxs;
+  std::vector<gmp_rational> entries;
+  size_t nnz = sparse_mat_nnz(nmod_mat);
+  idxs.reserve(nnz);
+  entries.reserve(nnz);
+  for(size_t i : relevant_rows) {
+    auto row = sparse_mat_row(nmod_mat, i);
+    for(size_t j = 0; j < row->nnz; j++) {
+      idxs.emplace_back(i, row->indices[j]);
+      gmp_rational r;
+      mpq_set_ui(r.data(), row->entries[j], 1UL);
+      entries.push_back(r);
+    }
+  }
+
+  sparse_mat_clear(nmod_mat);
+  delete[] trace;
+
+  return std::make_pair(idxs, entries);
+}
+
+std::pair<std::vector<std::pair<size_t, size_t>>,
+          std::vector<gmp_rational>> inline linear_algebra(sfmpz_mat_t mat,
+                                                           size_t
+                                                             characteristic,
+                                                           bool interreduce
+                                                           = false,
+                                                           bool proof = true) {
+
+  if(characteristic == 0)
+    return multimodular_gauss_elim(mat, interreduce, proof);
+  else
+    return nmod_gauss_elim(mat, characteristic, interreduce);
 }
 }

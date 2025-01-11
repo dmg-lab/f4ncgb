@@ -102,7 +102,7 @@ struct f4 {
   size_t threads = 1;
 
   f4(size_t nvars,
-     size_t prime_,
+     size_t characteristic_,
      size_t maxiter_,
      size_t maxdeg_,
      size_t threads_)
@@ -110,7 +110,7 @@ struct f4 {
     , poly(mons)
     , prefix_trie(nvars)
     , suffix_trie(nvars)
-    , characteristic(prime_)
+    , characteristic(characteristic_)
     , maxiter(maxiter_)
     , maxdeg(maxdeg_)
     , threads(threads_) {}
@@ -154,7 +154,7 @@ struct f4 {
 
     // main loop
     iter = 0;
-    while((!amb.empty() or !crit_pairs.empty()) and iter <= maxiter) {
+    while((!amb.empty() or !crit_pairs.empty()) and iter < maxiter) {
       {
         KOMMUNOPP_TIME(crit_pair);
         stage_crit_pairs();
@@ -167,9 +167,8 @@ struct f4 {
       update_basis_and_amb(new_elements);
 
       msg("==== Iteration %d has finished. Basis has now %d elements ====",
-          iter,
+          ++iter,
           basis.size() - 1);
-      iter++;
     }
 
     /* for (auto i: basis){ */
@@ -240,8 +239,7 @@ struct f4 {
       return -1;
   }
   //------------------------------------------------------------------------------
-  void gebauer_moeller(
-    boost::unordered_set<ambiguity, amb_hash>& new_amb) {
+  void gebauer_moeller(boost::unordered_set<ambiguity, amb_hash>& new_amb) {
     // first index is always the newer polynomial
 
     auto cmp = [this](ambiguity& a, ambiguity& b) {
@@ -584,25 +582,14 @@ struct f4 {
 
     // set up matrix
     sfmpz_mat_t mat;
-    set_up_matrix(mat, rows, columns);
-
-    if(mat->nrow < 20) {
-      std::stable_sort(mat->rows, mat->rows + mat->nrow, [](auto a, auto b) {
-        auto idx_a = a.indices[0];
-        auto idx_b = b.indices[0];
-        if(idx_a != idx_b)
-          return idx_a > idx_b;
-        auto nnz_a = a.nnz;
-        auto nnz_b = b.nnz;
-        return nnz_a < nnz_b;
-      });
-
-      sparse_mat_write(mat, std::cout);
+    {
+      KOMMUNOPP_TIME(other);
+      set_up_matrix(mat, rows, columns);
     }
 
     // reduction
     KOMMUNOPP_PROFILE(auto timer = gstats.time(gstats.reduction));
-    auto [idxs, entries] = multimodular_gauss_elim(mat, interreduce);
+    auto [idxs, entries] = linear_algebra(mat, characteristic, interreduce);
     KOMMUNOPP_PROFILE(timer.~adding_timer());
 
     // compute new elements
@@ -673,7 +660,41 @@ struct f4 {
     fmpz_clear(denom);
     fmpz_clear(tmp);
   }
+  //------------------------------------------------------------------------------
+  void set_up_matrix(uint32_mat_t mat,
+                     boost::unordered_set<poly_id>& rows,
+                     std::vector<mon_id>& columns) {
 
+    boost::unordered_map<mon_id, size_t> col_to_id;
+    size_t i = 0;
+    for(auto c : columns)
+      col_to_id[c] = i++;
+
+    msg("Setting up matrix of size (%d, %d)", rows.size(), columns.size());
+
+    // initialize matrix
+    sparse_mat_init(mat, rows.size(), columns.size());
+
+    // set all entries
+    i = 0;
+    for(auto r : rows) {
+      auto row = sparse_mat_row(mat, i++);
+      std::span<C> coeffs = poly.get_coefficients(r);
+
+      auto p = poly[r];
+      auto nnz = p.size();
+      sparse_vec_realloc(row, nnz);
+      row->nnz = nnz;
+
+      size_t k = 0;
+      for(auto it = p.begin(); it != p.end(); it++) {
+        auto cc = coeffs[k].data();
+        row->entries[k] = mpz_get_ui(mpq_numref(cc));
+        row->indices[k] = col_to_id[*it];
+        k++;
+      }
+    }
+  }
   //------------------------------------------------------------------------------
   void update_basis_and_amb(std::vector<poly_id>& new_elements) {
 
