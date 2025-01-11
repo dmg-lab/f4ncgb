@@ -5,6 +5,8 @@
 #include <sys/errno.h>
 #include <utility>
 #include <vector>
+#include <set>
+#include <map>
 #include <flint/nmod.h>
 
 #include <boost/bimap.hpp>
@@ -98,28 +100,25 @@ crt_reconstruction(fmpz*& entries,
   if(rrefs.size() == 0)
     return;
 
-  size_t n_rows = rrefs[0]->nrow;
-
   // get all (i,j) where at least one rref is nonzero
   std::map<size_t, std::set<size_t>> nnz_pos;
   for(size_t i : relevant_rows) {
-    std::set<size_t> nnz_pos_row;
+    auto & nnz_pos_row = nnz_pos[i];
     for(auto& rref : rrefs) {
       auto row = sparse_mat_row(rref, i);
       nnz_pos_row.insert(row->indices, row->indices + row->nnz);
     }
-    nnz_pos[i].insert(nnz_pos_row.begin(), nnz_pos_row.end());
   }
   size_t nnz = 0;
   for(const auto& [key, values] : nnz_pos)
     nnz += values.size();
+  idxs.reserve(nnz);
 
   size_t len = primes.size();
-  idxs.reserve(sparse_mat_nnz(rrefs[0]));
   fmpz* moduli = new fmpz[len];
+  entries = new fmpz[nnz];
   for(size_t i = 0; i < len; i++)
     fmpz_init_set_ui(moduli + i, primes[i]);
-  entries = new fmpz[nnz];
   for(size_t i = 0; i < nnz; i++)
     fmpz_init(entries + i);
 
@@ -134,7 +133,7 @@ crt_reconstruction(fmpz*& entries,
     fmpz_init(inputs + i);
 
   size_t idx = 0;
-  for(size_t i = 0; i < n_rows; i++) {
+  for(size_t i : relevant_rows) {
     for(auto j : nnz_pos[i]) {
       idxs.emplace_back(i, j);
       for(size_t k = 0; k < rrefs.size(); k++) {
@@ -332,21 +331,21 @@ void inline normalize_row(uint32_vec_t vec, nmod_t mod) {
 // Compute x - ay mod p
 // but leave out the 0th entry of y
 // because that will be zero anyway
-void inline xmay(int64_t* x, int64_t a, uint32_vec_t y, uint64_t p2) {
+void inline xmay(int64_t* x, int64_t a, uint32_vec_t y, int64_t p2) {
   size_t j;
   int64_t t;
   for(size_t i = 1; i < y->nnz; i++) {
     j = y->indices[i];
     t = x[j];
     t -= a * y->entries[i];
-    t += static_cast<uint64_t>(t >> 63) & p2;
+    t += (t >> 63) & p2;
     x[j] = t;
   }
 }
 //------------------------------------------------------------------------------
 pivots
 gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
-  // first canonicalize, sort and compress the matrix
+  // first canonicalize and compress the matrix
   sparse_mat_compress(mat);
 
   slong* pivots = new slong[mat->ncol];
@@ -355,7 +354,7 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
   int64_t* buffer = new int64_t[mat->ncol];
   std::fill(buffer, buffer + mat->ncol, 0);
   uint64_t p = mod.n;
-  uint64_t p2 = p * p;
+  int64_t p2 = static_cast<int64_t>(p * p);
 
   std::vector<size_t> buffer_ids;
   buffer_ids.reserve(32);
@@ -380,7 +379,7 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
     // we found a new pivot => rescale and insert in pivots
     if(pivots[c] < 0) {
       normalize_row(row, mod);
-      pivots[c] = static_cast<mp_limb_signed_t>(r);
+      pivots[c] = static_cast<slong>(r);
       continue;
     }
 
@@ -417,7 +416,7 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
 
     copy_from_buffer_and_clear(buffer, buffer_ids, row);
     normalize_row(row, mod);
-    pivots[row->indices[0]] = static_cast<mp_limb_signed_t>(r);
+    pivots[row->indices[0]] = static_cast<slong>(r);
   }
 
   std::vector<size_t> piv;
