@@ -2,12 +2,12 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <flint/nmod.h>
+#include <map>
+#include <set>
 #include <sys/errno.h>
 #include <utility>
 #include <vector>
-#include <set>
-#include <map>
-#include <flint/nmod.h>
 
 #include <boost/bimap.hpp>
 #include <boost/multiprecision/gmp.hpp>
@@ -103,7 +103,7 @@ crt_reconstruction(fmpz*& entries,
   // get all (i,j) where at least one rref is nonzero
   std::map<size_t, std::set<size_t>> nnz_pos;
   for(size_t i : relevant_rows) {
-    auto & nnz_pos_row = nnz_pos[i];
+    auto& nnz_pos_row = nnz_pos[i];
     for(auto& rref : rrefs) {
       auto row = sparse_mat_row(rref, i);
       nnz_pos_row.insert(row->indices, row->indices + row->nnz);
@@ -390,15 +390,17 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
     // reduce current row with all pivots
     {
       KOMMUNOPP_TIME(other);
+      int64_t cc;
+      slong rr;
       for(size_t i = c; i < mat->ncol; i++) {
-        int64_t cc = buffer[i];
+        cc = buffer[i];
         if(cc == 0)
           continue;
         cc %= p;
         buffer[i] = cc;
         if(cc == 0)
           continue;
-        auto rr = pivots[i];
+        rr = pivots[i];
         if(rr < 0) {
           buffer_ids.push_back(i);
           continue;
@@ -406,17 +408,17 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
         buffer[i] = 0;
         xmay(buffer, cc, sparse_mat_row(mat, rr), p2);
       }
-    }
 
-    // we have a zero row
-    if(buffer_ids.empty()) {
-      trace[r] = true;
-      continue;
-    }
+      // we have a zero row
+      if(buffer_ids.empty()) {
+        trace[r] = true;
+        continue;
+      }
 
-    copy_from_buffer_and_clear(buffer, buffer_ids, row);
-    normalize_row(row, mod);
-    pivots[row->indices[0]] = static_cast<slong>(r);
+      copy_from_buffer_and_clear(buffer, buffer_ids, row);
+      normalize_row(row, mod);
+      pivots[row->indices[0]] = static_cast<slong>(r);
+    }
   }
 
   std::vector<size_t> piv;
