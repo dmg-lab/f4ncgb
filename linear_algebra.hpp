@@ -370,10 +370,13 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
 
   for(size_t r = 0; r < mat->nrow; r++) {
 
-    if(trace[r])
-      continue;
-
     auto row = sparse_mat_row(mat, r);
+
+    if(trace[r]) {
+      sparse_vec_clear(row);
+      continue;
+    }
+
     auto c = row->indices[0];
 
     // we found a new pivot => rescale and insert in pivots
@@ -409,6 +412,7 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
 
     // we have a zero row
     if(buffer_ids.empty()) {
+      sparse_vec_clear(row);
       trace[r] = true;
       continue;
     }

@@ -463,11 +463,11 @@ struct f4 {
   }
   //------------------------------------------------------------------------------
 
-  boost::unordered_set<poly_id> symbolic_preprocessing_orig() {
+  std::vector<poly_id> symbolic_preprocessing_orig() {
     KOMMUNOPP_TIME(sym_pre);
     boost::unordered_set<mon_id> todo;
     boost::unordered_set<mon_id> done;
-    boost::unordered_set<poly_id> rows;
+    std::vector<poly_id> rows;
 
     for(const auto& [f, g] : crit_pairs) {
       // add monomials to corresponding sets
@@ -479,8 +479,8 @@ struct f4 {
       done.insert(*mon_it.begin());
       todo.insert(++mon_it.begin(), mon_it.end());
 
-      rows.insert(f);
-      rows.insert(g);
+      rows.push_back(f);
+      rows.push_back(g);
     }
     crit_pairs.clear();
 
@@ -492,7 +492,7 @@ struct f4 {
       if(reducer == 0)
         continue;
       assert(m == poly.get_lm_id(reducer));
-      rows.insert(reducer);
+      rows.push_back(reducer);
       for(auto mm : poly[reducer]) {
         if(!done.count(mm))
           todo.insert(mm);
@@ -612,7 +612,7 @@ struct f4 {
   }
   //------------------------------------------------------------------------------
   void set_up_matrix(sfmpz_mat_t mat,
-                     boost::unordered_set<poly_id>& rows,
+                     std::vector<poly_id>& rows,
                      std::vector<mon_id>& columns) {
 
     boost::unordered_map<mon_id, size_t> col_to_id;
@@ -662,7 +662,7 @@ struct f4 {
   }
   //------------------------------------------------------------------------------
   void set_up_matrix(uint32_mat_t mat,
-                     boost::unordered_set<poly_id>& rows,
+                     std::vector<poly_id>& rows,
                      std::vector<mon_id>& columns) {
 
     boost::unordered_map<mon_id, size_t> col_to_id;
