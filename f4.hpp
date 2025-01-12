@@ -482,7 +482,6 @@ struct f4 {
       rows.push_back(f);
       rows.push_back(g);
     }
-    crit_pairs.clear();
 
     while(!todo.empty()) {
       mon_id m = *todo.begin();
@@ -567,6 +566,7 @@ struct f4 {
   std::vector<poly_id> reduction(bool interreduce = false) {
     // symbolic preprocessing
     auto rows = symbolic_preprocessing_orig();
+    crit_pairs.clear();
 
     // make columns
     // columns are sorted in DESCENDING order
@@ -582,14 +582,12 @@ struct f4 {
 
     // set up matrix
     sfmpz_mat_t mat;
-    {
-      KOMMUNOPP_TIME(other);
-      set_up_matrix(mat, rows, columns);
-    }
+    set_up_matrix(mat, rows, columns);
 
     // reduction
     KOMMUNOPP_PROFILE(auto timer = gstats.time(gstats.reduction));
-    auto [idxs, entries] = linear_algebra(mat, characteristic, interreduce);
+    auto [idxs, entries]
+      = linear_algebra(mat, characteristic, interreduce);
     KOMMUNOPP_PROFILE(timer.~adding_timer());
 
     // compute new elements

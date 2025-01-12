@@ -35,7 +35,7 @@ typedef sparse_mat_t<uint32_t> uint32_mat_t;
 
 //------------------------------------------------------------------------------
 
-inline void
+inline bool
 vec_mod(uint32_vec_t vec, const sfmpz_vec_t src, nmod_t mod) {
   auto nnz = src->nnz;
   sparse_vec_realloc(vec, nnz);
@@ -43,16 +43,26 @@ vec_mod(uint32_vec_t vec, const sfmpz_vec_t src, nmod_t mod) {
   std::copy(src->indices, src->indices + nnz, vec->indices);
   for(size_t i = 0; i < nnz; i++) {
     uint32_t val = fmpz_get_nmod(src->entries + i, mod);
+    if(i == 0 and val == 0)
+      return false;
     vec->entries[i] = val;
   }
+  return true;
 }
 
 //------------------------------------------------------------------------------
 
-inline void
-mat_mod(uint32_mat_t mat, const sfmpz_mat_t src, nmod_t mod) {
-  for(size_t i = 0; i < src->nrow; i++)
-    vec_mod(sparse_mat_row(mat, i), sparse_mat_row(src, i), mod);
+inline bool
+mat_mod(uint32_mat_t mat, const sfmpz_mat_t src, nmod_t mod, bool* trace) {
+  bool res = true;
+  for(size_t i = 0; i < src->nrow; i++) {
+    if(!trace[i]) {
+      res = vec_mod(sparse_mat_row(mat, i), sparse_mat_row(src, i), mod);
+      if(!res)
+        break;
+    }
+  }
+  return res;
 }
 //------------------------------------------------------------------------------
 
@@ -298,7 +308,7 @@ rational_reconstruction(std::vector<gmp_rational>& entries,
 template<typename T>
 void inline copy_to_buffer(T* buffer, uint32_vec_t vec) {
   for(size_t i = 0; i < vec->nnz; i++)
-    buffer[*(vec->indices + i)] = *(vec->entries + i);
+    buffer[vec->indices[i]] = vec->entries[i];
 }
 //------------------------------------------------------------------------------
 void inline copy_from_buffer_and_clear(int64_t* buffer,
@@ -359,24 +369,12 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
   std::vector<size_t> buffer_ids;
   buffer_ids.reserve(32);
 
-  // sort rows by first index and nnz
-  std::sort(mat->rows, mat->rows + mat->nrow, [](auto& r1, auto& r2) {
-    auto id1 = r1.indices[0];
-    auto id2 = r2.indices[0];
-    if(id1 != id2)
-      return id1 > id2;
-    return r1.nnz < r2.nnz;
-  });
-
   for(size_t r = 0; r < mat->nrow; r++) {
 
-    auto row = sparse_mat_row(mat, r);
-
-    if(trace[r]) {
-      sparse_vec_clear(row);
+    if(trace[r])
       continue;
-    }
 
+    auto row = sparse_mat_row(mat, r);
     auto c = row->indices[0];
 
     // we found a new pivot => rescale and insert in pivots
@@ -495,8 +493,7 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
   std::vector<std::pair<size_t, size_t>> idxs;
 
   bool* trace = new bool[mat->nrow];
-  for(size_t i = 0; i < mat->nrow; i++)
-    trace[i] = false;
+  std::fill(trace, trace + mat->nrow, false);
 
   size_t i = 0;
 
@@ -506,6 +503,7 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
 
   uint32_t p;
   nmod_t mod;
+  bool res;
 
   while(true) {
     while(prod < M) {
@@ -519,7 +517,14 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
         = std::make_unique<sparse_mat_struct<uint32_t>>();
       sparse_mat_init(nmod_mat.get(), mat->nrow, mat->ncol);
       nmod_init(&mod, p);
-      mat_mod(nmod_mat.get(), mat, mod);
+      res = mat_mod(nmod_mat.get(), mat, mod, trace);
+
+      // a pivot was set to zero -- we don't want that
+      if(!res) {
+        msg("Excluding prime %lu (bad pivots)", p);
+        sparse_mat_clear(nmod_mat.get());
+        continue;
+      }
 
       KOMMUNOPP_TIME(rref);
       pivots piv(gauss_elim(nmod_mat.get(), mod, trace));
@@ -532,7 +537,7 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
         used_primes.push_back(p);
         prod = prod * p;
       } else {
-        msg("Excluding prime %d (bad pivots)", p);
+        msg("Excluding prime %lu (bad pivots)", p);
         sparse_mat_clear(nmod_mat.get());
       }
     }
@@ -545,7 +550,6 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
         good_primes.push_back(used_primes[r]);
         good_rrefs.push_back(rrefs[r].get());
         good_pivs.push_back(pivs[r]);
-        assert(r < used_primes.size());
         prod = prod * used_primes[r];
       }
     }
@@ -583,8 +587,7 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
       msg("Reconstruction unsuccessfull. Increasing bound.");
       M = prod * p * p;
       // reset trace
-      for(size_t i = 0; i < mat->nrow; i++)
-        trace[i] = false;
+      std::fill(trace, trace + mat->nrow, false);
       continue;
     }
 
@@ -598,6 +601,7 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
 
   return std::make_pair(idxs, rat_entries);
 }
+//------------------------------------------------------------------------------
 
 std::pair<std::vector<std::pair<size_t, size_t>>,
           std::vector<gmp_rational>> inline nmod_gauss_elim(sfmpz_mat_t mat,
@@ -607,15 +611,14 @@ std::pair<std::vector<std::pair<size_t, size_t>>,
 
   // not needed but use it to avoid code duplication
   bool* trace = new bool[mat->nrow];
-  for(size_t i = 0; i < mat->nrow; i++)
-    trace[i] = false;
+  std::fill(trace, trace + mat->nrow, false);
 
   nmod_t mod;
   nmod_init(&mod, p);
 
   uint32_mat_t nmod_mat;
   sparse_mat_init(nmod_mat, mat->nrow, mat->ncol);
-  mat_mod(nmod_mat, mat, mod);
+  mat_mod(nmod_mat, mat, mod, trace);
 
   KOMMUNOPP_TIME(rref);
   gauss_elim(nmod_mat, mod, trace);
@@ -650,6 +653,7 @@ std::pair<std::vector<std::pair<size_t, size_t>>,
 
   return std::make_pair(idxs, entries);
 }
+//------------------------------------------------------------------------------
 
 std::pair<std::vector<std::pair<size_t, size_t>>,
           std::vector<gmp_rational>> inline linear_algebra(sfmpz_mat_t mat,
@@ -658,6 +662,15 @@ std::pair<std::vector<std::pair<size_t, size_t>>,
                                                            bool interreduce
                                                            = false,
                                                            bool proof = true) {
+
+  // sort rows by first index and nnz
+  std::sort(mat->rows, mat->rows + mat->nrow, [](auto& r1, auto& r2) {
+    auto id1 = r1.indices[0];
+    auto id2 = r2.indices[0];
+    if(id1 != id2)
+      return id1 > id2;
+    return r1.nnz < r2.nnz;
+  });
 
   if(characteristic == 0)
     return multimodular_gauss_elim(mat, interreduce, proof);
