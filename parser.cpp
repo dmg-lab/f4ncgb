@@ -304,6 +304,7 @@ parser_context::impl_msolve_header(char first_char, char second_char) {
       prefix += second_char;
       ident.insert(0, prefix);
       str_to_id(ident);
+      ++num_vars_;
     } else {
       RETURN_ERROR(
         std::format("Unexpected third character for msolve format: '{}'", c));
