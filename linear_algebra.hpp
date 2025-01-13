@@ -37,6 +37,7 @@ typedef sparse_mat_t<uint32_t> uint32_mat_t;
 
 inline bool
 vec_mod(uint32_vec_t vec, const sfmpz_vec_t src, nmod_t mod) {
+  assert(vec->nnz <= src->nnz);
   auto nnz = src->nnz;
   sparse_vec_realloc(vec, nnz);
   vec->nnz = nnz;
