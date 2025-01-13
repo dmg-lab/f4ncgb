@@ -169,7 +169,7 @@ class parser_context {
     do {
       ident.push_back(c);
       getc();
-    } while(c_allowed(c));
+    } while(c_allowed(c) && c != EOF);
     return ident;
   }
 
@@ -301,13 +301,11 @@ class parser_context {
         var_to_ostream(o, mon);
       }
     }
+    return o;
   }
 
   template<class PS>
   std::ostream& to_msolve(std::ostream& o, const PS& p) {
-    using monomial_store = PS::monomial_store_;
-    const monomial_store& m = p.get_monomial_store();
-
     to_msolve_header(o, p);
 
     bool first_poly = true;

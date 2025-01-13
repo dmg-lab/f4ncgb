@@ -325,6 +325,11 @@ parser_context::impl_msolve_header(char first_char, char second_char) {
       "Unexpected msolve parse state after first variable, have c: '{}'", c));
   }
 
+  blocks.emplace_back();
+  blocks[0].emplace_back(1);
+
+  auto* current_block = &blocks[0];
+
   while(true) {
     c = swallow_whitespace_no_newline();
 
@@ -334,7 +339,15 @@ parser_context::impl_msolve_header(char first_char, char second_char) {
     } else if(c == ',') {
       getc();
       swallow_whitespace_no_newline();
-      str_to_id(read_ident(parser_context::msolve_ident_filter));
+      if(c == '\n') {
+        getc();
+        blocks.emplace_back();
+        current_block = &blocks[blocks.size() - 1];
+        // Swallow as much as needed until there is something again.
+        swallow_whitespace_and_newline();
+      }
+      auto id = str_to_id(read_ident(parser_context::msolve_ident_filter));
+      current_block->emplace_back(id);
       ++num_vars_;
     } else {
       RETURN_ERROR(std::format("Unexpected character '{}'", c));
@@ -360,12 +373,6 @@ parser_context::impl_msolve_header(char first_char, char second_char) {
     return impl_msolve(
       add_cb, add_cb_userdata, boundary_cb, boundary_cb_userdata);
   };
-
-  // Variables in the one block must start with 1 and go up to and including
-  // num_vars.
-  blocks.resize(1);
-  blocks[0].resize(num_vars_ + 1);
-  std::iota(blocks[0].begin(), blocks[0].end(), 1);
 
   return std::nullopt;
 }
