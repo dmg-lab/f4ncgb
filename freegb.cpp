@@ -153,6 +153,7 @@ main(int argc, char** argv) {
       }
 
       algo.compute_basis();
+      msg("Success");
     });
 
   KOMMUNOPP_PROFILE(gstats.print());
