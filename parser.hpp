@@ -193,7 +193,7 @@ class parser_context {
   static parser_symbolic_context::id read_symbolic_var(parser_context& ctx) {
     assert(ctx.has_symbols());
     if(ctx.current_c() == '0') {
-      ctx.getc(); // Swallow the 0.
+      ctx.getc();// Swallow the 0.
       return 0;
     }
     auto ident = ctx.read_ident(parser_context::sympoly_ident_filter);
@@ -241,7 +241,7 @@ class parser_context {
   }
 
   template<class PS>
-  std::ostream& to_msolve(std::ostream& o, const PS& p) {
+  std::ostream& to_msolve_header(std::ostream& o, const PS& p) {
     using monomial_store = PS::monomial_store_;
     using index_type = PS::index_type;
     const monomial_store& m = p.get_monomial_store();
@@ -253,40 +253,62 @@ class parser_context {
     }
     o << "\n";
     o << characteristic_ << "\n";
+    return o;
+  }
+
+  template<class PS>
+  std::ostream& to_msolve_poly(std::ostream& o,
+                               const PS& p,
+                               PS::index_type poly_id,
+                               bool first_poly) {
+    using monomial_store = PS::monomial_store_;
+    const monomial_store& m = p.get_monomial_store();
+
+    if(first_poly)
+      first_poly = false;
+    else {
+      o << ",\n";
+    }
+    auto coeff_it = p.get_coefficients(poly_id).begin();
+    bool first = true;
+    for(auto mon_id : p[poly_id]) {
+      if(first) {
+        first = false;
+      } else {
+        if(coefficient_sign(*coeff_it) < 0) {
+          o << " - ";
+        } else {
+          o << " + ";
+        }
+      }
+      bool output_asterisk = false;
+      if(coefficient_is_posneg_neutral(*coeff_it)) {
+        ++coeff_it;
+      } else {
+        output_asterisk = true;
+        o << coefficient_abs(*coeff_it++);
+      }
+      for(auto mon : m[mon_id]) {
+        if(output_asterisk)
+          o << "*";
+        output_asterisk = true;
+        var_to_ostream(o, mon);
+      }
+    }
+  }
+
+  template<class PS>
+  std::ostream& to_msolve(std::ostream& o, const PS& p) {
+    using monomial_store = PS::monomial_store_;
+    const monomial_store& m = p.get_monomial_store();
+
+    to_msolve_header(o, p);
+
     bool first_poly = true;
     for(auto poly_it = p.begin() + 1u; poly_it != p.end(); ++poly_it) {
       auto poly_id = *poly_it;
-      if(first_poly)
-        first_poly = false;
-      else {
-        o << ",\n";
-      }
-      auto coeff_it = p.get_coefficients(poly_id).begin();
-      bool first = true;
-      for(auto mon_id : p[poly_id]) {
-        if(first) {
-          first = false;
-        } else {
-          if(coefficient_sign(*coeff_it) < 0) {
-            o << " - ";
-          } else {
-            o << " + ";
-          }
-        }
-        bool output_asterisk = false;
-        if(coefficient_is_posneg_neutral(*coeff_it)) {
-          ++coeff_it;
-        } else {
-          output_asterisk = true;
-          o << coefficient_abs(*coeff_it++);
-        }
-        for(auto mon : m[mon_id]) {
-          if(output_asterisk)
-            o << "*";
-          output_asterisk = true;
-          var_to_ostream(o, mon);
-        }
-      }
+      to_msolve_poly(o, p, poly_id, first_poly);
+      first_poly = false;
     }
     o << std::endl;
     return o;
