@@ -261,8 +261,9 @@ parser_context::impl_msolve(parse_add_cb add_cb,
       ADD(0);
       break;
     } else {
-      RETURN_ERROR(
-        std::format("Unexpected line termination: '{}'", static_cast<char>(c)));
+      // Also very last polynomial with some weird ending.
+      ADD(0);
+      break;
     }
   }
 
