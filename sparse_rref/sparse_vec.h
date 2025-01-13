@@ -1,45 +1,61 @@
 #ifndef SPARSE_VEC_H
 #define SPARSE_VEC_H
 
+#include "flint/fmpz.h"
 #include <algorithm>
 #include <iostream>
-#include "flint/fmpz.h"
-
 
 // Memory management
 
-template <typename T>
-inline T* s_malloc(const size_t size) {
+template<typename T>
+inline T*
+s_malloc(const size_t size) {
   return (T*)std::malloc(size * sizeof(T));
 }
 
-
-template <typename T>
-inline void s_free(T* s) {
-	std::free(s);
+template<typename T>
+inline void
+s_free(T* s) {
+  std::free(s);
 }
 
-template <typename T>
-inline T* s_realloc(T* s, const size_t size) {
+template<typename T>
+inline T*
+s_realloc(T* s, const size_t size) {
+  assert(size > 0);
   return (T*)std::realloc(s, size * sizeof(T));
 }
 
 // Scalar basics
 
-template <typename T> inline T* binarysearch(T* begin, T* end, T val) {
-	auto ptr = std::lower_bound(begin, end, val);
-	if (ptr == end || *ptr == val)
-		return ptr;
-	else
-		return end;
+template<typename T>
+inline T*
+binarysearch(T* begin, T* end, T val) {
+  auto ptr = std::lower_bound(begin, end, val);
+  if(ptr == end || *ptr == val)
+    return ptr;
+  else
+    return end;
 }
 
 // scalar
-static inline bool scalar_is_zero(const fmpz_t a) { return fmpz_is_zero(a); }
-static inline bool scalar_is_zero(const uint32_t* a) { return (*a) == 0; }
+static inline bool
+scalar_is_zero(const fmpz_t a) {
+  return fmpz_is_zero(a);
+}
+static inline bool
+scalar_is_zero(const uint32_t* a) {
+  return (*a) == 0;
+}
 
-static inline void scalar_set(fmpz_t a, const fmpz_t b) { fmpz_set(a, b); }
-static inline void scalar_set(uint32_t* a, const uint32_t* b) { *a = *b; }
+static inline void
+scalar_set(fmpz_t a, const fmpz_t b) {
+  fmpz_set(a, b);
+}
+static inline void
+scalar_set(uint32_t* a, const uint32_t* b) {
+  *a = *b;
+}
 
 template<typename T>
 struct sparse_vec_struct {
@@ -102,7 +118,6 @@ sparse_vec_init(sparse_vec_t<T> vec, ulong alloc = 1) {
   }
 }
 
-
 // set zero and clear memory
 template<typename T>
 inline void
@@ -158,8 +173,10 @@ sparse_vec_canonicalize(sparse_vec_t<T> vec) {
 template<typename T>
 inline void
 sparse_vec_compress(sparse_vec_t<T> vec) {
-  sparse_vec_canonicalize(vec);
-  sparse_vec_realloc(vec, vec->nnz);
+  if(vec->nnz) {
+    sparse_vec_canonicalize(vec);
+    sparse_vec_realloc(vec, vec->nnz);
+  }
 }
 
 // debug only, not used to the large vector
