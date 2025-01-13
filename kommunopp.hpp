@@ -10,8 +10,12 @@
 #include <utility>
 #include <vector>
 
+// The profiler shows boost::alignment to take a while, but this seems
+// to be an artifact from waiting for memory to appear. It makes no
+// difference if this is changed, so it will remain at this approch.
 #include <boost/align/align_down.hpp>
 #include <boost/align/align_up.hpp>
+
 #include <boost/container/small_vector.hpp>
 #include <boost/multiprecision/gmp.hpp>
 #include <boost/unordered/unordered_flat_map.hpp>
