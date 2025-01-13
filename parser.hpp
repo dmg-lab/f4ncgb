@@ -246,10 +246,16 @@ class parser_context {
     using index_type = PS::index_type;
     const monomial_store& m = p.get_monomial_store();
 
+    for(auto& b : blocks) {
+      for(auto v : b) {
+        var_to_ostream(o, v);
+        if(v < num_vars_)
+          o << ",";
+      }
+      o << "\n";
+    }
+
     for(index_type i = 1; i <= num_vars_; ++i) {
-      var_to_ostream(o, i);
-      if(i < num_vars_)
-        o << ",";
     }
     o << "\n";
     o << characteristic_ << "\n";
