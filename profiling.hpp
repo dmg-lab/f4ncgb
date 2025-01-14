@@ -5,7 +5,7 @@
 
 #ifdef KOMMUNOPP_ENABLE_PROFILING
 #define KOMMUNOPP_PROFILE(EXPR) EXPR
-#define KOMMUNOPP_TIME(TGT) auto timer = gstats.time(gstats.TGT)
+#define KOMMUNOPP_TIME(TGT) auto timer = ::kommunopp::gstats.time(::kommunopp::gstats.TGT)
 #else
 #define KOMMUNOPP_PROFILE(EXPR)
 #define KOMMUNOPP_TIME(EXPR)
@@ -21,6 +21,7 @@ struct statistics {
   double init = 0, other = 0, new_elements = 0;
   double amb = 0, crit_pair = 0, sym_pre = 0, reduction = 0;
   double overlap = 0, inclusion = 0, crt = 0, ratrec = 0, rref = 0;
+  double binarysearch = 0;
 
   // Automated timing to add time to some target.
   struct adding_timer {

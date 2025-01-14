@@ -88,6 +88,9 @@ statistics::print() {
   msg("other:                     %22.2f (%2.2f %%)",
       s.other,
       percent_d(s.other, total_time));
+  msg("binary search:             %22.2f (%2.2f %%)",
+      s.binarysearch,
+      percent_d(s.binarysearch, total_time));
   msg("");
   msg("total process time:        %22.2f seconds", process_time());
 }
