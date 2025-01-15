@@ -12,33 +12,6 @@ extern void(*original_SIGSEGV_handler)(int);
 extern void(*original_SIGABRT_handler)(int);
 extern void(*original_SIGTERM_handler)(int);
 
-/**
-    Returns name of signal
-
-    @param sig integer
-
-    @return char *
-*/
-const char * signal_name(int sig);
-
-/**
-    Initialize all signals
-*/
-void init_all_signal_handers();
-
-
-/**
-    Catch signal and prints corresponding message
-
-    @param sig integer
-*/
-void catch_signal(int sig);
-
-/**
-    Resets all signal handlers
-*/
-void reset_all_signal_handlers();
-
 /*------------------------------------------------------------------------*/
 // / Level of output verbosity, ranges from 0 to 4
 extern int verbose;

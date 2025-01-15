@@ -241,10 +241,7 @@ class parser_context {
       return o << static_cast<int>(i);
   }
 
-  template<class PS>
-  std::ostream& to_msolve_header(std::ostream& o, const PS& p) {
-    using index_type = PS::index_type;
-
+  std::ostream& to_msolve_header(std::ostream& o) {
     for(auto& b : blocks) {
       for(auto v : b) {
         var_to_ostream(o, v);
@@ -308,7 +305,7 @@ class parser_context {
 
   template<class PS>
   std::ostream& to_msolve(std::ostream& o, const PS& p) {
-    to_msolve_header(o, p);
+    to_msolve_header(o);
 
     bool first_poly = true;
     for(auto poly_it = p.begin() + 1u; poly_it != p.end(); ++poly_it) {

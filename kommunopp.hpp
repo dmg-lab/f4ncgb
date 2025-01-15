@@ -717,6 +717,18 @@ coefficient_abs(const boost::multiprecision::backends::gmp_rational& r);
 bool
 coefficient_is_posneg_neutral(
   const boost::multiprecision::backends::gmp_rational& r);
+
+class parser_context;
+int
+kommunopp_main(parser_context& context,
+               size_t nblocks,
+               size_t nvars,
+               size_t characteristic,
+               size_t maxiter,
+               size_t maxdeg,
+               size_t threads,
+               const std::string& output_name,
+               bool print_read_problem = false);
 }
 
 std::ostream&

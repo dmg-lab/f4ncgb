@@ -9,3 +9,5 @@ build-*
 \#*\#
 perf.data
 perf.data.old
+/dist/
+/fuzztest/

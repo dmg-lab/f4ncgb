@@ -8,6 +8,7 @@ endif()
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 option(ENABLE_PROFILING "Enable tracking statistics" ON)
+option(ENABLE_FUZZER "Enable building the fuzzer, if available" ON)
 
 set(KOMMUNOPP_SRCS
   kommunopp.cpp
@@ -48,21 +49,7 @@ endif()
 # Do more optimizations in release mode.
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native")
 
-set(CMAKE_C_FLAGS_SANITIZE
-    "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address -fno-omit-frame-pointer -fsanitize=undefined" CACHE STRING
-    "Flags used by the C compiler for Sanitize build type or configuration." FORCE)
-
-set(CMAKE_CXX_FLAGS_SANITIZE
-    "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address -fno-omit-frame-pointer -fsanitize=undefined" CACHE STRING
-    "Flags used by the C++ compiler for Sanitize build type or configuration." FORCE)
-
-set(CMAKE_EXE_LINKER_FLAGS_SANITIZE
-    "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} -fsanitize=address -fsanitize=undefined" CACHE STRING
-    "Linker flags to be used to create executables for Sanitize build type." FORCE)
-
-set(CMAKE_SHARED_LINKER_FLAGS_SANITIZE
-    "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} -fsanitize=address -fsanitize=undefined" CACHE STRING
-    "Linker lags to be used to create shared libraries for Sanitize build type." FORCE)
+set(CMAKE_CXX_STANDARD 20)
 
 add_library(kommunopp STATIC ${KOMMUNOPP_SRCS})
 
@@ -71,11 +58,21 @@ add_executable(freegb ${KOMMUNOPP_TARGETS})
 target_link_libraries(kommunopp_test PUBLIC kommunopp)
 target_link_libraries(freegb PUBLIC kommunopp)
 
-
 set_property(TARGET kommunopp PROPERTY CXX_STANDARD 20)
 set_property(TARGET kommunopp_test PROPERTY CXX_STANDARD 20)
 set_property(TARGET freegb PROPERTY CXX_STANDARD 20)
 
+if(CMAKE_BUILD_TYPE MATCHES "Sanitize")
+  target_compile_options(kommunopp PRIVATE -fsanitize=address -fsanitize=undefined -g)
+  target_link_options(kommunopp PRIVATE -fsanitize=address -fsanitize=undefined)
+  target_compile_options(freegb PRIVATE -fsanitize=address -fsanitize=undefined -g)
+  target_link_options(freegb PRIVATE -fsanitize=address -fsanitize=undefined)
+  target_compile_options(kommunopp_test PRIVATE -fsanitize=address -fsanitize=undefined -g)
+  target_link_options(kommunopp_test PRIVATE -fsanitize=address -fsanitize=undefined)
+
+  target_link_libraries(kommunopp_test PRIVATE -fsanitize=address -fsanitize=undefined)
+  target_link_libraries(freegb PRIVATE -fsanitize=address -fsanitize=undefined)
+endif()
 
 find_package(Boost COMPONENTS unit_test_framework program_options REQUIRED)
 find_package(GMP REQUIRED)
@@ -101,8 +98,8 @@ target_compile_options(freegb PRIVATE
 
 target_link_libraries(kommunopp PUBLIC Boost::boost GMP::GMP)
 target_link_libraries(kommunopp_test PUBLIC Boost::unit_test_framework)
-target_link_libraries(freegb PUBLIC Boost::boost Boost::program_options GMP::GMP)
-target_link_libraries(freegb PUBLIC Flint::Flint)
+target_link_libraries(kommunopp PUBLIC Flint::Flint Boost::boost GMP::GMP)
+target_link_libraries(freegb PUBLIC Boost::boost Boost::program_options)
 
 target_include_directories(freegb PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
@@ -114,8 +111,30 @@ include(CheckIPOSupported)
 check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
 
 if(ipo_supported AND CMAKE_BUILD_TYPE MATCHES "Release")
-    message(STATUS "IPO / LTO enabled (Release build and compiler supports it)")
-    set_property(TARGET kommunopp_test PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+  message(STATUS "IPO / LTO enabled (Release build and compiler supports it)")
+  set_property(TARGET kommunopp_test PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 else()
-    message(STATUS "IPO / LTO not supported: <${ipo_error}>")
+  message(STATUS "IPO / LTO not supported: <${ipo_error}>")
+endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/fuzztest/CMakeLists.txt")
+  # Create the fuzzing target only if the fuzztest subdirectory
+  # exists.
+  set(FUZZTEST_FUZZING_MODE ON)
+  add_subdirectory(fuzztest)
+  fuzztest_setup_fuzzing_flags()
+
+  add_executable(
+    kommunopp_fuzz
+    fuzzer.cpp
+  )
+
+  link_fuzztest(kommunopp_fuzz)
+  target_link_libraries(kommunopp_fuzz PUBLIC kommunopp)
+  target_compile_options(kommunopp_fuzz PRIVATE -g)
+
+  if(CMAKE_BUILD_TYPE MATCHES "Sanitize")
+    target_link_options(kommunopp_fuzz PRIVATE -fsanitize=address -fsanitize=undefined)
+    target_link_libraries(kommunopp_fuzz PRIVATE -fsanitize=address -fsanitize=undefined)
+  endif()
 endif()
