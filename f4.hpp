@@ -162,12 +162,6 @@ struct f4 {
 
       msg("Reducing %d critical pairs.", crit_pairs.size());
       std::vector<poly_id> new_elements = reduction();
-
-      for(auto p : new_elements) {
-        std::cout << p << " ";
-      }
-      std::cout << std::endl;
-
       msg("Adding %d new elements to basis.", new_elements.size());
 
       update_basis_and_amb(new_elements);
@@ -176,17 +170,6 @@ struct f4 {
           ++iter,
           basis.size() - 1);
     }
-
-    /* for (auto i: basis){ */
-    /*   auto coeffs = poly.get_coefficients(i); */
-    /*   size_t k = 0; */
-    /*   for (auto it = poly[i].begin(); it != poly[i].end(); it++) { */
-    /*     std::cout << mpq_rational(coeffs[k++]) << "*"; */
-    /*     mons.print_monomial(*it, std::cout); */
-    /*     std::cout << " "; */
-    /*   } */
-    /*   std::cout << "\n"; */
-    /*   } */
 
     return basis;
   }
@@ -366,110 +349,110 @@ struct f4 {
   }
 
   //------------------------------------------------------------------------------
-  boost::unordered_set<poly_id> symbolic_preprocessing() {
-    boost::unordered_set<mon_id> todo;
-    boost::unordered_set<mon_id> done;
-    boost::unordered_set<poly_id> rows;
+  // boost::unordered_set<poly_id> symbolic_preprocessing() {
+  //   boost::unordered_set<mon_id> todo;
+  //   boost::unordered_set<mon_id> done;
+  //   boost::unordered_set<poly_id> rows;
 
-    for(const auto& [f, g] : crit_pairs) {
-      // add monomials to corresponding sets
-      auto mon_it = poly[f];
-      done.insert(*mon_it.begin());
-      todo.insert(++mon_it.begin(), mon_it.end());
+  //   for(const auto& [f, g] : crit_pairs) {
+  //     // add monomials to corresponding sets
+  //     auto mon_it = poly[f];
+  //     done.insert(*mon_it.begin());
+  //     todo.insert(++mon_it.begin(), mon_it.end());
 
-      mon_it = poly[g];
-      done.insert(*mon_it.begin());
-      todo.insert(++mon_it.begin(), mon_it.end());
+  //     mon_it = poly[g];
+  //     done.insert(*mon_it.begin());
+  //     todo.insert(++mon_it.begin(), mon_it.end());
 
-      rows.insert(f);
-      rows.insert(g);
-    }
-    crit_pairs.clear();
+  //     rows.insert(f);
+  //     rows.insert(g);
+  //   }
+  //   crit_pairs.clear();
 
-    size_t k = 0;
-    while(!todo.empty()) {
-      mon_id m = *todo.begin();
-      todo.erase(todo.begin());
-      done.insert(m);
-      std::vector<poly_id> reducer = find_reducer(m);
-      if(reducer.size() != 3)
-        continue;
+  //   size_t k = 0;
+  //   while(!todo.empty()) {
+  //     mon_id m = *todo.begin();
+  //     todo.erase(todo.begin());
+  //     done.insert(m);
+  //     std::vector<poly_id> reducer = find_reducer(m);
+  //     if(reducer.size() != 3)
+  //       continue;
 
-      auto a = reducer[0];
-      auto g = reducer[1];
-      auto b = reducer[2];
+  //     auto a = reducer[0];
+  //     auto g = reducer[1];
+  //     auto b = reducer[2];
 
-      poly_id agb = poly.multiply_front_and_back(a, lm_to_poly[g], b);
-      assert(m == poly.get_lm_id(agb));
-      rows.insert(agb);
-      for(auto mm : poly[agb]) {
-        if(!done.count(mm))
-          todo.insert(mm);
-      }
+  //     poly_id agb = poly.multiply_front_and_back(a, lm_to_poly[g], b);
+  //     assert(m == poly.get_lm_id(agb));
+  //     rows.insert(agb);
+  //     for(auto mm : poly[agb]) {
+  //       if(!done.count(mm))
+  //         todo.insert(mm);
+  //     }
 
-      auto n = todo.begin();
-      while(n != todo.end()) {
-        if(mons.is_divisible(*n, g)) {
-          k++;
-          done.insert(*n);
-          auto nn = mons[*n];
-          auto i = std::distance(nn.begin(),
-                                 std::ranges::search(nn, mons[g]).begin());
-          auto a = mons.getid(nn.first(i));
-          auto b = mons.getid(nn.last(nn.size() - i - mons.get_length(g)));
-          poly_id agb = poly.multiply_front_and_back(a, lm_to_poly[g], b);
-          assert(*n == poly.get_lm_id(agb));
-          rows.insert(agb);
-          n = todo.erase(n);
-          for(auto mm : poly[agb]) {
-            if(!done.count(mm))
-              todo.insert(mm);
-          }
-        } else
-          n++;
-      }
-    }
+  //     auto n = todo.begin();
+  //     while(n != todo.end()) {
+  //       if(mons.is_divisible(*n, g)) {
+  //         k++;
+  //         done.insert(*n);
+  //         auto nn = mons[*n];
+  //         auto i = std::distance(nn.begin(),
+  //                                std::ranges::search(nn, mons[g]).begin());
+  //         auto a = mons.getid(nn.first(i));
+  //         auto b = mons.getid(nn.last(nn.size() - i - mons.get_length(g)));
+  //         poly_id agb = poly.multiply_front_and_back(a, lm_to_poly[g], b);
+  //         assert(*n == poly.get_lm_id(agb));
+  //         rows.insert(agb);
+  //         n = todo.erase(n);
+  //         for(auto mm : poly[agb]) {
+  //           if(!done.count(mm))
+  //             todo.insert(mm);
+  //         }
+  //       } else
+  //         n++;
+  //     }
+  //   }
 
-    std::cout << "Saved = " << k << "\n";
-    return rows;
-  }
+  //   std::cout << "Saved = " << k << "\n";
+  //   return rows;
+  // }
 
+  // //------------------------------------------------------------------------------
+  // std::vector<poly_id> find_reducer(mon_id m, bool strategy = false) {
+
+  //   auto reducers = prefix_trie.divisors(mons[m]);
+  //   if(reducers.empty())
+  //     return std::vector<poly_id>();
+
+  //   std::pair<mon_id, size_t> match;
+  //   // strategy 1 : the last one
+  //   if(strategy)
+  //     match = *std::max_element(reducers.begin(), reducers.end());
+  //   // strategy 2 : the one with smallest lm
+  //   else if(true)
+  //     match = *std::max_element(
+  //       reducers.begin(), reducers.end(), [this](auto a, auto b) {
+  //         return this->mons.cmp(b.first, a.first);
+  //       });
+  //   // strategy 3 : the one with largest lm
+  //   else
+  //     match = *std::max_element(
+  //       reducers.begin(), reducers.end(), [this](auto a, auto b) {
+  //         return this->mons.cmp(a.first, b.first);
+  //       });
+
+  //   monomial mm = mons[m];
+  //   monomial lm = mons[match.first];
+  //   mon_id a = mons.getid(mm.first(match.second));
+  //   mon_id b = mons.getid(mm.last(mm.size() - match.second - lm.size()));
+
+  //   std::vector<poly_id> res = { a, match.first, b };
+
+  //   return res;
+  // }
   //------------------------------------------------------------------------------
-  std::vector<poly_id> find_reducer(mon_id m, bool strategy = false) {
 
-    auto reducers = prefix_trie.divisors(mons[m]);
-    if(reducers.empty())
-      return std::vector<poly_id>();
-
-    std::pair<mon_id, size_t> match;
-    // strategy 1 : the last one
-    if(strategy)
-      match = *std::max_element(reducers.begin(), reducers.end());
-    // strategy 2 : the one with smallest lm
-    else if(true)
-      match = *std::max_element(
-        reducers.begin(), reducers.end(), [this](auto a, auto b) {
-          return this->mons.cmp(b.first, a.first);
-        });
-    // strategy 3 : the one with largest lm
-    else
-      match = *std::max_element(
-        reducers.begin(), reducers.end(), [this](auto a, auto b) {
-          return this->mons.cmp(a.first, b.first);
-        });
-
-    monomial mm = mons[m];
-    monomial lm = mons[match.first];
-    mon_id a = mons.getid(mm.first(match.second));
-    mon_id b = mons.getid(mm.last(mm.size() - match.second - lm.size()));
-
-    std::vector<poly_id> res = { a, match.first, b };
-
-    return res;
-  }
-  //------------------------------------------------------------------------------
-
-  std::vector<poly_id> symbolic_preprocessing_orig() {
+  std::vector<poly_id> symbolic_preprocessing() {
     KOMMUNOPP_TIME(sym_pre);
     boost::unordered_set<mon_id> todo;
     boost::unordered_set<mon_id> done;
@@ -493,7 +476,7 @@ struct f4 {
       mon_id m = *todo.begin();
       todo.erase(todo.begin());
       done.insert(m);
-      poly_id reducer = find_reducer_orig(m);
+      poly_id reducer = find_reducer(m);
       if(reducer == 0)
         continue;
       assert(m == poly.get_lm_id(reducer));
@@ -507,7 +490,7 @@ struct f4 {
   }
 
   //------------------------------------------------------------------------------
-  poly_id find_reducer_orig(mon_id m, bool strategy = false) {
+  poly_id find_reducer(mon_id m, bool strategy = false) {
 
     auto& reducers = prefix_trie.divisors(mons[m]);
     if(reducers.empty())
@@ -571,7 +554,7 @@ struct f4 {
   //------------------------------------------------------------------------------
   std::vector<poly_id> reduction(bool interreduce = false) {
     // symbolic preprocessing
-    auto rows = symbolic_preprocessing_orig();
+    auto rows = symbolic_preprocessing();
     crit_pairs.clear();
 
     // make columns
@@ -663,41 +646,6 @@ struct f4 {
 
     fmpz_clear(denom);
     fmpz_clear(tmp);
-  }
-  //------------------------------------------------------------------------------
-  void set_up_matrix(uint32_mat_t mat,
-                     std::vector<poly_id>& rows,
-                     std::vector<mon_id>& columns) {
-
-    boost::unordered_map<mon_id, size_t> col_to_id;
-    size_t i = 0;
-    for(auto c : columns)
-      col_to_id[c] = i++;
-
-    msg("Setting up matrix of size (%d, %d)", rows.size(), columns.size());
-
-    // initialize matrix
-    sparse_mat_init(mat, rows.size(), columns.size());
-
-    // set all entries
-    i = 0;
-    for(auto r : rows) {
-      auto row = sparse_mat_row(mat, i++);
-      std::span<C> coeffs = poly.get_coefficients(r);
-
-      auto p = poly[r];
-      auto nnz = p.size();
-      sparse_vec_realloc(row, nnz);
-      row->nnz = nnz;
-
-      size_t k = 0;
-      for(auto it = p.begin(); it != p.end(); it++) {
-        auto cc = coeffs[k].data();
-        row->entries[k] = mpz_get_ui(mpq_numref(cc));
-        row->indices[k] = col_to_id[*it];
-        k++;
-      }
-    }
   }
   //------------------------------------------------------------------------------
   void update_basis_and_amb(std::vector<poly_id>& new_elements) {
