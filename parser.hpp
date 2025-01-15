@@ -282,9 +282,11 @@ class parser_context {
           o << " + ";
         }
       }
+      bool was_neutral = false;
       bool output_asterisk = false;
       if(coefficient_is_posneg_neutral(*coeff_it)) {
         ++coeff_it;
+        was_neutral = true;
       } else {
         output_asterisk = true;
         o << coefficient_abs(*coeff_it++);
@@ -294,6 +296,11 @@ class parser_context {
           o << "*";
         output_asterisk = true;
         var_to_ostream(o, mon);
+      }
+      if(m[mon_id].size() == 0 && was_neutral) {
+        if(output_asterisk)
+          o << "*";
+        o << "1";
       }
     }
     return o;
