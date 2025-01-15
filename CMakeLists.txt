@@ -15,6 +15,7 @@ set(KOMMUNOPP_SRCS
   signal_statistics.cpp
   parser.cpp
   monomial_trie.cpp
+  primes.cpp
 )
 
 set(KOMMUNOPP_TEST_SRCS

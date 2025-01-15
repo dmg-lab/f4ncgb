@@ -25,9 +25,6 @@ using namespace boost::multiprecision;
 
 namespace kommunopp {
 
-extern std::vector<uint32_t> PRIMES;
-static size_t const MAX_PRIMES = PRIMES.size();
-
 typedef sparse_vec_t<fmpz> sfmpz_vec_t;
 typedef sparse_mat_t<fmpz> sfmpz_mat_t;
 typedef sparse_vec_t<uint32_t> uint32_vec_t;

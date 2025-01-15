@@ -34,6 +34,8 @@ static int err_no_file = 10;// no input file given
 static int err_prime_too_big = 11;
 static int err_no_prime = 12;
 
+static bool print_problem = false;
+
 using namespace kommunopp;
 
 /**
@@ -53,6 +55,7 @@ main(int argc, char** argv) {
     ("version", "produce version message")
     ("input,i", po::value<std::string>(&input_name)->default_value(""), "set the input file (either msolve, poly, or sympoly; switched according to content)")
     ("output,o", po::value<std::string>(&output_name)->default_value(""), "set the output file")
+    ("print-problem", po::value<bool>(&print_problem)->default_value(false), "re-print the problem after parsing")
     ("verbosity,v", po::value<int>(&verbose)->default_value(1), "set the verbosity level")
     ("maxiter,m", po::value<size_t>(&maxiter)->default_value(10), "Maximal number of iterations of the F4-algorithm to be performed.")
     ("maxdeg,d", po::value<size_t>(&maxdeg)->default_value(UINT_MAX), "Maximal degree of ambiguities that are considered.")
@@ -120,7 +123,8 @@ main(int argc, char** argv) {
                                   maxiter,
                                   maxdeg,
                                   threads,
-                                  output_name);
+                                  output_name,
+                                  print_problem);
 
   KOMMUNOPP_PROFILE(gstats.print());
   return res;

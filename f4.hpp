@@ -162,6 +162,12 @@ struct f4 {
 
       msg("Reducing %d critical pairs.", crit_pairs.size());
       std::vector<poly_id> new_elements = reduction();
+
+      for(auto p : new_elements) {
+        std::cout << p << " ";
+      }
+      std::cout << std::endl;
+
       msg("Adding %d new elements to basis.", new_elements.size());
 
       update_basis_and_amb(new_elements);
