@@ -281,7 +281,7 @@ parser_context::impl_msolve_header(char first_char, char second_char) {
     RETURN_ERROR("First character of msolve must be some ident, not ','");
   }
   if(parser_context::msolve_ident_filter(first_char)
-     && (second_char == ',' || second_char == ' ')) {
+     && (second_char == ',' || second_char == ' ' || second_char == '\n')) {
     // First char was some variable that has to be counted.
     std::string ident;
     ident += first_char;

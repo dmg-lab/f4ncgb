@@ -50,6 +50,7 @@ class parser_symbolic_context {
 };
 
 class parser_context {
+  protected:
   std::unique_ptr<parser_symbolic_context> symbols;
   struct FILE_deleter {
     void operator()(FILE* f) { fclose(f); }
@@ -207,7 +208,7 @@ class parser_context {
   ~parser_context() = default;
 
   size_t num_blocks() const { return blocks.size(); }
-  const std::vector<parser_symbolic_context::id> block(size_t id) const {
+  const std::vector<parser_symbolic_context::id>& block(size_t id) const {
     assert(id < blocks.size());
     return blocks[id];
   }
@@ -242,9 +243,7 @@ class parser_context {
 
   template<class PS>
   std::ostream& to_msolve_header(std::ostream& o, const PS& p) {
-    using monomial_store = PS::monomial_store_;
     using index_type = PS::index_type;
-    const monomial_store& m = p.get_monomial_store();
 
     for(auto& b : blocks) {
       for(auto v : b) {
@@ -254,10 +253,6 @@ class parser_context {
       }
       o << "\n";
     }
-
-    for(index_type i = 1; i <= num_vars_; ++i) {
-    }
-    o << "\n";
     o << characteristic_ << "\n";
     return o;
   }
