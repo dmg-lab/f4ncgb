@@ -124,7 +124,6 @@ class fuzz_parser : public parser_context {
                         parse_monomial_boundary_cb boundary_cb,
                         void* boundary_cb_userdata) -> parse_res {
       for(auto& p : this->polys) {
-        std::cout << "Poly Size " << p.size() << std::endl;
         assert(p.size() > 0);
         for(auto& m : p) {
           auto& [num, denom, mon] = m;
