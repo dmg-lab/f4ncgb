@@ -62,6 +62,7 @@ scalar_set(uint32_t* a, const uint32_t* b) {
 
 template<typename T>
 struct sparse_vec_struct {
+  bool is_new_piv = false;
   ulong nnz = 0;
   ulong alloc = 0;
   ulong* indices = NULL;
@@ -111,6 +112,7 @@ sparse_vec_realloc(sparse_vec_t<T> vec, ulong alloc) {
 template<typename T>
 inline void
 sparse_vec_init(sparse_vec_t<T> vec, ulong alloc = 1) {
+  vec->is_new_piv = false;
   vec->nnz = 0;
   vec->alloc = alloc;
   vec->indices = s_malloc<ulong>(vec->alloc);
@@ -194,7 +196,7 @@ print_vec_info(const sparse_vec_t<T> vec) {
     std::cout << vec->indices[i] << " ";
   std::cout << "\nentries: ";
   for(size_t i = 0; i < vec->nnz; i++)
-    std::cout << std::to_string(vec->entries + i) << " ";
+    std::cout << *(vec->entries + i) << " ";
   std::cout << std::endl;
 }
 

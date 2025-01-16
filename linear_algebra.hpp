@@ -367,29 +367,14 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
   std::vector<size_t> buffer_ids;
   buffer_ids.reserve(32);
 
-  for(size_t r = 0; r < mat->nrow; r++) {
-
-    if(trace[r])
-      continue;
-
-    auto row = sparse_mat_row(mat, r);
-    auto c = row->indices[0];
-
-    // we found a new pivot => rescale and insert in pivots
-    if(pivots[c] < 0) {
-      normalize_row(row, mod);
-      pivots[c] = static_cast<slong>(r);
-      continue;
-    }
-
-    // we already have a pivot => reduce this row by all pivots
+  auto reduce_row = [&buffer,&buffer_ids,&mat,&pivots,&p,&p2](uint32_vec_t row) {
     copy_to_buffer(buffer, row);
     buffer_ids.clear();
 
     // reduce current row with all pivots
     int64_t cc;
     slong rr;
-    for(size_t i = c; i < mat->ncol; i++) {
+    for(size_t i = row->indices[0]; i < mat->ncol; i++) {
       cc = buffer[i];
       if(cc == 0)
         continue;
@@ -405,6 +390,29 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
       buffer[i] = 0;
       xmay(buffer, cc, sparse_mat_row(mat, rr), p2);
     }
+  };
+
+  for(size_t r = 0; r < mat->nrow; r++) {
+
+    if(trace[r])
+      continue;
+
+    auto row = sparse_mat_row(mat, r);
+    size_t c = row->indices[0];
+
+    // we found a new pivot => rescale and insert in pivots
+    if(pivots[c] < 0) {
+      normalize_row(row, mod);
+      pivots[c] = static_cast<slong>(r);
+      continue;
+    }
+
+    // we already have a pivot => reduce this row by all pivots
+    copy_to_buffer(buffer, row);
+    buffer_ids.clear();
+
+    // reduce current row with all pivots
+    reduce_row(row);
 
     // we have a zero row
     if(buffer_ids.empty()) {
@@ -416,12 +424,52 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
     copy_from_buffer_and_clear(buffer, buffer_ids, row);
     normalize_row(row, mod);
     pivots[row->indices[0]] = static_cast<slong>(r);
+    row->is_new_piv = true;
   }
 
+  for(size_t i = 0; i < mat->nrow; i++)
+    assert(!sparse_mat_row(mat, i)->is_new_piv
+           or sparse_mat_row(mat, i)->nnz > 0);
+
+  // sort new pivot rows up
+  // sort rows by first index and nnz
+  std::sort(mat->rows, mat->rows + mat->nrow, [](auto& r1, auto& r2) {
+    // non-pivot rows: don't care
+    auto p1 = r1.is_new_piv;
+    auto p2 = r2.is_new_piv;
+    if(!p1 && !p2)
+      return r1.nnz > r2.nnz;
+    // move pivot rows up
+    if(p1 != p2)
+      return p1;
+    auto id1 = r1.indices[0];
+    auto id2 = r2.indices[0];
+    if(id1 != id2)
+      return id1 > id2;
+    return r1.nnz < r2.nnz;
+  });
+
+  std::fill(pivots, pivots + mat->ncol, -1);
   std::vector<size_t> piv;
-  for(size_t i = 0; i < mat->ncol; i++)
-    if(pivots[i] >= 0)
-      piv.push_back(i);
+  // reduce the new pivot rows fully
+  for(size_t r = 0; r < mat->nrow; r++) {
+    auto row = sparse_mat_row(mat, r);
+    // if we see first non-pivot row break
+    if(!row->is_new_piv)
+      break;
+
+    auto c = row->indices[0];
+
+    copy_to_buffer(buffer, row);
+    buffer_ids.clear();
+    buffer_ids.push_back(c);
+
+    reduce_row(row);
+
+    copy_from_buffer_and_clear(buffer, buffer_ids, row);
+    pivots[c] = static_cast<slong>(r);
+    piv.push_back(c);
+  }
 
   delete[] buffer;
   delete[] pivots;
@@ -435,17 +483,10 @@ std::vector<size_t> inline compute_relevant_rows(
   std::vector<size_t> relevant_rows;
   boost::unordered_set<ulong> old_pivot_columns;
 
-  for(size_t i = 0; i < mat->nrow; i++)
-    old_pivot_columns.insert(sparse_mat_row(mat, i)->indices[0]);
-
   for(size_t i = 0; i < mat->nrow; i++) {
     for(size_t k = 0; k < rrefs.size(); k++) {
       auto row_ik = sparse_mat_row(rrefs[k], i);
-      if(row_ik->nnz == 0)
-        continue;
-      // test if we have a new leading monomial
-      if(old_pivot_columns.find(row_ik->indices[0])
-         == old_pivot_columns.end()) {
+      if(row_ik->is_new_piv) {
         relevant_rows.push_back(i);
         break;
       }
@@ -460,15 +501,9 @@ std::vector<size_t> inline compute_relevant_rows(sfmpz_mat_t mat,
   std::vector<size_t> relevant_rows;
   boost::unordered_set<ulong> old_pivot_columns;
 
-  for(size_t i = 0; i < mat->nrow; i++)
-    old_pivot_columns.insert(sparse_mat_row(mat, i)->indices[0]);
-
   for(size_t i = 0; i < rref->nrow; i++) {
     auto row = sparse_mat_row(rref, i);
-    if(row->nnz == 0)
-      continue;
-    // test if we have a new leading monomial
-    if(old_pivot_columns.find(row->indices[0]) == old_pivot_columns.end())
+    if(row->is_new_piv)
       relevant_rows.push_back(i);
   }
   return relevant_rows;
