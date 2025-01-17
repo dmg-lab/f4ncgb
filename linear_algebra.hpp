@@ -17,6 +17,7 @@
 
 #include "sparse_rref/sparse_mat.h"
 #include "sparse_rref/sparse_vec.h"
+#include "sparse_rref/thread_pool.hpp"
 
 #include "primes.hpp"
 #include "profiling.hpp"
@@ -104,13 +105,13 @@ crt_reconstruction(fmpz*& entries,
                    std::vector<std::pair<size_t, size_t>>& idxs,
                    std::vector<sparse_mat_struct<uint32_t>*>& rrefs,
                    std::vector<ulong>& primes,
-                   std::vector<ulong>& relevant_rows) {
+                   size_t n_piv) {
   if(rrefs.size() == 0)
     return;
 
   // get all (i,j) where at least one rref is nonzero
   std::map<size_t, std::set<size_t>> nnz_pos;
-  for(size_t i : relevant_rows) {
+  for(size_t i = 0; i < n_piv; i++) {
     auto& nnz_pos_row = nnz_pos[i];
     for(auto& rref : rrefs) {
       auto row = sparse_mat_row(rref, i);
@@ -141,7 +142,7 @@ crt_reconstruction(fmpz*& entries,
     fmpz_init(inputs + i);
 
   size_t idx = 0;
-  for(size_t i : relevant_rows) {
+  for(size_t i = 0; i < n_piv; i++) {
     for(auto j : nnz_pos[i]) {
       idxs.emplace_back(i, j);
       for(size_t k = 0; k < rrefs.size(); k++) {
@@ -367,35 +368,42 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
   std::vector<size_t> buffer_ids;
   buffer_ids.reserve(32);
 
-  auto reduce_row = [&buffer,&buffer_ids,&mat,&pivots,&p,&p2](uint32_vec_t row) {
-    copy_to_buffer(buffer, row);
-    buffer_ids.clear();
+  auto reduce_row
+    =  [&buffer, &buffer_ids, &mat, &pivots, &p, &p2](uint32_vec_t row) {
+        copy_to_buffer(buffer, row);
+        buffer_ids.clear();
 
-    // reduce current row with all pivots
-    int64_t cc;
-    slong rr;
-    for(size_t i = row->indices[0]; i < mat->ncol; i++) {
-      cc = buffer[i];
-      if(cc == 0)
-        continue;
-      cc %= p;
-      buffer[i] = cc;
-      if(cc == 0)
-        continue;
-      rr = pivots[i];
-      if(rr < 0) {
-        buffer_ids.push_back(i);
-        continue;
-      }
-      buffer[i] = 0;
-      xmay(buffer, cc, sparse_mat_row(mat, rr), p2);
-    }
+        // reduce current row with all pivots
+        int64_t cc;
+        slong rr;
+        size_t i = row->indices[0];
+
+        while(i < mat->ncol) {
+          buffer[i] %= p;
+          cc = buffer[i];
+          if(cc != 0) {
+            rr = pivots[i];
+            if(rr < 0) {
+              buffer_ids.push_back(i);
+            } else {
+              buffer[i] = 0;
+              xmay(buffer, cc, sparse_mat_row(mat, rr), p2);
+            }
+          }
+          i++;
+          while(i < mat->ncol and buffer[i] == 0)
+            i++;
+        }
   };
 
-  for(size_t r = 0; r < mat->nrow; r++) {
+  BS::thread_pool pool(4);
 
+    KOMMUNOPP_TIME(other);
+  for(size_t r = 0; r < mat->nrow; r++) {
     if(trace[r])
       continue;
+
+    /* pool.detach_task([&mat, &pivots, &reduce_row, &mod, &p, &p2] (size_t r) { */
 
     auto row = sparse_mat_row(mat, r);
     size_t c = row->indices[0];
@@ -410,8 +418,6 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
     // we already have a pivot => reduce this row by all pivots
     copy_to_buffer(buffer, row);
     buffer_ids.clear();
-
-    // reduce current row with all pivots
     reduce_row(row);
 
     // we have a zero row
@@ -425,7 +431,11 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
     normalize_row(row, mod);
     pivots[row->indices[0]] = static_cast<slong>(r);
     row->is_new_piv = true;
+    /* }); */
   }
+  /* pool.wait(); */
+     KOMMUNOPP_PROFILE(timer.~adding_timer());
+
 
   for(size_t i = 0; i < mat->nrow; i++)
     assert(!sparse_mat_row(mat, i)->is_new_piv
@@ -448,6 +458,7 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
       return id1 > id2;
     return r1.nnz < r2.nnz;
   });
+
 
   std::fill(pivots, pivots + mat->ncol, -1);
   std::vector<size_t> piv;
@@ -474,39 +485,6 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
   delete[] buffer;
   delete[] pivots;
   return piv;
-}
-//------------------------------------------------------------------------------
-std::vector<size_t> inline compute_relevant_rows(
-  sfmpz_mat_t mat,
-  std::vector<sparse_mat_struct<uint32_t>*>& rrefs) {
-
-  std::vector<size_t> relevant_rows;
-  boost::unordered_set<ulong> old_pivot_columns;
-
-  for(size_t i = 0; i < mat->nrow; i++) {
-    for(size_t k = 0; k < rrefs.size(); k++) {
-      auto row_ik = sparse_mat_row(rrefs[k], i);
-      if(row_ik->is_new_piv) {
-        relevant_rows.push_back(i);
-        break;
-      }
-    }
-  }
-  return relevant_rows;
-}
-//------------------------------------------------------------------------------
-std::vector<size_t> inline compute_relevant_rows(sfmpz_mat_t mat,
-                                                 uint32_mat_t rref) {
-
-  std::vector<size_t> relevant_rows;
-  boost::unordered_set<ulong> old_pivot_columns;
-
-  for(size_t i = 0; i < rref->nrow; i++) {
-    auto row = sparse_mat_row(rref, i);
-    if(row->is_new_piv)
-      relevant_rows.push_back(i);
-  }
-  return relevant_rows;
 }
 //------------------------------------------------------------------------------
 std::pair<std::vector<std::pair<size_t, size_t>>, std::vector<gmp_rational>>
@@ -586,25 +564,22 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
         prod = prod * used_primes[r];
       }
     }
-
-    // before reconstruction, compute rows with new leading terms
-    std::vector<size_t> relevant_rows;
-    if(interreduce)
-      for(size_t i = 0; i < mat->nrow; i++)
-        relevant_rows.push_back(i);
-    else
-      relevant_rows = compute_relevant_rows(mat, good_rrefs);
-
     // Initialize crt_entries in reconstruction
     // and clear here
     fmpz* crt_entries;
     idxs.clear();
     rat_entries.clear();
 
+    // the first n_piv rows will be reconstructed
+    size_t n_piv;
+    if(interreduce)
+      n_piv = mat->nrow;
+    else
+      n_piv = best_piv.size();
+
     {
       KOMMUNOPP_TIME(crt);
-      crt_reconstruction(
-        crt_entries, idxs, good_rrefs, good_primes, relevant_rows);
+      crt_reconstruction(crt_entries, idxs, good_rrefs, good_primes, n_piv);
     }
 
     KOMMUNOPP_PROFILE(auto timer = gstats.time(gstats.ratrec));
@@ -654,16 +629,15 @@ std::pair<std::vector<std::pair<size_t, size_t>>,
   mat_mod(nmod_mat, mat, mod, trace);
 
   KOMMUNOPP_TIME(rref);
-  gauss_elim(nmod_mat, mod, trace);
+  pivots piv(gauss_elim(nmod_mat, mod, trace));
   KOMMUNOPP_PROFILE(timer.~adding_timer());
 
   // compute rows with new leading terms
-  std::vector<size_t> relevant_rows;
+  size_t n_piv;
   if(interreduce)
-    for(size_t i = 0; i < mat->nrow; i++)
-      relevant_rows.push_back(i);
+    n_piv = mat->nrow;
   else
-    relevant_rows = compute_relevant_rows(mat, nmod_mat);
+    n_piv = piv.size();
 
   // compute nonzero indices & entries
   std::vector<std::pair<size_t, size_t>> idxs;
@@ -671,7 +645,7 @@ std::pair<std::vector<std::pair<size_t, size_t>>,
   size_t nnz = sparse_mat_nnz(nmod_mat);
   idxs.reserve(nnz);
   entries.reserve(nnz);
-  for(size_t i : relevant_rows) {
+  for(size_t i = 0; i < n_piv; i++) {
     auto row = sparse_mat_row(nmod_mat, i);
     for(size_t j = 0; j < row->nnz; j++) {
       idxs.emplace_back(i, row->indices[j]);
