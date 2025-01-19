@@ -338,12 +338,11 @@ void inline copy_from_buffer_and_clear(int64_t* buffer,
   sparse_vec_realloc(vec, nnz);
   vec->nnz = nnz;
 
+  std::move(buffer_ids.begin(), buffer_ids.end(), vec->indices);
   size_t j = 0;
   for(size_t i : buffer_ids) {
-    vec->indices[j] = i;
     assert(buffer[i] != 0);
-    vec->entries[j] = static_cast<uint32_t>(buffer[i]);
-    j++;
+    vec->entries[j++] = static_cast<uint32_t>(buffer[i]);
     buffer[i] = 0;
   }
 }
@@ -418,8 +417,7 @@ is_rref(uint32_mat_t mat) {
   return true;
 }
 //------------------------------------------------------------------------------
-pivots
-reverse_solve(uint32_mat_t mat, nmod_t mod) {
+pivots inline reverse_solve(uint32_mat_t mat, nmod_t mod) {
   uint64_t p = mod.n;
   int64_t p2 = static_cast<int64_t>(p * p);
 
@@ -499,23 +497,22 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
 
 //------------------------------------------------------------------------------
 pivots
-gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
+gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
   uint64_t p = mod.n;
   int64_t p2 = static_cast<int64_t>(p * p);
 
   thread_local int64_t* buffer_local;
   thread_local std::vector<size_t> buffer_ids_local;
-  BS::thread_pool pool(8, [n = mat->ncol]() {
+
+  std::vector<std::atomic_int64_t> atomic_pivots(mat->ncol);
+  std::fill(atomic_pivots.begin(), atomic_pivots.end(), -1);
+
+  BS::thread_pool pool(num_threads, [n = mat->ncol] {
     buffer_local = new int64_t[n];
     std::fill(buffer_local, buffer_local + n, 0);
     buffer_ids_local.reserve(32);
   });
   pool.set_cleanup_func([]() { delete[] buffer_local; });
-
-  std::vector<std::atomic_int64_t> atomic_pivots(mat->ncol);
-  std::fill(atomic_pivots.begin(), atomic_pivots.end(), -1);
-
-  KOMMUNOPP_TIME(other);
 
   for(size_t r = 0; r < mat->nrow; r++) {
     if(trace[r])
@@ -578,13 +575,12 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
   }
   pool.wait();
 
-  KOMMUNOPP_PROFILE(timer.~adding_timer());
-
   return reverse_solve(mat, mod);
 }
 //------------------------------------------------------------------------------
 std::pair<std::vector<std::pair<size_t, size_t>>, std::vector<gmp_rational>>
 multimodular_gauss_elim(sfmpz_mat_t mat,
+                        size_t num_threads,
                         bool interreduce = false,
                         bool proof = true) {
   std::vector<std::unique_ptr<sparse_mat_struct<uint32_t>>> rrefs;
@@ -633,7 +629,7 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
       }
 
       KOMMUNOPP_TIME(rref);
-      pivots piv(gauss_elim(nmod_mat.get(), mod, trace));
+      pivots piv(gauss_elim(nmod_mat.get(), mod, num_threads, trace));
       KOMMUNOPP_PROFILE(timer.~adding_timer());
 
       if(cmp_pivots(best_piv, piv) <= 0) {
@@ -709,6 +705,7 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
 std::pair<std::vector<std::pair<size_t, size_t>>,
           std::vector<gmp_rational>> inline nmod_gauss_elim(sfmpz_mat_t mat,
                                                             size_t p,
+                                                            size_t num_threads,
                                                             bool interreduce
                                                             = false) {
   // not needed but use it to avoid code duplication
@@ -723,7 +720,7 @@ std::pair<std::vector<std::pair<size_t, size_t>>,
   mat_mod(nmod_mat, mat, mod, trace);
 
   KOMMUNOPP_TIME(rref);
-  pivots piv(gauss_elim(nmod_mat, mod, trace));
+  pivots piv(gauss_elim(nmod_mat, mod, num_threads, trace));
   KOMMUNOPP_PROFILE(timer.~adding_timer());
 
   // compute rows with new leading terms
@@ -760,6 +757,7 @@ std::pair<std::vector<std::pair<size_t, size_t>>,
           std::vector<gmp_rational>> inline linear_algebra(sfmpz_mat_t mat,
                                                            size_t
                                                              characteristic,
+                                                           size_t num_threads,
                                                            bool interreduce
                                                            = false,
                                                            bool proof = true) {
@@ -773,8 +771,8 @@ std::pair<std::vector<std::pair<size_t, size_t>>,
   });
 
   if(characteristic == 0)
-    return multimodular_gauss_elim(mat, interreduce, proof);
+    return multimodular_gauss_elim(mat, num_threads, interreduce, proof);
   else
-    return nmod_gauss_elim(mat, characteristic, interreduce);
+    return nmod_gauss_elim(mat, num_threads, characteristic, interreduce);
 }
 }

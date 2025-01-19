@@ -26,6 +26,7 @@
 #include "sparse_rref/sparse_vec.h"
 
 #include "monomial_trie.hpp"
+
 extern template struct kommunopp::monomial_trie<uint8_t, uint32_t>;
 
 using namespace boost::multiprecision;
@@ -99,7 +100,7 @@ struct f4 {
   size_t iter = 0;
   size_t maxiter = UINT_MAX;
   size_t maxdeg = UINT_MAX;
-  size_t threads = 1;
+  size_t num_threads = 1;
 
   f4(size_t nvars,
      size_t characteristic_,
@@ -113,7 +114,7 @@ struct f4 {
     , characteristic(characteristic_)
     , maxiter(maxiter_)
     , maxdeg(maxdeg_)
-    , threads(threads_) {}
+    , num_threads(threads_) {}
 
   //------------------------------------------------------------------------------
   inline parse_res read_input(parser_context& context) {
@@ -576,7 +577,7 @@ struct f4 {
     // reduction
     KOMMUNOPP_PROFILE(auto timer = gstats.time(gstats.reduction));
     auto [idxs, entries]
-      = linear_algebra(mat, characteristic, interreduce);
+      = linear_algebra(mat, characteristic, num_threads, interreduce);
     KOMMUNOPP_PROFILE(timer.~adding_timer());
 
     // compute new elements
