@@ -81,28 +81,20 @@ typedef sparse_vec_t<fmpz> sfmpz_vec_t;
 template<typename T>
 void
 sparse_vec_realloc(sparse_vec_t<T> vec, ulong alloc) {
+
+  assert(alloc >= vec->alloc);
+  
   if(alloc == vec->alloc)
     return;
-  // so sparse_vec_realloc(vec,vec->alloc) is useless
   ulong old_alloc = vec->alloc;
   vec->alloc = alloc;
-  if(vec->alloc > old_alloc) {
-    // enlarge: init later
-    vec->indices = s_realloc(vec->indices, vec->alloc);
-    vec->entries = s_realloc(vec->entries, vec->alloc);
+  // enlarge: init later
+  vec->indices = s_realloc(vec->indices, vec->alloc);
+  vec->entries = s_realloc(vec->entries, vec->alloc);
 
-    if constexpr(std::is_same_v<T, fmpz>) {
-      for(ulong i = old_alloc; i < vec->alloc; i++)
-        fmpz_init((fmpz*)(vec->entries) + i);
-    }
-  } else {
-    // shrink: clear first
-    if constexpr(std::is_same_v<T, fmpz>) {
-      for(ulong i = vec->alloc; i < old_alloc; i++)
-        fmpz_clear((fmpz*)(vec->entries) + i);
-    }
-    vec->indices = s_realloc(vec->indices, vec->alloc);
-    vec->entries = s_realloc(vec->entries, vec->alloc);
+  if constexpr(std::is_same_v<T, fmpz>) {
+    for(ulong i = old_alloc; i < vec->alloc; i++)
+      fmpz_init((fmpz*)(vec->entries) + i);
   }
 }
 
@@ -175,14 +167,6 @@ sparse_vec_canonicalize(sparse_vec_t<T> vec) {
   vec->nnz = new_nnz;
 }
 
-template<typename T>
-inline void
-sparse_vec_compress(sparse_vec_t<T> vec) {
-  if(vec->nnz) {
-    sparse_vec_canonicalize(vec);
-    sparse_vec_realloc(vec, vec->nnz);
-  }
-}
 
 // debug only, not used to the large vector
 template<typename T>

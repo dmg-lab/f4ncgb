@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <flint/nmod.h>
 #include <map>
@@ -34,18 +35,33 @@ typedef sparse_mat_t<uint32_t> uint32_mat_t;
 //------------------------------------------------------------------------------
 
 inline bool
-vec_mod(uint32_vec_t vec, const sfmpz_vec_t src, nmod_t mod) {
+vec_mod(uint32_vec_t vec,
+        const sfmpz_vec_t src,
+        nmod_t mod,
+        std::vector<size_t>& indices,
+        std::vector<uint32_t>& entries) {
   assert(vec->nnz <= src->nnz);
-  auto nnz = src->nnz;
+
+  indices.clear();
+  entries.clear();
+
+  for(size_t i = 0; i < src->nnz; i++) {
+    uint32_t val = fmpz_get_nmod(src->entries + i, mod);
+    if(val != 0) {
+      indices.push_back(src->indices[i]);
+      entries.push_back(val);
+    }
+  }
+
+  auto nnz = indices.size();
+  if(nnz == 0 or indices[0] != src->indices[0])
+    return false;
+
   sparse_vec_realloc(vec, nnz);
   vec->nnz = nnz;
-  std::copy(src->indices, src->indices + nnz, vec->indices);
-  for(size_t i = 0; i < nnz; i++) {
-    uint32_t val = fmpz_get_nmod(src->entries + i, mod);
-    if(i == 0 and val == 0)
-      return false;
-    vec->entries[i] = val;
-  }
+  std::move(indices.begin(), indices.end(), vec->indices);
+  std::move(entries.begin(), entries.end(), vec->entries);
+
   return true;
 }
 
@@ -54,9 +70,12 @@ vec_mod(uint32_vec_t vec, const sfmpz_vec_t src, nmod_t mod) {
 inline bool
 mat_mod(uint32_mat_t mat, const sfmpz_mat_t src, nmod_t mod, bool* trace) {
   bool res = true;
+  std::vector<size_t> indices;
+  std::vector<uint32_t> entries;
   for(size_t i = 0; i < src->nrow; i++) {
     if(!trace[i]) {
-      res = vec_mod(sparse_mat_row(mat, i), sparse_mat_row(src, i), mod);
+      res = vec_mod(
+        sparse_mat_row(mat, i), sparse_mat_row(src, i), mod, indices, entries);
       if(!res)
         break;
     }
@@ -322,7 +341,8 @@ void inline copy_from_buffer_and_clear(int64_t* buffer,
   size_t j = 0;
   for(size_t i : buffer_ids) {
     vec->indices[j] = i;
-    vec->entries[j] = (uint32_t)buffer[i];
+    assert(buffer[i] != 0);
+    vec->entries[j] = static_cast<uint32_t>(buffer[i]);
     j++;
     buffer[i] = 0;
   }
@@ -351,147 +371,222 @@ void inline xmay(int64_t* x, int64_t a, uint32_vec_t y, int64_t p2) {
     x[j] = t;
   }
 }
+
+inline bool
+is_ref(uint32_mat_t mat) {
+
+  std::unordered_map<size_t, size_t> pivs;
+
+  for(size_t i = 0; i < mat->nrow; i++) {
+    auto row = sparse_mat_row(mat, i);
+    if(row->nnz == 0)
+      continue;
+    pivs[row->indices[0]] += 1;
+  }
+
+  for(auto [k, v] : pivs)
+    if(v > 1)
+      return false;
+
+  return true;
+}
+
+inline bool
+is_rref(uint32_mat_t mat) {
+
+  if(!is_ref(mat))
+    return false;
+
+  std::set<size_t> pivs;
+
+  for(size_t i = 0; i < mat->nrow; i++) {
+    auto row = sparse_mat_row(mat, i);
+    if(row->nnz == 0)
+      continue;
+    pivs.insert(row->indices[0]);
+  }
+
+  for(size_t i = 0; i < mat->nrow; i++) {
+    auto row = sparse_mat_row(mat, i);
+    if(row->nnz == 0 or !row->is_new_piv)
+      continue;
+    for(size_t j = 1; j < row->nnz; j++)
+      if(pivs.contains(row->indices[j]))
+        return false;
+  }
+
+  return true;
+}
 //------------------------------------------------------------------------------
 pivots
-gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
-  // first canonicalize and compress the matrix
-  sparse_mat_compress(mat);
+reverse_solve(uint32_mat_t mat, nmod_t mod) {
+  uint64_t p = mod.n;
+  int64_t p2 = static_cast<int64_t>(p * p);
 
-  slong* pivots = new slong[mat->ncol];
-  std::fill(pivots, pivots + mat->ncol, -1);
+  int64_t* piv_array = new int64_t[mat->ncol];
+  std::fill(piv_array, piv_array + mat->ncol, -1);
 
   int64_t* buffer = new int64_t[mat->ncol];
   std::fill(buffer, buffer + mat->ncol, 0);
-  uint64_t p = mod.n;
-  int64_t p2 = static_cast<int64_t>(p * p);
 
   std::vector<size_t> buffer_ids;
   buffer_ids.reserve(32);
 
-  auto reduce_row
-    =  [&buffer, &buffer_ids, &mat, &pivots, &p, &p2](uint32_vec_t row) {
-        copy_to_buffer(buffer, row);
-        buffer_ids.clear();
+  // sort new pivot rows up -- assume: maat is in ref
+  // sort rows by first index and nnz
+  std::sort(mat->rows, mat->rows + mat->nrow, [](auto& r1, auto& r2) {
+    // move new pivot rows up
+    if(r1.is_new_piv != r2.is_new_piv)
+      return r1.is_new_piv;
+    // move zero rows down
+    if(r1.nnz == 0 or r2.nnz == 0)
+      return r1.nnz > r2.nnz;
+    // sort by pivots
+    return r1.indices[0] > r2.indices[0];
+  });
 
-        // reduce current row with all pivots
-        int64_t cc;
-        slong rr;
-        size_t i = row->indices[0];
+  // collect pivots -- assume: mat is in ref
+  pivots piv;
+  piv.reserve(64);
+  for(size_t r = 0; r < mat->nrow; r++) {
+    auto row = sparse_mat_row(mat, r);
+    if(row->nnz == 0)
+      break;
+    piv_array[row->indices[0]] = static_cast<int64_t>(r);
+    if(row->is_new_piv)
+      piv.push_back(row->indices[0]);
+  }
 
-        while(i < mat->ncol) {
-          buffer[i] %= p;
-          cc = buffer[i];
-          if(cc != 0) {
-            rr = pivots[i];
-            if(rr < 0) {
-              buffer_ids.push_back(i);
-            } else {
-              buffer[i] = 0;
-              xmay(buffer, cc, sparse_mat_row(mat, rr), p2);
-            }
-          }
-          i++;
-          while(i < mat->ncol and buffer[i] == 0)
-            i++;
+  // reduce the new pivot rows fully
+  for(size_t r = 0; r < piv.size(); r++) {
+    auto row = sparse_mat_row(mat, r);
+    // skip rows with only one entry
+    if(row->nnz < 2)
+      continue;
+
+    copy_to_buffer(buffer, row);
+    buffer_ids.clear();
+    buffer_ids.push_back(row->indices[0]);
+    int64_t cc;
+    slong rr;
+    size_t i = row->indices[1];
+    while(i < mat->ncol) {
+      buffer[i] %= p;
+      cc = buffer[i];
+      if(cc != 0) {
+        rr = piv_array[i];
+        if(rr < 0) {
+          buffer_ids.push_back(i);
+        } else {
+          assert(sparse_mat_row(mat, rr)->indices[0] == i);
+          buffer[i] = 0;
+          xmay(buffer, cc, sparse_mat_row(mat, rr), p2);
         }
-  };
+      }
+      i++;
+      while(i < mat->ncol and buffer[i] == 0)
+        i++;
+    }
+    copy_from_buffer_and_clear(buffer, buffer_ids, row);
+  }
 
-  BS::thread_pool pool(4);
+  assert(is_rref(mat));
 
-    KOMMUNOPP_TIME(other);
+  delete[] buffer;
+  delete[] piv_array;
+  return piv;
+}
+
+//------------------------------------------------------------------------------
+pivots
+gauss_elim(uint32_mat_t mat, nmod_t mod, bool* trace) {
+  uint64_t p = mod.n;
+  int64_t p2 = static_cast<int64_t>(p * p);
+
+  thread_local int64_t* buffer_local;
+  thread_local std::vector<size_t> buffer_ids_local;
+  BS::thread_pool pool(8, [n = mat->ncol]() {
+    buffer_local = new int64_t[n];
+    std::fill(buffer_local, buffer_local + n, 0);
+    buffer_ids_local.reserve(32);
+  });
+  pool.set_cleanup_func([]() { delete[] buffer_local; });
+
+  std::vector<std::atomic_int64_t> atomic_pivots(mat->ncol);
+  std::fill(atomic_pivots.begin(), atomic_pivots.end(), -1);
+
+  KOMMUNOPP_TIME(other);
+
   for(size_t r = 0; r < mat->nrow; r++) {
     if(trace[r])
       continue;
-
-    /* pool.detach_task([&mat, &pivots, &reduce_row, &mod, &p, &p2] (size_t r) { */
 
     auto row = sparse_mat_row(mat, r);
     size_t c = row->indices[0];
 
     // we found a new pivot => rescale and insert in pivots
-    if(pivots[c] < 0) {
+    int64_t rr = atomic_pivots[c];
+    if(rr < 0) {
       normalize_row(row, mod);
-      pivots[c] = static_cast<slong>(r);
+      assert(atomic_pivots[c] == -1);
+      atomic_pivots[c] = static_cast<int64_t>(r);
       continue;
     }
 
-    // we already have a pivot => reduce this row by all pivots
-    copy_to_buffer(buffer, row);
-    buffer_ids.clear();
-    reduce_row(row);
+    // reduce row with all already known pivots
+    pool.detach_task([r, &mat, &atomic_pivots, &trace, &p, &p2, &mod]() {
+      auto row = sparse_mat_row(mat, r);
 
-    // we have a zero row
-    if(buffer_ids.empty()) {
-      sparse_vec_clear(row);
-      trace[r] = true;
-      continue;
-    }
+      int64_t rr;
+      int64_t cc;
+      int64_t expected = -1;
+      do {
+        copy_to_buffer(buffer_local, row);
+        buffer_ids_local.clear();
+        size_t i = row->indices[0];
+        while(i < mat->ncol) {
+          assert(buffer_local[i] != 0);
+          buffer_local[i] %= p;
+          cc = buffer_local[i];
+          if(cc != 0) {
+            rr = atomic_pivots[i];
+            if(rr < 0) {
+              buffer_ids_local.push_back(i);
+            } else {
+              buffer_local[i] = 0;
+              xmay(buffer_local, cc, sparse_mat_row(mat, rr), p2);
+            }
+          }
+          i++;
+          while(i < mat->ncol and buffer_local[i] == 0)
+            i++;
+        }
+        // we have a zero row
+        if(buffer_ids_local.empty()) {
+          sparse_vec_clear(row);
+          trace[r] = true;
+          return;
+        }
 
-    copy_from_buffer_and_clear(buffer, buffer_ids, row);
-    normalize_row(row, mod);
-    pivots[row->indices[0]] = static_cast<slong>(r);
-    row->is_new_piv = true;
-    /* }); */
+        copy_from_buffer_and_clear(buffer_local, buffer_ids_local, row);
+        normalize_row(row, mod);
+        expected = -1;
+      } while(!atomic_pivots[row->indices[0]].compare_exchange_weak(
+        expected, static_cast<int64_t>(r)));
+      row->is_new_piv = true;
+    });
   }
-  /* pool.wait(); */
-     KOMMUNOPP_PROFILE(timer.~adding_timer());
+  pool.wait();
 
+  KOMMUNOPP_PROFILE(timer.~adding_timer());
 
-  for(size_t i = 0; i < mat->nrow; i++)
-    assert(!sparse_mat_row(mat, i)->is_new_piv
-           or sparse_mat_row(mat, i)->nnz > 0);
-
-  // sort new pivot rows up
-  // sort rows by first index and nnz
-  std::sort(mat->rows, mat->rows + mat->nrow, [](auto& r1, auto& r2) {
-    // non-pivot rows: don't care
-    auto p1 = r1.is_new_piv;
-    auto p2 = r2.is_new_piv;
-    if(!p1 && !p2)
-      return r1.nnz > r2.nnz;
-    // move pivot rows up
-    if(p1 != p2)
-      return p1;
-    auto id1 = r1.indices[0];
-    auto id2 = r2.indices[0];
-    if(id1 != id2)
-      return id1 > id2;
-    return r1.nnz < r2.nnz;
-  });
-
-
-  std::fill(pivots, pivots + mat->ncol, -1);
-  std::vector<size_t> piv;
-  // reduce the new pivot rows fully
-  for(size_t r = 0; r < mat->nrow; r++) {
-    auto row = sparse_mat_row(mat, r);
-    // if we see first non-pivot row break
-    if(!row->is_new_piv)
-      break;
-
-    auto c = row->indices[0];
-
-    copy_to_buffer(buffer, row);
-    buffer_ids.clear();
-    buffer_ids.push_back(c);
-
-    reduce_row(row);
-
-    copy_from_buffer_and_clear(buffer, buffer_ids, row);
-    pivots[c] = static_cast<slong>(r);
-    piv.push_back(c);
-  }
-
-  delete[] buffer;
-  delete[] pivots;
-  return piv;
+  return reverse_solve(mat, mod);
 }
 //------------------------------------------------------------------------------
 std::pair<std::vector<std::pair<size_t, size_t>>, std::vector<gmp_rational>>
 multimodular_gauss_elim(sfmpz_mat_t mat,
                         bool interreduce = false,
                         bool proof = true) {
-
   std::vector<std::unique_ptr<sparse_mat_struct<uint32_t>>> rrefs;
   pivots best_piv;
   std::vector<pivots> pivs;
@@ -616,7 +711,6 @@ std::pair<std::vector<std::pair<size_t, size_t>>,
                                                             size_t p,
                                                             bool interreduce
                                                             = false) {
-
   // not needed but use it to avoid code duplication
   bool* trace = new bool[mat->nrow];
   std::fill(trace, trace + mat->nrow, false);
@@ -669,7 +763,6 @@ std::pair<std::vector<std::pair<size_t, size_t>>,
                                                            bool interreduce
                                                            = false,
                                                            bool proof = true) {
-
   // sort rows by first index and nnz
   std::sort(mat->rows, mat->rows + mat->nrow, [](auto& r1, auto& r2) {
     auto id1 = r1.indices[0];

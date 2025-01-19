@@ -52,15 +52,6 @@ sparse_mat_nnz(const sparse_mat_t<T> mat) {
 }
 
 template<typename T>
-inline void
-sparse_mat_compress(sparse_mat_t<T> mat) {
-  for(size_t i = 0; i < mat->nrow; i++) {
-    auto row = sparse_mat_row(mat, i);
-    sparse_vec_compress(row);
-  }
-}
-
-template<typename T>
 inline T*
 sparse_mat_entry(sparse_mat_t<T> mat,
                  ulong row,
