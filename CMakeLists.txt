@@ -16,6 +16,7 @@ set(KOMMUNOPP_SRCS
   parser.cpp
   monomial_trie.cpp
   primes.cpp
+  linear_algebra.cpp
 )
 
 set(KOMMUNOPP_TEST_SRCS

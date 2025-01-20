@@ -7,6 +7,7 @@
 #include <span>
 #include <utility>
 #include <vector>
+#include <set>
 
 #include <boost/align/align_down.hpp>
 #include <boost/align/align_up.hpp>
