@@ -49,9 +49,11 @@ statistics::print(size_t threads) {
   msg("");
   msg("maximum resident set size:  %22.2f MB",
       maximum_resident_set_size() / static_cast<double>((1 << 20)));
+#ifdef KOMMUNOPP_USE_MONOMIAL_PRODUCTS_MAP
   msg("monomial hashmap products:   %22d", gstats.hashmap_calls);
   msg("monomial hashmap prodhits: %22.2f %%",
       percent(s.hashmap_hits, s.hashmap_calls));
+#endif
   msg("store find calls:            %22d", gstats.store_find_calls);
   msg("store find hits:           %22.2f %%",
       percent(s.store_find_hits, s.store_find_calls));

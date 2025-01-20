@@ -9,6 +9,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 option(ENABLE_PROFILING "Enable tracking statistics" ON)
 option(ENABLE_FUZZER "Enable building the fuzzer, if available" ON)
+option(ENABLE_MONOMIAL_PRODUCTS_MAP "Track and cache monomial products in map" OFF)
 
 set(KOMMUNOPP_SRCS
   kommunopp.cpp
@@ -63,6 +64,13 @@ target_link_libraries(freegb PUBLIC kommunopp)
 set_property(TARGET kommunopp PROPERTY CXX_STANDARD 20)
 set_property(TARGET kommunopp_test PROPERTY CXX_STANDARD 20)
 set_property(TARGET freegb PROPERTY CXX_STANDARD 20)
+
+if(ENABLE_MONOMIAL_PRODUCTS_MAP)
+  message(STATUS "Monomial products map is enabled.")
+  target_compile_definitions(kommunopp PUBLIC KOMMUNOPP_USE_MONOMIAL_PRODUCTS_MAP)
+else()
+  message(STATUS "Monomial products map is disabled.")
+endif()
 
 if(CMAKE_BUILD_TYPE MATCHES "Sanitize")
   target_compile_options(kommunopp PRIVATE -fsanitize=address -fsanitize=undefined -g)

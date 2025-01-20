@@ -348,7 +348,9 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
                             typename base::V_equality_struct>
     map_;
 
+#ifdef KOMMUNOPP_USE_MONOMIAL_PRODUCTS_MAP
   boost::unordered_flat_map<std::tuple<I, I, I>, I> products_;
+#endif  
 
   protected:
   inline void new_entry(I id) { map_.insert(std::pair((*this)[id + 1], id)); }
@@ -392,12 +394,14 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
   inline I get_product_id(I a, I b) {
     std::tuple<I, I, I> prod_tuple{ a, b, 0 };
 
+#ifdef KOMMUNOPP_USE_MONOMIAL_PRODUCTS_MAP
     {
       auto it = products_.find(prod_tuple);
       if(it != products_.end()) {
         return it->second;
       }
     }
+#endif
 
     const size_t length_combined
       = static_cast<size_t>(base::get_length(a)) + base::get_length(b);
@@ -417,13 +421,16 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     if(!prod_idx) {
       prod_idx = base::insert_scratch();
     }
+#ifdef KOMMUNOPP_USE_MONOMIAL_PRODUCTS_MAP
     products_.insert(std::make_pair(prod_tuple, *prod_idx));
+#endif
     return *prod_idx;
   }
 
   inline I get_product_id(I a, I b, I c) {
     std::tuple<I, I, I> prod_tuple{ a, b, c };
 
+#ifdef KOMMUNOPP_USE_MONOMIAL_PRODUCTS_MAP
     KOMMUNOPP_PROFILE(gstats.hashmap_calls++);
 
     {
@@ -433,6 +440,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
         return it->second;
       }
     }
+#endif
 
     const size_t length_combined = static_cast<size_t>(base::get_length(a))
                                    + base::get_length(b) + base::get_length(c);
@@ -454,7 +462,9 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     if(!prod_idx) {
       prod_idx = base::insert_scratch();
     }
+#ifdef KOMMUNOPP_USE_MONOMIAL_PRODUCTS_MAP
     products_.insert(std::make_pair(prod_tuple, *prod_idx));
+#endif
     return *prod_idx;
   }
 

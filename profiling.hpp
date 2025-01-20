@@ -15,7 +15,10 @@
 namespace kommunopp {
 #ifdef KOMMUNOPP_ENABLE_PROFILING
 struct statistics {
+#ifdef KOMMUNOPP_USE_MONOMIAL_PRODUCTS_MAP
   size_t hashmap_hits = 0, hashmap_calls = 0;
+#endif
+
   size_t store_find_calls = 0, store_find_hits = 0;
 
   // Times
