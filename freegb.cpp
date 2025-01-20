@@ -126,6 +126,6 @@ main(int argc, char** argv) {
                                   output_name,
                                   print_problem);
 
-  KOMMUNOPP_PROFILE(gstats.print());
+  KOMMUNOPP_PROFILE(gstats.print(threads));
   return res;
 }

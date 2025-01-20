@@ -43,7 +43,7 @@ percent_d(double a, double b) {
 /*------------------------------------------------------------------------*/
 
 void
-statistics::print() {
+statistics::print(size_t threads) {
   auto total_time = process_time();
   statistics& s = gstats;
   msg("");
@@ -76,6 +76,11 @@ statistics::print() {
   msg("  Gauss elimination:       %22.2f (%2.2f %%)",
       s.rref,
       percent_d(s.rref, total_time));
+  msg("    reduce (CPU-time):     %22.2f (%2.2f %%) /#t: %.2f (%2.2f %%)",
+      s.elim_task_cpu,
+      percent_d(s.elim_task_cpu, total_time),
+      s.elim_task_cpu / threads,
+      percent_d(s.elim_task_cpu / threads, total_time));
   msg("  CRT:                     %22.2f (%2.2f %%)",
       s.crt,
       percent_d(s.crt, total_time));
