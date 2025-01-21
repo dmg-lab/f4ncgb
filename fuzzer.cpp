@@ -2,6 +2,7 @@
 #include <numeric>
 #include <optional>
 
+#include "fast_div.hpp"
 #include "freegb.hpp"
 #include "fuzztest/fuzztest.h"
 #include "fuzztest/internal/any.h"
@@ -174,3 +175,9 @@ fuzz_freegb_main(
 
 FUZZ_TEST(freegb, fuzz_freegb_main)
   .WithDomains(AnyProblem(), InRange(8, 1000), InRange(4, 10));
+
+void
+fuzz_ax_b_mod_p(int64_t a, int64_t x, int64_t b) {
+}
+
+FUZZ_TEST(freegb, fuzz_ax_b_mod_p);

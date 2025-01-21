@@ -24,6 +24,7 @@ set(KOMMUNOPP_TEST_SRCS
   test.cpp
   test_simple.cpp
   test_parse.cpp
+  test_fast_div.cpp
 )
 
 if(ENABLE_PROFILING)
@@ -127,9 +128,10 @@ else()
   message(STATUS "IPO / LTO not supported: <${ipo_error}>")
 endif()
 
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/fuzztest/CMakeLists.txt")
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/fuzztest/CMakeLists.txt" AND ENABLE_FUZZER)
   # Create the fuzzing target only if the fuzztest subdirectory
   # exists.
+  message(STATUS "Fuzzer enabled.")
   set(FUZZTEST_FUZZING_MODE ON)
   add_subdirectory(fuzztest)
   fuzztest_setup_fuzzing_flags()
@@ -147,4 +149,6 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/fuzztest/CMakeLists.txt")
     target_link_options(kommunopp_fuzz PRIVATE -fsanitize=address -fsanitize=undefined)
     target_link_libraries(kommunopp_fuzz PRIVATE -fsanitize=address -fsanitize=undefined)
   endif()
+else()
+  message(STATUS "Fuzzer disabled.")
 endif()
