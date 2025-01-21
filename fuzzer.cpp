@@ -177,7 +177,14 @@ FUZZ_TEST(freegb, fuzz_freegb_main)
   .WithDomains(AnyProblem(), InRange(8, 1000), InRange(4, 10));
 
 void
-fuzz_ax_b_mod_p(int64_t a, int64_t x, int64_t b) {
+fuzz_ax_b_mod_p(uint32_t a, uint32_t x, uint32_t b) {
+  const uint32_t fast_res = mult_mod_2_31_1(a, b, x);
+  const uint32_t normal_res
+    = ((uint64_t)a * (uint64_t)x + (uint64_t)b) % 2'147'483'647;
+  assert(fast_res == normal_res);
 }
 
-FUZZ_TEST(freegb, fuzz_ax_b_mod_p);
+FUZZ_TEST(freegb, fuzz_ax_b_mod_p)
+  .WithDomains(InRange(0, 2'147'483'647),
+               InRange(0, 2'147'483'647),
+               InRange(0, 2'147'483'647));
