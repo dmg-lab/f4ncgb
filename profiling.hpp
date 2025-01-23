@@ -28,7 +28,7 @@ struct statistics {
   double binarysearch = 0;
   double elim_task_cpu = 0;
 
-  // Automated timing to add time to some target.
+  // Automated timing to add time (in seconds) to some target.
   struct adding_timer {
     adding_timer(double& tgt)
       : target(&tgt) {

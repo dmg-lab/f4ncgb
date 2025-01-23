@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 // The operations in this file are inspired by:
@@ -19,24 +20,16 @@ v_mod_2_31_1(uint32_t v) noexcept {
   return (v + z) & 2'147'483'647;// 2^31-1
 }
 
-template<uint32_t p = 2'147'483'647>
 [[nodiscard]] constexpr inline uint32_t
-v_mod_p(uint32_t v) noexcept {
-  if constexpr(p == 2'147'483'647) {
-    // Algorithm 4 of [1]
-    //
-    // Mersenne Prime: 2^31-1
-    // b = 31
-
-    const uint32_t v_prime = v + 1;
-    const uint32_t z = ((v_prime >> 31) + v_prime) >> 31;
-    return (v + z) & 2'147'483'647;// 2^31-1
-  } else {
-    // Algorithm 5 of [1]
-
-    // Temporary fix for all later primes.
-    return v % p;
-  }
+v_mod_p(uint32_t v, uint32_t p) noexcept {
+  // Algorithm 5 of [1]
+  const uint64_t c = 2'147'483'648 - p;// 2^31 - p = c; b = 31
+  const uint64_t b = 31;
+  const uint64_t v_prime = (uint64_t)v + (uint64_t)c;
+  uint64_t z = v_prime >> b;
+  z = (z * c + v_prime) >> b;
+  z = (z * c + v_prime) >> b;
+  return (v - z * p);
 }
 
 [[nodiscard]] constexpr inline uint32_t
@@ -51,22 +44,10 @@ mult_mod_2_31_1(uint32_t a, uint32_t b, uint32_t x) noexcept {
   return (ax_b_1 + z - 1) & 2'147'483'647ul;// 2^31-1
 }
 
-template<uint32_t p = 2'147'483'647>
 [[nodiscard]] constexpr inline uint32_t
-mult_mod_p(uint32_t a, uint32_t b, uint32_t x) noexcept {
-  if constexpr(p == 2'147'483'647) {
-    // Algorithm 4 of [1], merged with multiply and addition
-    //
-    // Mersenne Prime: 2^31-1
-    // b = 31
-    const uint64_t ax = (uint64_t)a * (uint64_t)x;
-    const uint64_t ax_b_1 = ax + b + 1ul;
-    const uint64_t z = ((ax_b_1 >> 31) + ax_b_1) >> 31;
-    return (ax_b_1 + z - 1) & 2'147'483'647ul;// 2^31-1
-  } else {
-    // Algorithm 5 of [1] together with multiplication.
-    return ((uint64_t)a * (uint64_t)x + (uint64_t)b) % p;
-  }
+mult_mod_p(uint32_t a, uint32_t b, uint32_t x, uint32_t p) noexcept {
+  // Algorithm 5 of [1] together with multiplication.
+  return ((uint64_t)a * (uint64_t)x + (uint64_t)b) % p;
 }
 
 }

@@ -116,6 +116,12 @@ target_include_directories(freegb PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 if(ENABLE_PROFILING)
   target_compile_definitions(kommunopp PUBLIC KOMMUNOPP_ENABLE_PROFILING)
+
+  # This target makes no sense otherwise.
+  add_executable(mod_prime_tester mod_prime_tester.cpp)
+  target_link_libraries(mod_prime_tester PUBLIC Boost::boost Boost::program_options)
+  target_include_directories(mod_prime_tester PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  target_compile_definitions(mod_prime_tester PUBLIC KOMMUNOPP_ENABLE_PROFILING)
 endif()
 
 include(CheckIPOSupported)
