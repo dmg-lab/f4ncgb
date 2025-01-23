@@ -11,6 +11,7 @@
 #include <boost/multiprecision/gmp.hpp>
 #include <boost/unordered_set.hpp>
 
+#include "fast_div.hpp"
 #include "primes.hpp"
 #include "profiling.hpp"
 #include "signal_statistics.hpp"
@@ -508,48 +509,97 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
     }
 
     // reduce row with all already known pivots
-    pool.detach_task([r, &mat, &atomic_pivots, &trace, &p, &p2, &mod]() {
-      KOMMUNOPP_TIME(elim_task_cpu);
-      auto row = sparse_mat_row(mat, r);
+    if(p == 2147483647) {
+      // This might be cleaned up a bit, but the mersenne prime case in general
+      // can be optimized way better.
+      pool.detach_task([r, &mat, &atomic_pivots, &trace, &p2, &mod]() {
+        KOMMUNOPP_TIME(elim_task_cpu);
+        auto row = sparse_mat_row(mat, r);
 
-      int64_t rr;
-      int64_t cc;
-      int64_t expected = -1;
-      do {
-        copy_to_buffer(buffer_local, row);
-        buffer_ids_local.clear();
-        size_t i = row->indices[0];
-        while(i < mat->ncol) {
-          assert(buffer_local[i] != 0);
-          buffer_local[i] %= p;
-          cc = buffer_local[i];
-          if(cc != 0) {
-            rr = atomic_pivots[i];
-            if(rr < 0) {
-              buffer_ids_local.push_back(i);
-            } else {
-              buffer_local[i] = 0;
-              xmay(buffer_local, cc, sparse_mat_row(mat, rr), p2);
+        int64_t rr;
+        int64_t cc;
+        int64_t expected = -1;
+        do {
+          copy_to_buffer(buffer_local, row);
+          buffer_ids_local.clear();
+          size_t i = row->indices[0];
+          while(i < mat->ncol) {
+            assert(buffer_local[i] > 0);
+            // v must be smaller than 2^2b, i.e. 2^62
+            assert(buffer_local[i] < 4611686018427387904);
+            buffer_local[i] = v_mod_2_31_1((uint64_t)buffer_local[i]);
+            cc = buffer_local[i];
+            if(cc != 0) {
+              rr = atomic_pivots[i];
+              if(rr < 0) {
+                buffer_ids_local.push_back(i);
+              } else {
+                buffer_local[i] = 0;
+                xmay(buffer_local, cc, sparse_mat_row(mat, rr), p2);
+              }
             }
-          }
-          i++;
-          while(i < mat->ncol and buffer_local[i] == 0)
             i++;
-        }
-        // we have a zero row
-        if(buffer_ids_local.empty()) {
-          sparse_vec_clear(row);
-          trace[r] = true;
-          return;
-        }
+            while(i < mat->ncol and buffer_local[i] == 0)
+              i++;
+          }
+          // we have a zero row
+          if(buffer_ids_local.empty()) {
+            sparse_vec_clear(row);
+            trace[r] = true;
+            return;
+          }
 
-        copy_from_buffer_and_clear(buffer_local, buffer_ids_local, row);
-        normalize_row(row, mod);
-        expected = -1;
-      } while(!atomic_pivots[row->indices[0]].compare_exchange_weak(
-        expected, static_cast<int64_t>(r)));
-      row->is_new_piv = true;
-    });
+          copy_from_buffer_and_clear(buffer_local, buffer_ids_local, row);
+          normalize_row(row, mod);
+          expected = -1;
+        } while(!atomic_pivots[row->indices[0]].compare_exchange_weak(
+          expected, static_cast<int64_t>(r)));
+        row->is_new_piv = true;
+      });
+    } else {
+      pool.detach_task([r, &mat, &atomic_pivots, &trace, &p, &p2, &mod]() {
+        KOMMUNOPP_TIME(elim_task_cpu);
+        auto row = sparse_mat_row(mat, r);
+
+        int64_t rr;
+        int64_t cc;
+        int64_t expected = -1;
+        do {
+          copy_to_buffer(buffer_local, row);
+          buffer_ids_local.clear();
+          size_t i = row->indices[0];
+          while(i < mat->ncol) {
+            assert(buffer_local[i] != 0);
+            buffer_local[i] %= p;
+            cc = buffer_local[i];
+            if(cc != 0) {
+              rr = atomic_pivots[i];
+              if(rr < 0) {
+                buffer_ids_local.push_back(i);
+              } else {
+                buffer_local[i] = 0;
+                xmay(buffer_local, cc, sparse_mat_row(mat, rr), p2);
+              }
+            }
+            i++;
+            while(i < mat->ncol and buffer_local[i] == 0)
+              i++;
+          }
+          // we have a zero row
+          if(buffer_ids_local.empty()) {
+            sparse_vec_clear(row);
+            trace[r] = true;
+            return;
+          }
+
+          copy_from_buffer_and_clear(buffer_local, buffer_ids_local, row);
+          normalize_row(row, mod);
+          expected = -1;
+        } while(!atomic_pivots[row->indices[0]].compare_exchange_weak(
+          expected, static_cast<int64_t>(r)));
+        row->is_new_piv = true;
+      });
+    }
   }
   pool.wait();
 

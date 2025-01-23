@@ -9,14 +9,14 @@
 
 namespace kommunopp {
 [[nodiscard]] constexpr inline uint32_t
-v_mod_2_31_1(uint32_t v) noexcept {
+v_mod_2_31_1(uint64_t v) noexcept {
   // Algorithm 4 of [1]
   //
   // Mersenne Prime: 2^31-1
   // b = 31
 
-  const uint32_t v_prime = v + 1;
-  const uint32_t z = ((v_prime >> 31) + v_prime) >> 31;
+  const uint64_t v_prime = v + 1;
+  const uint64_t z = ((v_prime >> 31) + v_prime) >> 31;
   return (v + z) & 2'147'483'647;// 2^31-1
 }
 
