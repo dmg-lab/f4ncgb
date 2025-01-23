@@ -45,6 +45,15 @@ bench_mod_standard(uint32_t p) {
   }
 }
 
+template<uint32_t p>
+static void
+bench_mod_standard_tmpl() {
+  volatile uint32_t res = 0;
+  for(uint32_t i = 0; i < p; ++i) {
+    res = i % 2147483648;
+  }
+}
+
 static void
 bench_mod(uint32_t p) {
   if(p == 2'147'483'647) {
@@ -98,6 +107,17 @@ test_function(Functor f, uint32_t p) {
   {
     statistics::adding_timer t(wall_time);
     f(p);
+  }
+  return wall_time;
+}
+
+template<typename Functor>
+static double
+test_function0(Functor f) {
+  double wall_time = 0;
+  {
+    statistics::adding_timer t(wall_time);
+    f();
   }
   return wall_time;
 }
@@ -160,6 +180,8 @@ main(int argc, char* argv[]) {
     double opt = test_function(bench_mod, prime);
     std::cout << "benchmark-optimized\t" << prime << "\t" << opt << "\t"
               << (std / opt) << std::endl;
+    double pow = test_function0(bench_mod_standard_tmpl<2147483648>);
+    std::cout << "benchmark-power-of-two\t" << prime << "\t" << pow << std::endl;
   }
   if(test) {
     std::cout << "test\t\t\t" << prime << "\t" << test_function(test_mod, prime)
