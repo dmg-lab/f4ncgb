@@ -32,6 +32,19 @@ v_mod_p(uint32_t v, uint32_t p) noexcept {
   return (v - z * p);
 }
 
+template<uint32_t p>
+[[nodiscard]] constexpr inline uint32_t
+v_mod_tmpl(uint32_t v) noexcept {
+  // Algorithm 5 of [1]
+  const uint64_t c = 2'147'483'648 - p;// 2^31 - p = c; b = 31
+  const uint64_t b = 31;
+  const uint64_t v_prime = (uint64_t)v + (uint64_t)c;
+  uint64_t z = v_prime >> b;
+  z = (z * c + v_prime) >> b;
+  z = (z * c + v_prime) >> b;
+  return (v - z * p);
+}
+
 [[nodiscard]] constexpr inline uint32_t
 mult_mod_2_31_1(uint32_t a, uint32_t b, uint32_t x) noexcept {
   // Algorithm 4 of [1], merged with multiply and addition

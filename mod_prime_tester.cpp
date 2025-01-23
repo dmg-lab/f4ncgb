@@ -28,6 +28,15 @@ bench_mod_arbitrary(uint32_t p) {
   }
 }
 
+template<uint32_t p>
+static void
+bench_mod_tmpl() {
+  volatile uint32_t res = 0;
+  for(uint32_t i = 0; i < p; ++i) {
+    res = v_mod_tmpl<p>(i);
+  }
+}
+
 static void
 bench_mod_standard(uint32_t p) {
   volatile uint32_t res = 0;
@@ -40,6 +49,8 @@ static void
 bench_mod(uint32_t p) {
   if(p == 2'147'483'647) {
     bench_mod_mersenne();
+  } else if(p == 2147483629) {
+    bench_mod_tmpl<2147483629>();
   } else {
     bench_mod_arbitrary(p);
   }
