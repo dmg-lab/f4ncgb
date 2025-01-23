@@ -153,7 +153,6 @@ main(int argc, char* argv[]) {
   }
 
   std::cout << std::fixed;
-  std::cout << std::setprecision(10);
 
   if(bench) {
     double std = test_function(bench_mod_standard, prime);
