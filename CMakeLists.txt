@@ -50,8 +50,8 @@ else()
     endif()
 endif()
 
-# Do more optimizations in release mode.
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native")
+# Do more optimizations in release mode. Also disable assertions.
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -DNDEBUG")
 
 set(CMAKE_CXX_STANDARD 20)
 
