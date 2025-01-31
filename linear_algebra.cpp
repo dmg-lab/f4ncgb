@@ -395,6 +395,14 @@ is_rref(uint32_mat_t mat) {
   return true;
 }
 
+std::function<int64_t(int64_t)> inline set_modulus(uint64_t p) {
+  std::function<int64_t(int64_t)> mod_p
+    = [p](int64_t v) { return uint64_t(v) % p; };
+  if(p == 2147483647)
+    mod_p = mersenne_mod;
+  return mod_p;
+}
+
 pivots
 reverse_solve(uint32_mat_t mat, nmod_t mod) {
   uint64_t p = mod.n;
@@ -410,10 +418,7 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
   buffer_ids.reserve(32);
 
   // set modulus function
-  std::function<int64_t(int64_t)> mod_p
-    = [&p](int64_t v) { return (uint64_t)v % p; };
-  if(p == 2147483647)
-    mod_p = mersenne_mod;
+  std::function<int64_t(int64_t)> mod_p = set_modulus(p);
 
   // sort new pivot rows up -- assume: maat is in ref
   // sort rows by first index and nnz
@@ -499,10 +504,7 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
   pool.set_cleanup_func([]() { delete[] buffer_local; });
 
   // set modulus function
-  std::function<int64_t(int64_t)> mod_p
-    = [&p](int64_t v) { return (uint64_t)v % p; };
-  if(p == 2147483647)
-    mod_p = mersenne_mod;
+  std::function<int64_t(int64_t)> mod_p = set_modulus(p);
 
   for(size_t r = 0; r < mat->nrow; r++) {
     if(trace[r])
@@ -524,7 +526,6 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
     pool.detach_task([r, &mat, &atomic_pivots, &trace, &p2, &mod, &mod_p]() {
       KOMMUNOPP_TIME(elim_task_cpu);
       auto row = sparse_mat_row(mat, r);
-
       int64_t rr;
       int64_t cc;
       int64_t expected = -1;
