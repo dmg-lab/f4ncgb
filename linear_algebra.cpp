@@ -395,14 +395,7 @@ is_rref(uint32_mat_t mat) {
   return true;
 }
 
-std::function<int64_t(int64_t)> inline set_modulus(uint64_t p) {
-  std::function<int64_t(int64_t)> mod_p
-    = [p](int64_t v) { return uint64_t(v) % p; };
-  if(p == 2147483647)
-    mod_p = mersenne_mod;
-  return mod_p;
-}
-
+template<bool mersenne = false>
 pivots
 reverse_solve(uint32_mat_t mat, nmod_t mod) {
   uint64_t p = mod.n;
@@ -416,9 +409,6 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
 
   std::vector<size_t> buffer_ids;
   buffer_ids.reserve(32);
-
-  // set modulus function
-  std::function<int64_t(int64_t)> mod_p = set_modulus(p);
 
   // sort new pivot rows up -- assume: maat is in ref
   // sort rows by first index and nnz
@@ -459,7 +449,11 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
     slong rr;
     size_t i = row->indices[1];
     while(i < mat->ncol) {
-      cc = mod_p(buffer[i]);
+      if constexpr(mersenne) {
+        cc = mersenne_mod(buffer[i]);
+      } else {
+        cc = (int64_t)(((uint64_t)buffer[i]) % p);
+      }
       buffer[i] = cc;
       if(cc != 0) {
         rr = piv_array[i];
@@ -485,6 +479,7 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
   return piv;
 }
 
+template<bool mersenne = false>
 pivots
 gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
   uint64_t p = mod.n;
@@ -503,9 +498,6 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
   });
   pool.set_cleanup_func([]() { delete[] buffer_local; });
 
-  // set modulus function
-  std::function<int64_t(int64_t)> mod_p = set_modulus(p);
-
   for(size_t r = 0; r < mat->nrow; r++) {
     if(trace[r])
       continue;
@@ -523,7 +515,7 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
     }
 
     // reduce row with all already known pivots
-    pool.detach_task([r, &mat, &atomic_pivots, &trace, &p2, &mod, &mod_p]() {
+    pool.detach_task([r, &mat, &atomic_pivots, &trace, p, p2, &mod]() {
       KOMMUNOPP_TIME(elim_task_cpu);
       auto row = sparse_mat_row(mat, r);
       int64_t rr;
@@ -537,7 +529,11 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
           assert(buffer_local[i] > 0);
           // v must be smaller than 2^2b, i.e. 2^62
           assert(buffer_local[i] < 4611686018427387904);
-          cc = mod_p(buffer_local[i]);
+          if constexpr(mersenne) {
+            cc = mersenne_mod(buffer_local[i]);
+          } else {
+            cc = (int64_t)(((uint64_t)buffer_local[i]) % p);
+          }
           buffer_local[i] = cc;
           if(cc != 0) {
             rr = atomic_pivots[i];
@@ -569,7 +565,11 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
   }
   pool.wait();
 
-  return reverse_solve(mat, mod);
+  if(mod.n == PRIMES[0]) {
+    return reverse_solve<true>(mat, mod);
+  } else {
+    return reverse_solve<false>(mat, mod);
+  }
 }
 
 std::pair<std::vector<std::pair<size_t, size_t>>, std::vector<gmp_rational>>
@@ -623,7 +623,14 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
       }
 
       KOMMUNOPP_TIME(rref);
-      pivots piv(gauss_elim(nmod_mat.get(), mod, num_threads, trace));
+      auto gauss_elim_wrapper = [&]() -> pivots {
+        if(mod.n == PRIMES[0]) {
+          return gauss_elim<true>(nmod_mat.get(), mod, num_threads, trace);
+        } else {
+          return gauss_elim<false>(nmod_mat.get(), mod, num_threads, trace);
+        }
+      };
+      pivots piv(gauss_elim_wrapper());
       KOMMUNOPP_PROFILE(timer.~adding_timer());
 
       if(cmp_pivots(best_piv, piv) <= 0) {
@@ -712,7 +719,14 @@ nmod_gauss_elim(sfmpz_mat_t mat,
   mat_mod(nmod_mat, mat, mod, trace);
 
   KOMMUNOPP_TIME(rref);
-  pivots piv(gauss_elim(nmod_mat, mod, num_threads, trace));
+  auto gauss_elim_wrapper = [&]() -> pivots {
+    if(mod.n == PRIMES[0]) {
+      return gauss_elim<true>(nmod_mat, mod, num_threads, trace);
+    } else {
+      return gauss_elim<false>(nmod_mat, mod, num_threads, trace);
+    }
+  };
+  pivots piv(gauss_elim_wrapper());
   KOMMUNOPP_PROFILE(timer.~adding_timer());
 
   // compute rows with new leading terms
