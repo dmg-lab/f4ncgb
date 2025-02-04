@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <concepts>
 #include <cstdint>
+#include <cstdlib>
 #include <format>
 #include <iterator>
 #include <limits>
@@ -26,6 +27,10 @@
 
 #include "ambiguity.hpp"
 #include "gmp.h"
+
+#ifdef __linux__
+#include <sys/mman.h>
+#endif
 
 namespace kommunopp {
 
@@ -137,8 +142,7 @@ class store {
   M zero_metadata_;
   bool scratch_metadata_created_ = false;
 
-  std::unique_ptr<std::byte[]> pool_
-    = std::make_unique_for_overwrite<std::byte[]>(capacity());
+  std::unique_ptr<std::byte[]> pool_;
 
   /// Work on the current tip but do not commit anything. The tip can later be
   /// committed using insert_scratch.
@@ -207,7 +211,13 @@ class store {
   using index_type = I;
   using value_type = V;
 
-  store() = default;
+  store()
+    : pool_(reinterpret_cast<std::byte*>(
+        std::aligned_alloc(2097152 /* 2^21, 2MB */, capacity()))) {
+#ifdef __linux__
+    madvise(pool_.get(), capacity(), MADV_HUGEPAGE);
+#endif
+  }
   ~store() {
     for(I i = 0; i < inserted_count_; ++i) {
       // Do not call the destructor of the 0 element, as this is special. Only
@@ -350,7 +360,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
 
 #ifdef KOMMUNOPP_USE_MONOMIAL_PRODUCTS_MAP
   boost::unordered_flat_map<std::tuple<I, I, I>, I> products_;
-#endif  
+#endif
 
   protected:
   inline void new_entry(I id) { map_.insert(std::pair((*this)[id + 1], id)); }
@@ -558,7 +568,14 @@ class polynomial_store
 
   inline polynomial_store(monomial_store_& store)
     : base::store()
-    , store_(store) {}
+    , store_(store)
+    , cpool_(reinterpret_cast<std::byte*>(
+        std::aligned_alloc(2097152 /* 2^21, 2MB */,
+                           std::numeric_limits<I>::max()))) {
+#ifdef __linux__
+    madvise(cpool_.get(), std::numeric_limits<I>::max(), MADV_HUGEPAGE);
+#endif
+  }
 
   ~polynomial_store() {
     for(I i = 0; i < cpool_size_; ++i) {
