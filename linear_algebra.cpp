@@ -530,6 +530,7 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
           // v must be smaller than 2^2b, i.e. 2^62
           assert(buffer_local[i] < 4611686018427387904);
           if constexpr(mersenne) {
+            (void)p; // p is not used in this case.
             cc = mersenne_mod(buffer_local[i]);
           } else {
             cc = (int64_t)(((uint64_t)buffer_local[i]) % p);
