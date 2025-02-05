@@ -51,7 +51,7 @@ else()
 endif()
 
 # Do more optimizations in release mode. Also disable assertions.
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -DNDEBUG")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -g -DNDEBUG")
 
 set(CMAKE_CXX_STANDARD 20)
 
