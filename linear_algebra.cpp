@@ -302,7 +302,7 @@ rational_reconstruction(std::vector<gmp_rational>& entries,
 }
 
 template<typename T>
-static void inline copy_to_buffer(T* buffer, uint32_vec_t vec) {
+static void inline copy_to_buffer(T& buffer, uint32_vec_t vec) {
   for(size_t i = 0; i < vec->nnz; i++)
     buffer[vec->indices[i]] = vec->entries[i];
 }
@@ -395,19 +395,22 @@ is_rref(uint32_mat_t mat) {
   return true;
 }
 
+static std::vector<int64_t> piv_array;
+static std::vector<int64_t> buffer;
+static std::vector<size_t> buffer_ids;
+
 template<bool mersenne = false>
-pivots
+static pivots
 reverse_solve(uint32_mat_t mat, nmod_t mod) {
   uint64_t p = mod.n;
   int64_t p2 = static_cast<int64_t>(p * p);
 
-  int64_t* piv_array = new int64_t[mat->ncol];
-  std::fill(piv_array, piv_array + mat->ncol, -1);
+  piv_array.resize(mat->ncol);
+  std::fill(piv_array.begin(), piv_array.end(), -1);
 
-  int64_t* buffer = new int64_t[mat->ncol];
-  std::fill(buffer, buffer + mat->ncol, 0);
+  buffer.resize(mat->ncol);
+  std::fill(buffer.begin(), buffer.end(), 0);
 
-  std::vector<size_t> buffer_ids;
   buffer_ids.reserve(32);
 
   // sort new pivot rows up -- assume: maat is in ref
@@ -462,20 +465,18 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
         } else {
           assert(sparse_mat_row(mat, rr)->indices[0] == i);
           buffer[i] = 0;
-          xmay(buffer, cc, sparse_mat_row(mat, rr), p2);
+          xmay(buffer.data(), cc, sparse_mat_row(mat, rr), p2);
         }
       }
       i++;
       while(i < mat->ncol and buffer[i] == 0)
         i++;
     }
-    copy_from_buffer_and_clear(buffer, buffer_ids, row);
+    copy_from_buffer_and_clear(buffer.data(), buffer_ids, row);
   }
 
   assert(is_rref(mat));
 
-  delete[] buffer;
-  delete[] piv_array;
   return piv;
 }
 

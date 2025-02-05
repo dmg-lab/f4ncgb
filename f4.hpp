@@ -4,10 +4,10 @@
 #include <chrono>
 #include <cstdint>
 #include <ostream>
+#include <set>
 #include <span>
 #include <utility>
 #include <vector>
-#include <set>
 
 #include <boost/align/align_down.hpp>
 #include <boost/align/align_up.hpp>
@@ -145,11 +145,15 @@ struct f4 {
   }
   //------------------------------------------------------------------------------
 
+  std::vector<poly_id> input;
   std::vector<poly_id> compute_basis() {
     // add something at 0th position
     // so that index 0 remains free
     basis.push_back(0);
-    std::vector<poly_id> input(poly.begin() + 1, poly.end());
+    input.clear();
+    input.resize(
+      static_cast<size_t>(std::distance(poly.begin() + 1, poly.end())));
+    std::copy(poly.begin() + 1, poly.end(), input.begin());
 
     // add input to critical pairs
     interreduce_and_add_to_basis(input);
@@ -230,6 +234,8 @@ struct f4 {
       return -1;
   }
   //------------------------------------------------------------------------------
+  std::vector<ambiguity> tmp;
+  std::vector<char> to_remove;
   void gebauer_moeller(boost::unordered_set<ambiguity, amb_hash>& new_amb) {
     // first index is always the newer polynomial
 
@@ -241,10 +247,14 @@ struct f4 {
       return this->mons.cmp(a.aj(), b.aj());
     };
 
-    std::vector<ambiguity> tmp(new_amb.begin(), new_amb.end());
+    tmp.clear();
+    tmp.reserve(
+      static_cast<size_t>(std::distance(new_amb.begin(), new_amb.end())));
+    std::copy(new_amb.begin(), new_amb.end(), std::back_inserter(tmp));
     std::sort(tmp.begin(), tmp.end(), cmp);
 
-    bool* to_remove = new bool[tmp.size()];
+    to_remove.clear();
+    to_remove.resize(tmp.size());
     for(size_t i = 0; i < tmp.size(); i++)
       to_remove[i] = false;
 
@@ -265,16 +275,18 @@ struct f4 {
           to_remove[j] = true;
       }
     }
-    delete[] to_remove;
   }
   //------------------------------------------------------------------------------
+  std::vector<std::pair<mon_id, size_t>> overlaps;
+  std::vector<std::pair<mon_id, size_t>> inclusions;
   void compute_ambiguities(mon_id i) {
     boost::unordered_set<ambiguity, amb_hash> new_amb;
 
     monomial m = mons[i];
     monomial ab, b, bc, abc;
-    std::vector<std::pair<mon_id, size_t>> overlaps;
-    std::vector<std::pair<mon_id, size_t>> inclusions;
+
+    overlaps.clear();
+    inclusions.clear();
 
     {
       KOMMUNOPP_TIME(overlap);
@@ -525,13 +537,15 @@ struct f4 {
     return res;
   }
   //------------------------------------------------------------------------------
-  std::vector<poly_id> compute_new_polynomials(
+  std::vector<poly_id> res;
+  std::vector<std::pair<C, mon_id>> p;
+  const std::vector<poly_id>& compute_new_polynomials(
     std::vector<std::pair<size_t, size_t>>& idxs,
     std::vector<C>& coeffs,
     std::vector<mon_id>& columns) {
 
-    std::vector<poly_id> res;
-    std::vector<std::pair<C, mon_id>> p;
+    res.clear();
+    p.clear();
 
     if(idxs.size() == 0)
       return res;
@@ -554,19 +568,25 @@ struct f4 {
     return res;
   }
   //------------------------------------------------------------------------------
-  std::vector<poly_id> reduction(bool interreduce = false) {
+  boost::unordered_set<mon_id> col_set;
+  std::vector<mon_id> columns;
+  const std::vector<poly_id>& reduction(bool interreduce = false) {
     // symbolic preprocessing
     auto rows = symbolic_preprocessing();
     crit_pairs.clear();
 
+    col_set.clear();
+
     // make columns
     // columns are sorted in DESCENDING order
-    boost::unordered_set<mon_id> col_set;
     for(const auto r : rows) {
       auto p = poly[r];
       col_set.insert(p.begin(), p.end());
     }
-    std::vector<mon_id> columns(col_set.begin(), col_set.end());
+    columns.clear();
+    columns.resize(
+      static_cast<size_t>(std::distance(col_set.begin(), col_set.end())));
+    std::copy(col_set.begin(), col_set.end(), columns.begin());
     auto cmp
       = [this](const mon_id a, const mon_id b) { return this->mons.cmp(b, a); };
     std::sort(columns.begin(), columns.end(), cmp);
@@ -583,8 +603,7 @@ struct f4 {
 
     // compute new elements
     KOMMUNOPP_PROFILE(auto timer2 = gstats.time(gstats.new_elements));
-    std::vector<poly_id> new_elements
-      = compute_new_polynomials(idxs, entries, columns);
+    auto& new_elements = compute_new_polynomials(idxs, entries, columns);
     KOMMUNOPP_PROFILE(timer2.~adding_timer());
 
     sparse_mat_clear(mat);
@@ -600,11 +619,12 @@ struct f4 {
     }
   }
   //------------------------------------------------------------------------------
+  boost::unordered_map<mon_id, size_t> col_to_id;
   void set_up_matrix(sfmpz_mat_t mat,
                      std::vector<poly_id>& rows,
                      std::vector<mon_id>& columns) {
 
-    boost::unordered_map<mon_id, size_t> col_to_id;
+    col_to_id.clear();
     size_t i = 0;
     for(auto c : columns)
       col_to_id[c] = i++;
