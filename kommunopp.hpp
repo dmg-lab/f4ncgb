@@ -7,6 +7,7 @@
 #include <format>
 #include <iterator>
 #include <limits>
+#include <memory>
 #include <span>
 #include <utility>
 #include <vector>
@@ -214,6 +215,9 @@ class store {
   store()
     : pool_(reinterpret_cast<std::byte*>(
         std::aligned_alloc(2097152 /* 2^21, 2MB */, capacity()))) {
+    if(pool_.get() == nullptr) {
+      pool_ = std::make_unique_for_overwrite<std::byte[]>(capacity());
+    }
 #ifdef __linux__
     madvise(pool_.get(), capacity(), MADV_HUGEPAGE);
 #endif
@@ -572,6 +576,10 @@ class polynomial_store
     , cpool_(reinterpret_cast<std::byte*>(
         std::aligned_alloc(2097152 /* 2^21, 2MB */,
                            std::numeric_limits<I>::max()))) {
+    if(cpool_.get() == nullptr) {
+      cpool_ = std::make_unique_for_overwrite<std::byte[]>(
+        std::numeric_limits<I>::max());
+    }
 #ifdef __linux__
     madvise(cpool_.get(), std::numeric_limits<I>::max(), MADV_HUGEPAGE);
 #endif
