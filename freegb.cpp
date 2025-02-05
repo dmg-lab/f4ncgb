@@ -80,7 +80,7 @@ main(int argc, char** argv) {
   }
 
   if(vm.count("version")) {
-    std::cerr << FREEGB_VERSION << std::endl;
+    std::cout << FREEGB_VERSION << std::endl;
     return EXIT_SUCCESS;
   }
 
