@@ -279,12 +279,12 @@ struct f4 {
   //------------------------------------------------------------------------------
   std::vector<std::pair<mon_id, size_t>> overlaps;
   std::vector<std::pair<mon_id, size_t>> inclusions;
+  boost::unordered_set<ambiguity, amb_hash> new_amb;
   void compute_ambiguities(mon_id i) {
-    boost::unordered_set<ambiguity, amb_hash> new_amb;
-
     monomial m = mons[i];
     monomial ab, b, bc, abc;
 
+    new_amb.clear();
     overlaps.clear();
     inclusions.clear();
 
