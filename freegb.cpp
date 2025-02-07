@@ -92,8 +92,12 @@ main(int argc, char** argv) {
   std::filesystem::path in = input_name;
 
   parser_context context;
-  context.open(in);
-  parse_res r = context.parse_header();
+  parse_res r;
+  {
+    KOMMUNOPP_TIME(parse);
+    context.open(in);
+    r = context.parse_header();
+  }
   if(r.has_value()) {
     std::cerr << *r << std::endl;
     die(17, "Error in parsing input file.");

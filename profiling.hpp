@@ -27,6 +27,7 @@ struct statistics {
   double overlap = 0, inclusion = 0, crt = 0, ratrec = 0, rref = 0;
   double binarysearch = 0;
   double elim_task_cpu = 0;
+  double parse = 0;
 
   // Automated timing to add time (in seconds) to some target.
   struct adding_timer {

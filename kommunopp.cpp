@@ -50,9 +50,12 @@ kommunopp_main(parser_context& context,
      output_name,
      print_read_problem](auto Nblocks) {
       f4<Nblocks> algo(nvars, characteristic, maxiter, maxdeg, threads);
-      if(auto err = algo.read_input(context)) {
-        std::cerr << *err << std::endl;
-        die(17, "Error in parsing body of input file.");
+      {
+        KOMMUNOPP_TIME(parse);
+        if(auto err = algo.read_input(context)) {
+          std::cerr << *err << std::endl;
+          die(17, "Error in parsing body of input file.");
+        }
       }
 
       if(print_read_problem) {

@@ -57,6 +57,9 @@ statistics::print(size_t threads) {
   msg("store find calls:            %22d", gstats.store_find_calls);
   msg("store find hits:           %22.2f %%",
       percent(s.store_find_hits, s.store_find_calls));
+  msg("parse input:               %22.2f (%2.2f %%)",
+      s.parse,
+      percent_d(s.parse, total_time));
   msg("computing ambiguities:     %22.2f (%2.2f %%)",
       s.amb,
       percent_d(s.amb, total_time));
