@@ -492,12 +492,21 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
   std::vector<std::atomic_int64_t> atomic_pivots(mat->ncol);
   std::fill(atomic_pivots.begin(), atomic_pivots.end(), -1);
 
-  BS::thread_pool pool(num_threads, [n = mat->ncol] {
+  std::unique_ptr<BS::thread_pool<BS::none>> pool;
+  auto init_task = [n = mat->ncol] {
     buffer_local = new int64_t[n];
     std::fill(buffer_local, buffer_local + n, 0);
     buffer_ids_local.reserve(32);
-  });
-  pool.set_cleanup_func([]() { delete[] buffer_local; });
+  };
+
+  auto cleanup_task = []() { delete[] buffer_local; };
+
+  if(num_threads == 1) {
+    init_task();
+  } else {
+    pool = std::make_unique<BS::thread_pool<BS::none>>(num_threads, init_task);
+    pool->set_cleanup_func(cleanup_task);
+  }
 
   for(size_t r = 0; r < mat->nrow; r++) {
     if(trace[r])
@@ -516,7 +525,7 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
     }
 
     // reduce row with all already known pivots
-    pool.detach_task([r, &mat, &atomic_pivots, &trace, p, p2, &mod]() {
+    auto task = [r, &mat, &atomic_pivots, &trace, p, p2, &mod]() {
       KOMMUNOPP_TIME(elim_task_cpu);
       auto row = sparse_mat_row(mat, r);
       int64_t rr;
@@ -531,7 +540,7 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
           // v must be smaller than 2^2b, i.e. 2^62
           assert(buffer_local[i] < 4611686018427387904);
           if constexpr(mersenne) {
-            (void)p; // p is not used in this case.
+            (void)p;// p is not used in this case.
             cc = mersenne_mod(buffer_local[i]);
           } else {
             cc = (int64_t)(((uint64_t)buffer_local[i]) % p);
@@ -563,9 +572,20 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
       } while(!atomic_pivots[row->indices[0]].compare_exchange_weak(
         expected, static_cast<int64_t>(r)));
       row->is_new_piv = true;
-    });
+    };
+    if(pool) {
+      pool->detach_task(task);
+    } else {
+      task();
+    }
   }
-  pool.wait();
+  if(pool) {
+    pool->wait();
+  }
+
+  if(!pool) {
+    cleanup_task();
+  }
 
   if(mod.n == PRIMES[0]) {
     return reverse_solve<true>(mat, mod);
