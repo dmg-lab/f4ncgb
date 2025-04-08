@@ -524,10 +524,14 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
       continue;
     }
 
+<<<<<<< HEAD
     // reduce row with all already known pivots
 
     // std::ios::sync_with_stdio(false);
     
+=======
+    // reduce row with all already known pivots    
+>>>>>>> 0ccdc69 (Remove index printing)
     auto task = [r, &mat, &atomic_pivots, &trace, p, p2, &mod]() {
       KOMMUNOPP_TIME(elim_task_cpu);
       auto row = sparse_mat_row(mat, r);
@@ -539,6 +543,7 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
         buffer_ids_local.clear();
         size_t i = row->indices[0];
         while(i < mat->ncol) {
+<<<<<<< HEAD
 
           // std::cout << "{";
           // for(int idx = 0; idx < mat->ncol; idx++)
@@ -546,6 +551,8 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
           //     std::cout << idx << " ";
           // std::cout << "\n";
           
+=======
+>>>>>>> 0ccdc69 (Remove index printing)
           assert(buffer_local[i] > 0);
           // v must be smaller than 2^2b, i.e. 2^62
           assert(buffer_local[i] < 4611686018427387904);
@@ -582,8 +589,6 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
       } while(!atomic_pivots[row->indices[0]].compare_exchange_weak(
         expected, static_cast<int64_t>(r)));
       row->is_new_piv = true;
-
-      //std::cout << "===================================" << std::endl;
     };
     if(pool) {
       pool->detach_task(task);
