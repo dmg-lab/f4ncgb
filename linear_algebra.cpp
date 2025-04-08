@@ -536,6 +536,13 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
         buffer_ids_local.clear();
         size_t i = row->indices[0];
         while(i < mat->ncol) {
+
+          std::cout << "[";
+          for(int idx = 0; idx < mat->ncol; idx++)
+            if (buffer_local[idx] != 0)
+              std::cout << idx << " ";
+          std::cout << std::endl;
+          
           assert(buffer_local[i] > 0);
           // v must be smaller than 2^2b, i.e. 2^62
           assert(buffer_local[i] < 4611686018427387904);
@@ -572,6 +579,8 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
       } while(!atomic_pivots[row->indices[0]].compare_exchange_weak(
         expected, static_cast<int64_t>(r)));
       row->is_new_piv = true;
+
+      std::cout << "===================================" << std::endl;
     };
     if(pool) {
       pool->detach_task(task);
