@@ -525,6 +525,9 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
     }
 
     // reduce row with all already known pivots
+
+    std::ios::sync_with_stdio(false);
+    
     auto task = [r, &mat, &atomic_pivots, &trace, p, p2, &mod]() {
       KOMMUNOPP_TIME(elim_task_cpu);
       auto row = sparse_mat_row(mat, r);
@@ -537,11 +540,11 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
         size_t i = row->indices[0];
         while(i < mat->ncol) {
 
-          std::cout << "[";
+          std::cout << "{";
           for(int idx = 0; idx < mat->ncol; idx++)
             if (buffer_local[idx] != 0)
               std::cout << idx << " ";
-          std::cout << std::endl;
+          std::cout << "\n";
           
           assert(buffer_local[i] > 0);
           // v must be smaller than 2^2b, i.e. 2^62
@@ -580,7 +583,7 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
         expected, static_cast<int64_t>(r)));
       row->is_new_piv = true;
 
-      std::cout << "===================================" << std::endl;
+      //std::cout << "===================================" << std::endl;
     };
     if(pool) {
       pool->detach_task(task);
