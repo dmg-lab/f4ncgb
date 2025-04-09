@@ -15,6 +15,8 @@
 #include "primes.hpp"
 #include "profiling.hpp"
 #include "signal_statistics.hpp"
+#include "sparse_rref/sparse_mat.h"
+#include "sparse_rref/sparse_vec.h"
 #include "sparse_rref/thread_pool.hpp"
 
 #include "linear_algebra.hpp"
@@ -330,13 +332,76 @@ static void inline normalize_row(uint32_vec_t vec, nmod_t mod) {
   uint32_t inv = nmod_inv(c, mod);
   for(size_t i = 0; i < vec->nnz; i++) {
     uint32_t v = nmod_mul(inv, vec->entries[i], mod);
+    if(v == 0)
+      die(-5, "");
     vec->entries[i] = v;
   }
 }
 
 // Compute x - ay mod p
-// but leave out the 0th entry of y
-// because that will be zero anyway
+static void inline xmay(std::vector<int64_t>& x_entries,
+                        std::vector<size_t>& x_indices,
+                        int64_t a,
+                        uint32_vec_t y,
+                        int64_t p2) {
+
+  std::vector<int64_t> entries;
+  std::vector<size_t> indices;
+  entries.reserve(x_entries.size() + y->nnz);
+  indices.reserve(x_entries.size() + y->nnz);
+
+  ulong ptr1 = 0;
+  ulong ptr2 = 0;
+  int64_t entry;
+  while(ptr1 < x_entries.size() && ptr2 < y->nnz) {
+    if(x_indices[ptr1] == y->indices[ptr2]) {
+      entry = (x_entries[ptr1] - a * (int64_t)y->entries[ptr2]);
+      entry += (entry >> 63) & p2;
+      if(entry != 0) {
+        entries.push_back(entry);
+        indices.push_back(x_indices[ptr1]);
+      }
+      ptr1++;
+      ptr2++;
+    } else if(x_indices[ptr1] < y->indices[ptr2]) {
+      entries.push_back(x_entries[ptr1]);
+      indices.push_back(x_indices[ptr1]);
+      ptr1++;
+    } else {
+      entry = (-a * (int64_t)y->entries[ptr2]);
+      entry += (entry >> 63) & p2;
+      if(entry != 0) {
+        entries.push_back(entry);
+        indices.push_back(y->indices[ptr2]);
+      }
+      ptr2++;
+    }
+  }
+  while(ptr1 < x_entries.size()) {
+    entries.push_back(x_entries[ptr1]);
+    indices.push_back(x_indices[ptr1]);
+    ptr1++;
+  }
+  while(ptr2 < y->nnz) {
+    entry = (-a * (int64_t)y->entries[ptr2]);
+    entry += (entry >> 63) & p2;
+    if(entry != 0) {
+      entries.push_back(entry);
+      indices.push_back(y->indices[ptr2]);
+    }
+    ptr2++;
+  }
+  
+  x_entries.clear();
+  x_indices.clear();
+  for(size_t i = 0; i < entries.size(); i++) {
+    if(entries[i] == 0)
+      die(-1, "");
+    x_entries.push_back(entries[i]);
+    x_indices.push_back(indices[i]);
+  }
+}
+
 static void inline xmay(int64_t* x, int64_t a, uint32_vec_t y, int64_t p2) {
   size_t j;
   int64_t t;
@@ -486,26 +551,19 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
   uint64_t p = mod.n;
   int64_t p2 = static_cast<int64_t>(p * p);
 
-  thread_local int64_t* buffer_local;
-  thread_local std::vector<size_t> buffer_ids_local;
+  thread_local std::vector<int64_t> entries;
+  thread_local std::vector<size_t> indices;
 
   std::vector<std::atomic_int64_t> atomic_pivots(mat->ncol);
   std::fill(atomic_pivots.begin(), atomic_pivots.end(), -1);
 
   std::unique_ptr<BS::thread_pool<BS::none>> pool;
-  auto init_task = [n = mat->ncol] {
-    buffer_local = new int64_t[n];
-    std::fill(buffer_local, buffer_local + n, 0);
-    buffer_ids_local.reserve(32);
-  };
-
-  auto cleanup_task = []() { delete[] buffer_local; };
+  auto init_task = [n = mat->ncol] {};
 
   if(num_threads == 1) {
     init_task();
   } else {
     pool = std::make_unique<BS::thread_pool<BS::none>>(num_threads, init_task);
-    pool->set_cleanup_func(cleanup_task);
   }
 
   for(size_t r = 0; r < mat->nrow; r++) {
@@ -524,66 +582,57 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
       continue;
     }
 
-<<<<<<< HEAD
     // reduce row with all already known pivots
-
-    // std::ios::sync_with_stdio(false);
-    
-=======
-    // reduce row with all already known pivots    
->>>>>>> 0ccdc69 (Remove index printing)
     auto task = [r, &mat, &atomic_pivots, &trace, p, p2, &mod]() {
       KOMMUNOPP_TIME(elim_task_cpu);
       auto row = sparse_mat_row(mat, r);
+
+      entries.clear();
+      indices.clear();
+      entries.reserve(row->nnz);
+      indices.reserve(row->nnz);
+      for(size_t i = 0; i < row->nnz; ++i) {
+        entries.emplace_back(row->entries[i]);
+        indices.emplace_back(row->indices[i]);
+      }
+
       int64_t rr;
       int64_t cc;
       int64_t expected = -1;
       do {
-        copy_to_buffer(buffer_local, row);
-        buffer_ids_local.clear();
-        size_t i = row->indices[0];
-        while(i < mat->ncol) {
-<<<<<<< HEAD
+        size_t i = 0;
+        while(i < indices.size()) {
 
-          // std::cout << "{";
-          // for(int idx = 0; idx < mat->ncol; idx++)
-          //   if (buffer_local[idx] != 0)
-          //     std::cout << idx << " ";
-          // std::cout << "\n";
-          
-=======
->>>>>>> 0ccdc69 (Remove index printing)
-          assert(buffer_local[i] > 0);
-          // v must be smaller than 2^2b, i.e. 2^62
-          assert(buffer_local[i] < 4611686018427387904);
-          if constexpr(mersenne) {
-            (void)p;// p is not used in this case.
-            cc = mersenne_mod(buffer_local[i]);
-          } else {
-            cc = (int64_t)(((uint64_t)buffer_local[i]) % p);
+          cc = (int64_t)(((uint64_t)entries[i]) % p);
+          if(cc == 0) {
+            entries.erase(entries.begin() + i);
+            indices.erase(indices.begin() + i);
+            continue;
           }
-          buffer_local[i] = cc;
-          if(cc != 0) {
-            rr = atomic_pivots[i];
-            if(rr < 0) {
-              buffer_ids_local.push_back(i);
-            } else {
-              buffer_local[i] = 0;
-              xmay(buffer_local, cc, sparse_mat_row(mat, rr), p2);
-            }
-          }
-          i++;
-          while(i < mat->ncol and buffer_local[i] == 0)
+          entries[i] = cc;
+
+          rr = atomic_pivots[indices[i]];
+          if(rr < 0)
             i++;
+          else
+            xmay(entries, indices, entries[i], sparse_mat_row(mat, rr), p2);
         }
         // we have a zero row
-        if(buffer_ids_local.empty()) {
+        if(indices.empty()) {
           sparse_vec_clear(row);
           trace[r] = true;
           return;
         }
 
-        copy_from_buffer_and_clear(buffer_local, buffer_ids_local, row);
+        sparse_vec_clear(row);
+        sparse_vec_init(row, entries.size());
+        row->nnz = indices.size();
+        for(size_t i = 0; i < entries.size(); i++) {
+          row->entries[i] = entries[i];
+          row->indices[i] = indices[i];
+        }
+
+        // copy_from_buffer_and_clear(buffer_local, buffer_ids_local, row);
         normalize_row(row, mod);
         expected = -1;
       } while(!atomic_pivots[row->indices[0]].compare_exchange_weak(
@@ -598,10 +647,6 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
   }
   if(pool) {
     pool->wait();
-  }
-
-  if(!pool) {
-    cleanup_task();
   }
 
   if(mod.n == PRIMES[0]) {
