@@ -519,6 +519,7 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
     int64_t rr = atomic_pivots[c];
     if(rr < 0) {
       normalize_row(row, mod);
+      assert(atomic_pivots[c] == -1);
       atomic_pivots[c] = static_cast<int64_t>(r);
       continue;
     }
@@ -532,19 +533,10 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
       int64_t expected = -1;
       do {
         copy_to_buffer(buffer_local, row);
-        std::priority_queue<size_t, std::vector<size_t>, std::greater<size_t>>
-          indices;
-        std::vector<bool> in_indices(mat->ncol, false);
-        for(size_t j = 0; j < row->nnz; j++) {
-          indices.push(row->indices[j]);
-          in_indices[row->indices[j]] = true;
-        }
         buffer_ids_local.clear();
-
-        while(!indices.empty()) {
-          size_t i = indices.top();
-          indices.pop();
-          
+        size_t i = row->indices[0];
+        size_t max_col = row->indices[row->nnz - 1];
+        while(i <= max_col) {
           assert(buffer_local[i] > 0);
           // v must be smaller than 2^2b, i.e. 2^62
           assert(buffer_local[i] < 4611686018427387904);
@@ -562,19 +554,13 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
             } else {
               buffer_local[i] = 0;
               auto row_rr = sparse_mat_row(mat, rr);
-
-              for(size_t j = 1; j < row_rr->nnz; j++) {
-                size_t jj = row_rr->indices[j];
-                if(!in_indices[jj]) {
-                  indices.push(jj);
-                  in_indices[jj] = true;
-                }
-              }
+              max_col = std::max(max_col, row_rr->indices[row_rr->nnz - 1]);
               xmay(buffer_local, cc, row_rr, p2);
             }
           }
-          while(!indices.empty() &&  buffer_local[indices.top()] == 0)
-            indices.pop();
+          i++;
+          while(i <= max_col and buffer_local[i] == 0)
+            i++;
         }
 
         // we have a zero row
