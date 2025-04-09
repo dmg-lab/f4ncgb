@@ -524,7 +524,7 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
       continue;
     }
 
-    // reduce row with all already known pivots    
+    // reduce row with all already known pivots
     auto task = [r, &mat, &atomic_pivots, &trace, p, p2, &mod]() {
       KOMMUNOPP_TIME(elim_task_cpu);
       auto row = sparse_mat_row(mat, r);
@@ -535,7 +535,8 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
         copy_to_buffer(buffer_local, row);
         buffer_ids_local.clear();
         size_t i = row->indices[0];
-        while(i < mat->ncol) {
+        size_t max_col = row->indices[row->nnz - 1];
+        while(i <= max_col) {
           assert(buffer_local[i] > 0);
           // v must be smaller than 2^2b, i.e. 2^62
           assert(buffer_local[i] < 4611686018427387904);
@@ -552,13 +553,16 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
               buffer_ids_local.push_back(i);
             } else {
               buffer_local[i] = 0;
-              xmay(buffer_local, cc, sparse_mat_row(mat, rr), p2);
+              auto row_rr = sparse_mat_row(mat, rr);
+              max_col = std::max(max_col, row_rr->indices[row_rr->nnz - 1]);
+              xmay(buffer_local, cc, row_rr, p2);
             }
           }
           i++;
-          while(i < mat->ncol and buffer_local[i] == 0)
+          while(i <= max_col and buffer_local[i] == 0)
             i++;
         }
+
         // we have a zero row
         if(buffer_ids_local.empty()) {
           sparse_vec_clear(row);
