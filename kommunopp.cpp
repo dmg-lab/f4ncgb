@@ -52,7 +52,7 @@ kommunopp_main(parser_context& context,
      output_name,
      print_read_problem](auto Nblocks) {
       f4<Nblocks> algo(
-                       nvars, characteristic, maxiter, maxdeg, threads, verified_algebra);
+        nvars, characteristic, maxiter, maxdeg, threads, verified_algebra);
       {
         KOMMUNOPP_TIME(parse);
         if(auto err = algo.read_input(context)) {
@@ -65,19 +65,24 @@ kommunopp_main(parser_context& context,
         context.to_msolve(std::cout, algo.poly);
       }
 
-      if(verbose > 1 or true) {
+      if(verbose > 0) {
         msg("==== Input Parameters ====");
+        std::string out = "Output file:       ";
         if(output_name == "")
-          msg("No output file specified. Writing output to console.");
-        msg("Computing in characteristic %lu.", characteristic);
-        msg("Executing at most %lu iterations.", maxiter);
-        msg("Considering ambiguities up to degree %lu.", maxdeg);
-        msg("Using %lu threads.", threads);
+          out += "None. Writing output to console.";
+        else
+          out += output_name;
+
+        msg(out.c_str());
+        msg("Characteristic:    %lu", characteristic);
+        msg("Max. Iterations:   %lu", maxiter);
+        msg("Max. amb. degree:  %lu", maxdeg);
+        msg("Nr. threads:       %lu", threads);
         msg("==== Starting Gröbner Basis Computation ====");
       }
 
       algo.compute_basis();
-      msg("Success");
+      // msg("Success");
     });
   return 0;
 }

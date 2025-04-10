@@ -5,8 +5,6 @@
 #include <algorithm>
 #include <iostream>
 
-#include "../profiling.hpp"
-
 // Memory management
 
 template<typename T>
@@ -33,7 +31,6 @@ s_realloc(T* s, const size_t size) {
 template<typename T>
 inline T*
 binarysearch(T* begin, T* end, T val) {
-  KOMMUNOPP_TIME(binarysearch);
   auto ptr = std::lower_bound(begin, end, val);
   if(ptr == end || *ptr == val)
     return ptr;

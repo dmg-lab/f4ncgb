@@ -25,7 +25,6 @@ struct statistics {
   double init = 0, other = 0, new_elements = 0;
   double amb = 0, crit_pair = 0, sym_pre = 0, reduction = 0;
   double overlap = 0, inclusion = 0, crt = 0, ratrec = 0, rref = 0;
-  double binarysearch = 0;
   double elim_task_cpu = 0;
   double parse = 0;
 
