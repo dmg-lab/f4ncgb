@@ -12,6 +12,7 @@
 #include <boost/unordered_set.hpp>
 
 #include "fast_div.hpp"
+#include "gmp.h"
 #include "primes.hpp"
 #include "profiling.hpp"
 #include "signal_statistics.hpp"
@@ -167,8 +168,37 @@ crt_reconstruction(fmpz*& entries,
 }
 
 inline bool
-verify_result() {
-  return true;
+verify_result(std::vector<gmp_rational>& entries,
+              mpz_int height,
+              size_t n,
+              mpz_int P) {
+
+  // Denominator d of rref
+  mpz_t d;
+  mpz_init_set_ui(d, 1);
+  for(auto& r : entries)
+    mpz_lcm(d, d, mpq_denref(r.data()));
+
+  // Height of d*rref
+  mpz_t tmp;
+  mpz_t height_rref;
+  mpz_init(tmp);
+  mpz_init_set_ui(height_rref, 0);
+  for(auto& r : entries) {
+    mpz_divexact(tmp, d, mpq_denref(r.data()));
+    mpz_mul(tmp, tmp, mpq_numref(r.data()));
+    if(mpz_cmpabs(tmp, height_rref) > 0)
+      mpz_abs(height_rref, tmp);
+  }
+
+  // Bound
+  mpz_int lhs = height_rref * height * n;
+
+  mpz_clear(d);
+  mpz_clear(tmp);
+  mpz_clear(height_rref);
+
+  return lhs < P;
 }
 struct ratrec_data {
   mpz_t mod;
@@ -405,8 +435,8 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
   uint64_t p = mod.n;
   int64_t p2 = static_cast<int64_t>(p * p);
 
-  std::vector<int64_t> piv_array(mat->ncol,-1);
-  std::vector<int64_t> buffer(mat->ncol,0);
+  std::vector<int64_t> piv_array(mat->ncol, -1);
+  std::vector<int64_t> buffer(mat->ncol, 0);
   buffer_ids.reserve(32);
 
   // sort new pivot rows up -- assume: maat is in ref
@@ -485,8 +515,8 @@ gauss_elim(uint32_mat_t mat,
   uint64_t p = mod.n;
   int64_t p2 = static_cast<int64_t>(p * p);
 
- thread_local std::vector<int64_t> buffer_local;
- thread_local std::vector<size_t> buffer_ids_local;
+  thread_local std::vector<int64_t> buffer_local;
+  thread_local std::vector<size_t> buffer_ids_local;
 
   std::vector<std::atomic_int64_t> atomic_pivots(mat->ncol);
   std::fill(atomic_pivots.begin(), atomic_pivots.end(), -1);
@@ -697,7 +727,7 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
       continue;
     }
 
-    if(!proof or verify_result())
+    if(!proof or verify_result(rat_entries, h, mat->ncol, prod))
       break;
   }
   for(const auto& rref : rrefs)
