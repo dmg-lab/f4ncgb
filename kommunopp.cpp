@@ -37,6 +37,7 @@ kommunopp_main(parser_context& context,
                size_t maxiter,
                size_t maxdeg,
                size_t threads,
+               bool verified_algebra,
                const std::string& output_name,
                bool print_read_problem) {
   boost::mp11::mp_with_index<MAX_BLOCKS>(
@@ -47,9 +48,11 @@ kommunopp_main(parser_context& context,
      maxiter,
      maxdeg,
      threads,
+     verified_algebra,
      output_name,
      print_read_problem](auto Nblocks) {
-      f4<Nblocks> algo(nvars, characteristic, maxiter, maxdeg, threads);
+      f4<Nblocks> algo(
+                       nvars, characteristic, maxiter, maxdeg, threads, verified_algebra);
       {
         KOMMUNOPP_TIME(parse);
         if(auto err = algo.read_input(context)) {

@@ -30,6 +30,7 @@
 #include "monomial_trie.hpp"
 
 extern template struct kommunopp::monomial_trie<uint8_t, uint32_t>;
+extern int verbose;
 
 using namespace boost::multiprecision;
 
@@ -103,19 +104,22 @@ struct f4 {
   size_t iter = 0;
   size_t maxiter = UINT_MAX;
   size_t maxdeg = UINT_MAX;
+  bool verified_algebra = true;
 
   f4(size_t nvars,
      size_t characteristic_,
      size_t maxiter_,
      size_t maxdeg_,
-     size_t num_threads)
+     size_t num_threads,
+     bool verified_algebra_)
     : mons()
     , poly(mons)
     , prefix_trie(nvars)
     , suffix_trie(nvars)
     , characteristic(characteristic_)
     , maxiter(maxiter_)
-    , maxdeg(maxdeg_) {
+    , maxdeg(maxdeg_)
+    , verified_algebra(verified_algebra_) {
     if(num_threads > 1)
       pool = std::make_unique<BS::thread_pool<BS::none>>(num_threads);
   }
@@ -130,7 +134,9 @@ struct f4 {
   //------------------------------------------------------------------------------
   void interreduce_and_add_to_basis(std::vector<poly_id> input) {
 
-    msg("Linearly interreducing input of size %d.", input.size());
+    if(verbose > 1)
+      msg("Linearly interreducing input of size %d.", input.size());
+    
     for(const auto& p : input) {
       crit_pair c(p, p);
       crit_pairs.insert(c);
@@ -142,7 +148,8 @@ struct f4 {
     }
 
     std::vector<poly_id> new_elements = reduction(true);
-    msg("Adding %d input elements to basis.", new_elements.size());
+    if(verbose > 1)
+      msg("Adding %d input elements to basis.", new_elements.size());
 
     update_basis_and_amb(new_elements);
   }
@@ -169,14 +176,18 @@ struct f4 {
         stage_crit_pairs();
       }
 
-      msg("Reducing %d critical pairs.", crit_pairs.size());
+      if(verbose > 1)
+        msg("Reducing %d critical pairs.", crit_pairs.size());
       std::vector<poly_id> new_elements = reduction();
-      msg("Adding %d new elements to basis.", new_elements.size());
+
+      if(verbose > 1)
+        msg("Adding %d new elements to basis.", new_elements.size());
 
       update_basis_and_amb(new_elements);
-
-      msg("==== Iteration %d has finished. Basis has now %d elements ====",
-          ++iter,
+      iter++;
+      if(verbose > 0)
+        msg("==== Iteration %d has finished. Basis has now %d elements ====",
+          iter,
           basis.size() - 1);
     }
 
@@ -600,8 +611,8 @@ struct f4 {
 
     // reduction
     KOMMUNOPP_PROFILE(auto timer = gstats.time(gstats.reduction));
-    auto [idxs, entries]
-      = linear_algebra(mat, characteristic, pool, interreduce);
+    auto [idxs, entries] = linear_algebra(
+      mat, characteristic, pool, interreduce, verified_algebra);
     KOMMUNOPP_PROFILE(timer.~adding_timer());
 
     // compute new elements
@@ -632,7 +643,8 @@ struct f4 {
     for(auto c : columns)
       col_to_id[c] = i++;
 
-    msg("Setting up matrix of size (%d, %d)", rows.size(), columns.size());
+    if(verbose > 2)
+      msg("Setting up matrix of size (%d, %d)", rows.size(), columns.size());
 
     // initialize matrix
     sparse_mat_init(mat, rows.size(), columns.size());

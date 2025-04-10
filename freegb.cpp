@@ -27,6 +27,9 @@ static std::string output_name = "";
 static size_t maxiter = 0;
 static size_t maxdeg = 0;
 static size_t threads = 0;
+
+// / Selected prime, maxiter, maxdeg, and number of threads
+static bool verified_algebra = true;
 /*------------------------------------------------------------------------*/
 // ERROR CODES:
 
@@ -47,19 +50,20 @@ int
 main(int argc, char** argv) {
   // clang-format off
   po::options_description desc("freegb, version " FREEGB_VERSION "\n"
-                               "Copyright(C) 2024 Clemens Hofstadler, Maximilian Heisinger\n"
+                               "Copyright(C) 2025 Clemens Hofstadler, Maximilian Heisinger\n"
                                "JKU Linz, Austria\n"
                                "USAGE");
   desc.add_options()
     ("help,h", "produce help message")
     ("version", "produce version message")
-    ("input,i", po::value<std::string>(&input_name)->default_value(""), "set the input file (either msolve, poly, or sympoly; switched according to content)")
-    ("output,o", po::value<std::string>(&output_name)->default_value(""), "set the output file")
-    ("print-problem", po::value<bool>(&print_problem)->default_value(false), "re-print the problem after parsing")
-    ("verbosity,v", po::value<int>(&verbose)->default_value(1), "set the verbosity level")
+    ("input,i", po::value<std::string>(&input_name)->default_value(""), "Set the input file (either msolve, poly, or sympoly; switched according to content)")
+    ("output,o", po::value<std::string>(&output_name)->default_value(""), "Set the output file")
+    ("print-problem", po::value<bool>(&print_problem)->default_value(false), "Re-print the problem after parsing")
+    ("verbosity,V", po::value<int>(&verbose)->default_value(1), "Set the verbosity level")
     ("maxiter,m", po::value<size_t>(&maxiter)->default_value(10), "Maximal number of iterations of the F4-algorithm to be performed.")
     ("maxdeg,d", po::value<size_t>(&maxdeg)->default_value(UINT_MAX), "Maximal degree of ambiguities that are considered.")
     ("threads,t", po::value<size_t>(&threads)->default_value(1), "Number of threads to be used.")
+    ("verify-algebra,v", po::value<bool>(&verified_algebra)->default_value(true), "Whether the multimodular linear algebra shall be verified (otherwise, the result is only correct with high probability).")
   ;
 
   po::positional_options_description positional_desc;
@@ -127,6 +131,7 @@ main(int argc, char** argv) {
                                   maxiter,
                                   maxdeg,
                                   threads,
+                                  verified_algebra,
                                   output_name,
                                   print_problem);
 

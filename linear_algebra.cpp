@@ -21,6 +21,8 @@
 
 using namespace boost::multiprecision;
 
+extern int verbose;
+
 namespace kommunopp {
 
 static inline bool
@@ -294,7 +296,8 @@ ratrecon(gmp_rational& res, mpz_t u, ratrec_data* data) {
     mpz_set(mpq_denref(res.data()), data->d);
 
   } else
-    msg("Rational reconstruction does not exist");
+    if(verbose > 2)
+      msg("Rational reconstruction does not exist");
 
   return success;
 }
@@ -381,52 +384,6 @@ static void inline xmay(std::vector<int64_t>& x,
   }
 }
 
-static inline bool
-is_ref(uint32_mat_t mat) {
-
-  std::unordered_map<size_t, size_t> pivs;
-
-  for(size_t i = 0; i < mat->nrow; i++) {
-    auto row = sparse_mat_row(mat, i);
-    if(row->nnz == 0)
-      continue;
-    pivs[row->indices[0]] += 1;
-  }
-
-  for(auto [k, v] : pivs)
-    if(v > 1)
-      return false;
-
-  return true;
-}
-
-static inline bool
-is_rref(uint32_mat_t mat) {
-
-  if(!is_ref(mat))
-    return false;
-
-  std::set<size_t> pivs;
-
-  for(size_t i = 0; i < mat->nrow; i++) {
-    auto row = sparse_mat_row(mat, i);
-    if(row->nnz == 0)
-      continue;
-    pivs.insert(row->indices[0]);
-  }
-
-  for(size_t i = 0; i < mat->nrow; i++) {
-    auto row = sparse_mat_row(mat, i);
-    if(row->nnz == 0 or !row->is_new_piv)
-      continue;
-    for(size_t j = 1; j < row->nnz; j++)
-      if(pivs.contains(row->indices[j]))
-        return false;
-  }
-
-  return true;
-}
-
 static std::vector<size_t> buffer_ids;
 
 template<bool mersenne = false>
@@ -500,8 +457,6 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
     }
     copy_from_buffer_and_clear(buffer, buffer_ids, row);
   }
-
-  assert(is_rref(mat));
 
   return piv;
 }
@@ -643,7 +598,8 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
         die(-1, "Multimodular Gaussian elimination is not converging");
       p = PRIMES[i++];
 
-      msg("Computing mod %lu", p);
+      if(verbose > 2)
+        msg("Computing mod %lu", p);
 
       std::unique_ptr<sparse_mat_struct<uint32_t>> nmod_mat
         = std::make_unique<sparse_mat_struct<uint32_t>>();
@@ -653,7 +609,8 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
 
       // a pivot was set to zero -- we don't want that
       if(!res) {
-        msg("Excluding prime %lu (bad pivots)", p);
+        if(verbose > 2)
+          msg("Excluding prime %lu (bad pivots)", p);
         sparse_mat_clear(nmod_mat.get());
         continue;
       }
@@ -676,7 +633,8 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
         used_primes.push_back(p);
         prod = prod * p;
       } else {
-        msg("Excluding prime %lu (bad pivots)", p);
+        if(verbose > 2)
+          msg("Excluding prime %lu (bad pivots)", p);
         sparse_mat_clear(nmod_mat.get());
       }
     }
@@ -720,7 +678,8 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
     delete[] crt_entries;
 
     if(!success) {
-      msg("Reconstruction unsuccessfull. Increasing bound.");
+      if(verbose > 2)
+        msg("Reconstruction unsuccessfull. Increasing bound.");
       M = prod * p * p;
       // reset trace
       std::fill(trace, trace + mat->nrow, false);
