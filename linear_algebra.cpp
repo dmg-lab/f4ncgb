@@ -15,7 +15,6 @@
 #include "primes.hpp"
 #include "profiling.hpp"
 #include "signal_statistics.hpp"
-#include "sparse_rref/thread_pool.hpp"
 
 #include "linear_algebra.hpp"
 
@@ -307,7 +306,7 @@ static void inline copy_to_buffer(T& buffer, uint32_vec_t vec) {
     buffer[vec->indices[i]] = vec->entries[i];
 }
 
-static void inline copy_from_buffer_and_clear(int64_t* buffer,
+static void inline copy_from_buffer_and_clear(std::vector<int64_t>& buffer,
                                               std::vector<size_t>& buffer_ids,
                                               uint32_vec_t vec) {
   size_t nnz = buffer_ids.size();
@@ -337,7 +336,10 @@ static void inline normalize_row(uint32_vec_t vec, nmod_t mod) {
 // Compute x - ay mod p
 // but leave out the 0th entry of y
 // because that will be zero anyway
-static void inline xmay(int64_t* x, int64_t a, uint32_vec_t y, int64_t p2) {
+static void inline xmay(std::vector<int64_t>& x,
+                        int64_t a,
+                        uint32_vec_t y,
+                        int64_t p2) {
   size_t j;
   int64_t t;
   for(size_t i = 1; i < y->nnz; i++) {
@@ -395,8 +397,6 @@ is_rref(uint32_mat_t mat) {
   return true;
 }
 
-static std::vector<int64_t> piv_array;
-static std::vector<int64_t> buffer;
 static std::vector<size_t> buffer_ids;
 
 template<bool mersenne = false>
@@ -405,12 +405,8 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
   uint64_t p = mod.n;
   int64_t p2 = static_cast<int64_t>(p * p);
 
-  piv_array.resize(mat->ncol);
-  std::fill(piv_array.begin(), piv_array.end(), -1);
-
-  buffer.resize(mat->ncol);
-  std::fill(buffer.begin(), buffer.end(), 0);
-
+  std::vector<int64_t> piv_array(mat->ncol,-1);
+  std::vector<int64_t> buffer(mat->ncol,0);
   buffer_ids.reserve(32);
 
   // sort new pivot rows up -- assume: maat is in ref
@@ -465,14 +461,14 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
         } else {
           assert(sparse_mat_row(mat, rr)->indices[0] == i);
           buffer[i] = 0;
-          xmay(buffer.data(), cc, sparse_mat_row(mat, rr), p2);
+          xmay(buffer, cc, sparse_mat_row(mat, rr), p2);
         }
       }
       i++;
       while(i < mat->ncol and buffer[i] == 0)
         i++;
     }
-    copy_from_buffer_and_clear(buffer.data(), buffer_ids, row);
+    copy_from_buffer_and_clear(buffer, buffer_ids, row);
   }
 
   assert(is_rref(mat));
@@ -482,31 +478,18 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
 
 template<bool mersenne = false>
 pivots
-gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
+gauss_elim(uint32_mat_t mat,
+           nmod_t mod,
+           std::unique_ptr<BS::thread_pool<BS::none>>& pool,
+           bool* trace) {
   uint64_t p = mod.n;
   int64_t p2 = static_cast<int64_t>(p * p);
 
-  thread_local int64_t* buffer_local;
-  thread_local std::vector<size_t> buffer_ids_local;
+ thread_local std::vector<int64_t> buffer_local;
+ thread_local std::vector<size_t> buffer_ids_local;
 
   std::vector<std::atomic_int64_t> atomic_pivots(mat->ncol);
   std::fill(atomic_pivots.begin(), atomic_pivots.end(), -1);
-
-  std::unique_ptr<BS::thread_pool<BS::none>> pool;
-  auto init_task = [n = mat->ncol] {
-    buffer_local = new int64_t[n];
-    std::fill(buffer_local, buffer_local + n, 0);
-    buffer_ids_local.reserve(32);
-  };
-
-  auto cleanup_task = []() { delete[] buffer_local; };
-
-  if(num_threads == 1) {
-    init_task();
-  } else {
-    pool = std::make_unique<BS::thread_pool<BS::none>>(num_threads, init_task);
-    pool->set_cleanup_func(cleanup_task);
-  }
 
   for(size_t r = 0; r < mat->nrow; r++) {
     if(trace[r])
@@ -531,6 +514,9 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
       int64_t rr;
       int64_t cc;
       int64_t expected = -1;
+
+      buffer_local.resize(mat->ncol, 0);
+
       do {
         copy_to_buffer(buffer_local, row);
         buffer_ids_local.clear();
@@ -577,19 +563,13 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
         expected, static_cast<int64_t>(r)));
       row->is_new_piv = true;
     };
-    if(pool) {
+    if(pool)
       pool->detach_task(task);
-    } else {
+    else
       task();
-    }
   }
-  if(pool) {
+  if(pool)
     pool->wait();
-  }
-
-  if(!pool) {
-    cleanup_task();
-  }
 
   if(mod.n == PRIMES[0]) {
     return reverse_solve<true>(mat, mod);
@@ -600,7 +580,7 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace) {
 
 std::pair<std::vector<std::pair<size_t, size_t>>, std::vector<gmp_rational>>
 multimodular_gauss_elim(sfmpz_mat_t mat,
-                        size_t num_threads,
+                        std::unique_ptr<BS::thread_pool<BS::none>>& pool,
                         bool interreduce,
                         bool proof) {
   std::vector<std::unique_ptr<sparse_mat_struct<uint32_t>>> rrefs;
@@ -651,9 +631,9 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
       KOMMUNOPP_TIME(rref);
       auto gauss_elim_wrapper = [&]() -> pivots {
         if(mod.n == PRIMES[0]) {
-          return gauss_elim<true>(nmod_mat.get(), mod, num_threads, trace);
+          return gauss_elim<true>(nmod_mat.get(), mod, pool, trace);
         } else {
-          return gauss_elim<false>(nmod_mat.get(), mod, num_threads, trace);
+          return gauss_elim<false>(nmod_mat.get(), mod, pool, trace);
         }
       };
       pivots piv(gauss_elim_wrapper());
@@ -731,7 +711,7 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
 std::pair<std::vector<std::pair<size_t, size_t>>, std::vector<gmp_rational>>
 nmod_gauss_elim(sfmpz_mat_t mat,
                 size_t p,
-                size_t num_threads,
+                std::unique_ptr<BS::thread_pool<BS::none>>& pool,
                 bool interreduce) {
   // not needed but use it to avoid code duplication
   bool* trace = new bool[mat->nrow];
@@ -747,9 +727,9 @@ nmod_gauss_elim(sfmpz_mat_t mat,
   KOMMUNOPP_TIME(rref);
   auto gauss_elim_wrapper = [&]() -> pivots {
     if(mod.n == PRIMES[0]) {
-      return gauss_elim<true>(nmod_mat, mod, num_threads, trace);
+      return gauss_elim<true>(nmod_mat, mod, pool, trace);
     } else {
-      return gauss_elim<false>(nmod_mat, mod, num_threads, trace);
+      return gauss_elim<false>(nmod_mat, mod, pool, trace);
     }
   };
   pivots piv(gauss_elim_wrapper());
@@ -787,7 +767,7 @@ nmod_gauss_elim(sfmpz_mat_t mat,
 std::pair<std::vector<std::pair<size_t, size_t>>, std::vector<gmp_rational>>
 linear_algebra(sfmpz_mat_t mat,
                size_t characteristic,
-               size_t num_threads,
+               std::unique_ptr<BS::thread_pool<BS::none>>& pool,
                bool interreduce,
                bool proof) {
   // sort rows by first index and nnz
@@ -800,8 +780,8 @@ linear_algebra(sfmpz_mat_t mat,
   });
 
   if(characteristic == 0)
-    return multimodular_gauss_elim(mat, num_threads, interreduce, proof);
+    return multimodular_gauss_elim(mat, pool, interreduce, proof);
   else
-    return nmod_gauss_elim(mat, num_threads, characteristic, interreduce);
+    return nmod_gauss_elim(mat, characteristic, pool, interreduce);
 }
 }

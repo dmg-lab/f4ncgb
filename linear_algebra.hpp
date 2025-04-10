@@ -9,6 +9,7 @@
 
 #include "sparse_rref/sparse_mat.h"
 #include "sparse_rref/sparse_vec.h"
+#include "sparse_rref/thread_pool.hpp"
 
 namespace kommunopp {
 
@@ -27,7 +28,7 @@ gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace);
 std::pair<std::vector<std::pair<size_t, size_t>>,
           std::vector<boost::multiprecision::gmp_rational>>
 multimodular_gauss_elim(sfmpz_mat_t mat,
-                        size_t num_threads,
+                        std::unique_ptr<BS::thread_pool<BS::none>>& pool,
                         bool interreduce = false,
                         bool proof = true);
 
@@ -35,14 +36,14 @@ std::pair<std::vector<std::pair<size_t, size_t>>,
           std::vector<boost::multiprecision::gmp_rational>>
 nmod_gauss_elim(sfmpz_mat_t mat,
                 size_t p,
-                size_t num_threads,
+                std::unique_ptr<BS::thread_pool<BS::none>>& pool,
                 bool interreduce);
 
 std::pair<std::vector<std::pair<size_t, size_t>>,
           std::vector<boost::multiprecision::gmp_rational>>
 linear_algebra(sfmpz_mat_t mat,
                size_t characteristic,
-               size_t num_threads,
+               std::unique_ptr<BS::thread_pool<BS::none>>& pool,
                bool interreduce = false,
                bool proof = true);
 }

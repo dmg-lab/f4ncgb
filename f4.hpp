@@ -25,6 +25,7 @@
 #include "signal_statistics.hpp"
 #include "sparse_rref/sparse_mat.h"
 #include "sparse_rref/sparse_vec.h"
+#include "sparse_rref/thread_pool.hpp"
 
 #include "monomial_trie.hpp"
 
@@ -96,26 +97,28 @@ struct f4 {
   boost::unordered_map<mon_id, poly_id> lm_to_poly;
   monomial_trie prefix_trie;
   monomial_trie suffix_trie;
+  std::unique_ptr<BS::thread_pool<BS::none>> pool;
 
   size_t characteristic = 0;
   size_t iter = 0;
   size_t maxiter = UINT_MAX;
   size_t maxdeg = UINT_MAX;
-  size_t num_threads = 1;
 
   f4(size_t nvars,
      size_t characteristic_,
      size_t maxiter_,
      size_t maxdeg_,
-     size_t threads_)
+     size_t num_threads)
     : mons()
     , poly(mons)
     , prefix_trie(nvars)
     , suffix_trie(nvars)
     , characteristic(characteristic_)
     , maxiter(maxiter_)
-    , maxdeg(maxdeg_)
-    , num_threads(threads_) {}
+    , maxdeg(maxdeg_) {
+    if(num_threads > 1)
+      pool = std::make_unique<BS::thread_pool<BS::none>>(num_threads);
+  }
 
   //------------------------------------------------------------------------------
   inline parse_res read_input(parser_context& context) {
@@ -598,7 +601,7 @@ struct f4 {
     // reduction
     KOMMUNOPP_PROFILE(auto timer = gstats.time(gstats.reduction));
     auto [idxs, entries]
-      = linear_algebra(mat, characteristic, num_threads, interreduce);
+      = linear_algebra(mat, characteristic, pool, interreduce);
     KOMMUNOPP_PROFILE(timer.~adding_timer());
 
     // compute new elements
