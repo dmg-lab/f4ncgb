@@ -8,8 +8,9 @@ endif()
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 option(ENABLE_PROFILING "Enable tracking statistics" ON)
-option(ENABLE_FUZZER "Enable building the fuzzer, if available" ON)
+option(ENABLE_FUZZER "Enable building the fuzzer, if available" OFF)
 option(ENABLE_MONOMIAL_PRODUCTS_MAP "Track and cache monomial products in map" OFF)
+option(ENABLE_COMPACT_MONOMIAL_MAP "Use a more compact map for lookups in the monomial store" OFF)
 
 set(KOMMUNOPP_SRCS
   kommunopp.cpp
@@ -71,6 +72,13 @@ if(ENABLE_MONOMIAL_PRODUCTS_MAP)
   target_compile_definitions(kommunopp PUBLIC KOMMUNOPP_USE_MONOMIAL_PRODUCTS_MAP)
 else()
   message(STATUS "Monomial products map is disabled.")
+endif()
+
+if(ENABLE_COMPACT_MONOMIAL_MAP)
+  message(STATUS "Compact monomial map is enabled")
+  target_compile_definitions(kommunopp PUBLIC KOMMUNOPP_USE_COMPACT_MONOMIAL_MAP)
+else()
+  message(STATUS "Compact monomial map is disabled")
 endif()
 
 if(CMAKE_BUILD_TYPE MATCHES "Sanitize")

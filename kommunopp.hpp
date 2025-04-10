@@ -20,7 +20,10 @@
 
 #include <boost/container/small_vector.hpp>
 #include <boost/multiprecision/gmp.hpp>
+
+#include <boost/container_hash/hash.hpp>
 #include <boost/unordered/unordered_flat_map.hpp>
+#include <boost/unordered/unordered_flat_set.hpp>
 
 #include "debug.hpp"
 #include "profiling.hpp"
@@ -94,15 +97,51 @@ template<class B,
          value_concept V = uint8_t,
          typename I = uint32_t>
 class store {
+  protected:
+  using self = store<B, M, V, I>;
+  using V_span = std::span<const V>;
+  using V_span_it = V_span::iterator;
+
   public:
-  inline static bool V_equal(const std::span<const V>& a,
-                             const std::span<const V>& b) noexcept {
+  __attribute__((always_inline)) inline static bool V_equal(
+    const std::span<const V>& a,
+    const std::span<const V>& b) noexcept {
     return std::equal(a.begin(), a.end(), b.begin(), b.end());
   }
 
   struct V_equality_struct {
-    bool operator()(const std::span<const V>& a,
-                    const std::span<const V>& b) const noexcept {
+    explicit V_equality_struct(self& s)
+      : s(s) {}
+
+    self& s;
+
+    __attribute__((always_inline)) inline bool operator()(I a,
+                                                          I b) const noexcept {
+      const auto& a_span = s[a];
+      const auto& b_span = s[b];
+      return V_equal(a_span, b_span);
+    }
+  };
+
+  struct V_hash_struct : public boost::hash<I> {
+    explicit V_hash_struct(self& s)
+      : s(s) {}
+
+    self& s;
+
+    typedef I argument_type;
+    typedef std::size_t result_type;
+
+    __attribute__((always_inline)) inline bool operator()(I a) const noexcept {
+      const auto a_span = s[a];
+      return boost::hash_value(a_span);
+    }
+  };
+
+  struct V_span_equality_struct {
+    __attribute__((always_inline)) inline bool operator()(
+      const std::span<const V>& a,
+      const std::span<const V>& b) const noexcept {
       return V_equal(a, b);
     }
   };
@@ -114,8 +153,6 @@ class store {
     "Alignment of M needs to be stricter, as elements are aligned this way.");
 
   protected:
-  using self = store<B, M, V, I>;
-
   consteval static size_t capacity() {
     return std::min(std::numeric_limits<I>::max() * alignof(M),
                     std::numeric_limits<size_t>::max());
@@ -167,6 +204,12 @@ class store {
     V* vv = reinterpret_cast<V*>(std::assume_aligned<alignof(V)>(ptr));
 
     return std::pair<M&, V*>(*metadata, vv);
+  }
+
+  inline I scratch_id() const {
+    I id = size_;
+
+    return id + 1;
   }
 
   inline I insert_scratch() {
@@ -356,17 +399,55 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
   using ambiguity_ = ambiguity<I>;
   using amb_hash = ambiguity_hash<I>;
 
+#ifdef KOMMUNOPP_USE_COMPACT_MONOMIAL_MAP
+  using lookup_map
+    = boost::unordered_flat_set<I,
+                                typename base::V_hash_struct,
+                                typename base::V_equality_struct>;
+
+  lookup_map map_ = lookup_map(1000,
+                               typename base::V_hash_struct(*this),
+                               typename base::V_equality_struct(*this));
+#else
   boost::unordered_flat_map<std::span<const V>,
                             I,
                             boost::hash<std::span<const V>>,
-                            typename base::V_equality_struct>
+                            typename base::V_span_equality_struct>
     map_;
+#endif
 
 #ifdef KOMMUNOPP_USE_MONOMIAL_PRODUCTS_MAP
   boost::unordered_flat_map<std::tuple<I, I, I>, I> products_;
 #endif
 
   protected:
+#ifdef KOMMUNOPP_USE_COMPACT_MONOMIAL_MAP
+  inline void new_entry(I id) { map_.insert(id + 1); }
+
+  std::optional<I> findscratch() const {
+    KOMMUNOPP_PROFILE(gstats.store_find_calls++);
+
+    I id = base::scratch_id();
+
+    const auto it = map_.find(id);
+    if(it == map_.end())
+      return std::nullopt;
+
+    KOMMUNOPP_PROFILE(gstats.store_find_hits++);
+    return *it;
+  }
+
+  std::optional<I> find(const std::span<const V>& v) {
+    if(v.size() == 0)
+      return 0;
+
+    auto [m, vv] = this->new_scratch(v.size());
+    m.length = v.size();
+    std::copy(v.begin(), v.end(), vv);
+
+    return findscratch();
+  }
+#else
   inline void new_entry(I id) { map_.insert(std::pair((*this)[id + 1], id)); }
 
   std::optional<I> find(const std::span<const V>& v) const {
@@ -381,12 +462,18 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     KOMMUNOPP_PROFILE(gstats.store_find_hits++);
     return it->second + 1;
   }
+#endif
 
   public:
   inline const I getid(const std::span<const V>& v) {
     auto id = find(v);
-    if(!id)
+    if(!id) {
+#ifdef KOMMUNOPP_USE_COMPACT_MONOMIAL_MAP
+      id = base::insert_scratch();
+#else
       id = base::insert(v);
+#endif
+    }
     return *id;
   }
   inline const I getid(std::vector<V> v) {
@@ -431,7 +518,11 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     auto b_it = (*this)[b];
     auto it = std::copy(a_it.begin(), a_it.end(), vv);
     std::copy(b_it.begin(), b_it.end(), it);
+#ifdef KOMMUNOPP_USE_COMPACT_MONOMIAL_MAP
+    auto prod_idx = findscratch();
+#else
     auto prod_idx = find(std::span(vv, length_combined));
+#endif
     if(!prod_idx) {
       prod_idx = base::insert_scratch();
     }
@@ -472,7 +563,13 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     auto it = std::copy(a_it.begin(), a_it.end(), vv);
     it = std::copy(b_it.begin(), b_it.end(), it);
     std::copy(c_it.begin(), c_it.end(), it);
+
+#ifdef KOMMUNOPP_USE_COMPACT_MONOMIAL_MAP
+    auto prod_idx = findscratch();
+#else
     auto prod_idx = find(std::span(vv, length_combined));
+#endif
+
     if(!prod_idx) {
       prod_idx = base::insert_scratch();
     }
