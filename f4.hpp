@@ -31,6 +31,7 @@
 
 extern template struct kommunopp::monomial_trie<uint8_t, uint32_t>;
 extern int verbose;
+extern bool proof;
 
 using namespace boost::multiprecision;
 
