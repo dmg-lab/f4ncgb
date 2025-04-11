@@ -22,6 +22,8 @@
 using namespace boost::multiprecision;
 
 extern int verbose;
+extern bool proof;
+extern bool tracer;
 
 namespace kommunopp {
 
@@ -119,7 +121,9 @@ crt_reconstruction(fmpz*& entries,
     auto& nnz_pos_row = nnz_pos[i];
     for(auto& rref : rrefs) {
       auto row = sparse_mat_row(rref, i);
-      nnz_pos_row.insert(row->indices, row->indices + row->nnz);
+      // include row only if polynomial part is nonzero
+      if(!proof or row->indices[0] < rref->ncol - rref->nrow)
+        nnz_pos_row.insert(row->indices, row->indices + row->nnz);
     }
   }
   size_t nnz = 0;
@@ -295,9 +299,8 @@ ratrecon(gmp_rational& res, mpz_t u, ratrec_data* data) {
     mpz_set(mpq_numref(res.data()), data->n);
     mpz_set(mpq_denref(res.data()), data->d);
 
-  } else
-    if(verbose > 2)
-      msg("Rational reconstruction does not exist");
+  } else if(verbose > 2)
+    msg("Rational reconstruction does not exist");
 
   return success;
 }
@@ -537,7 +540,8 @@ gauss_elim(uint32_mat_t mat,
         // we have a zero row
         if(buffer_ids_local.empty()) {
           sparse_vec_clear(row);
-          trace[r] = true;
+          // only set them if tracer is actived
+          trace[r] = tracer;
           return;
         }
 
@@ -679,7 +683,7 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
 
     if(!success) {
       if(verbose > 2)
-        msg("Reconstruction unsuccessfull. Increasing bound.");
+        msg("Reconstruction unsuccessful. Increasing bound.");
       M = prod * p * p;
       // reset trace
       std::fill(trace, trace + mat->nrow, false);

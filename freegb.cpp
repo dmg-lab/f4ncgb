@@ -30,7 +30,8 @@ static size_t threads = 0;
 
 // / Verified multimodular computations and proof logging
 static bool verified_algebra = true;
-bool proof = false;
+bool proof = true;
+bool tracer = true;
 /*------------------------------------------------------------------------*/
 // ERROR CODES:
 
@@ -62,9 +63,10 @@ main(int argc, char** argv) {
     ("maxdeg,d", po::value<size_t>(&maxdeg)->default_value(UINT_MAX), "Maximal degree of ambiguities that are considered.")
     ("output,o", po::value<std::string>(&output_name)->default_value(""), "Set the output file.")
     ("print-problem", po::value<bool>(&print_problem)->default_value(false), "Re-print the problem after parsing.")
-    ("proof,p",  po::value<bool>(&proof)->default_value(false), "Proof logging.")
-    ("threads,t", po::value<size_t>(&threads)->default_value(1), "Number of threads to be used.")
-    ("verbosity,V", po::value<int>(&verbose)->default_value(1), "Set the verbosity level.")
+    ("proof,p",  po::value<bool>(&proof)->default_value(true), "Proof logging.")
+    ("threads,T", po::value<size_t>(&threads)->default_value(1), "Number of threads to be used.")
+    ("tracer,t", po::value<bool>(&tracer)->default_value(true), "Whether computations with the first prime shall be traced. Speeds up the computation, but yields the correct result only with high probability.")
+    ("verbosity,V", po::value<int>(&verbose)->default_value(3), "Set the verbosity level.")
     ("verify-algebra,v", po::value<bool>(&verified_algebra)->default_value(true), "Whether the multimodular linear algebra shall be verified (otherwise, the result is only correct with high probability).")
   ;
 

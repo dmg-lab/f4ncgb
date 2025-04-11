@@ -137,7 +137,7 @@ struct f4 {
 
     if(verbose > 1)
       msg("Linearly interreducing input of size %d.", input.size());
-    
+
     for(const auto& p : input) {
       crit_pair c(p, p);
       crit_pairs.insert(c);
@@ -188,8 +188,8 @@ struct f4 {
       iter++;
       if(verbose > 0)
         msg("==== Iteration %d has finished. Basis has now %d elements ====",
-          iter,
-          basis.size() - 1);
+            iter,
+            basis.size() - 1);
     }
 
     return basis;
@@ -574,8 +574,11 @@ struct f4 {
         p.clear();
         cur_i = i;
       }
-      assert(mpq_rational(coeffs[k]) != 0);
-      p.emplace_back(coeffs[k++], columns[j]);
+      if(j < columns.size()) {
+        assert(mpq_rational(coeffs[k]) != 0);
+        p.emplace_back(coeffs[k], columns[j]);
+      }
+      k++;
     }
     // don't forget to add last element
     res.push_back(poly.add_polynomial(p));
@@ -644,11 +647,17 @@ struct f4 {
     for(auto c : columns)
       col_to_id[c] = i++;
 
-    if(verbose > 2)
-      msg("Setting up matrix of size (%d, %d)", rows.size(), columns.size());
+    size_t m = rows.size();
+    size_t n = columns.size();
 
     // initialize matrix
-    sparse_mat_init(mat, rows.size(), columns.size());
+    if(proof)
+      sparse_mat_init(mat, m, m + n);
+    else
+      sparse_mat_init(mat, m, n);
+
+    if(verbose > 2)
+      msg("Setting up matrix of size (%d, %d)", mat->nrow, mat->ncol);
 
     // set all entries
     fmpz_t denom;
@@ -658,7 +667,7 @@ struct f4 {
 
     i = 0;
     for(auto r : rows) {
-      auto row = sparse_mat_row(mat, i++);
+      auto row = sparse_mat_row(mat, i);
       std::span<C> coeffs = poly.get_coefficients(r);
 
       // compute common denominator so that we can normalize row
@@ -666,9 +675,12 @@ struct f4 {
 
       auto p = poly[r];
       auto nnz = p.size();
+      if(proof)
+        nnz += 1;// for transformation matrix
       sparse_vec_realloc(row, nnz);
       row->nnz = nnz;
 
+      // insert poly
       size_t k = 0;
       for(auto it = p.begin(); it != p.end(); it++) {
         auto cc = coeffs[k].data();
@@ -680,6 +692,13 @@ struct f4 {
         row->indices[k] = col_to_id[*it];
         k++;
       }
+
+      // insert transformation matrix - if required
+      if(proof) {
+        row->indices[k] = n + i;
+        fmpz_set_ui(row->entries + k, 1);
+      }
+      i++;
     }
 
     fmpz_clear(denom);

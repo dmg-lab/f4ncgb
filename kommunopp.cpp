@@ -6,6 +6,8 @@
 #include <boost/multiprecision/detail/default_ops.hpp>
 #include <boost/multiprecision/gmp.hpp>
 
+extern bool tracer;
+
 namespace kommunopp {
 int
 coefficient_sign(const boost::multiprecision::backends::gmp_rational& r) {
@@ -78,6 +80,9 @@ kommunopp_main(parser_context& context,
         msg("Max. Iterations:   %lu", maxiter);
         msg("Max. amb. degree:  %lu", maxdeg);
         msg("Nr. threads:       %lu", threads);
+        msg("Proof logging:     %d",  proof);
+        msg("Tracer:            %d",  tracer);
+        msg("Verified algebra:  %d",  verified_algebra);
         msg("==== Starting Gröbner Basis Computation ====");
       }
 
