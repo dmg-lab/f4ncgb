@@ -191,3 +191,24 @@ FUZZ_TEST(freegb, fuzz_ax_b_mod_p)
   .WithDomains(InRange(0, 2'147'483'647),
                InRange(0, 2'147'483'647),
                InRange(0, 2'147'483'647));
+
+#ifdef __linux__
+void
+fuzz_parser(std::string input) {
+  auto add_cb = [](uint32_t i) { (void)i; return std::nullopt; };
+  auto boundary_cb = [](long numerator, long denominator, bool is_rational) { (void) numerator; (void) denominator; (void) is_rational; return std::nullopt; };
+
+  FILE *f = fmemopen((void*)strdup(input.c_str()), input.size(), "r");
+
+  if(!f) {
+    std::cout << "Could not make a memory-backed file. Error: " << strerror(errno) << std::endl;
+    exit(1);
+  }
+
+  parser_context ctx(f);
+
+  parse(ctx, add_cb, boundary_cb);
+}
+
+FUZZ_TEST(freegb, fuzz_parser);
+#endif
