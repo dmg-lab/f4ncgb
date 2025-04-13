@@ -102,6 +102,12 @@ class store {
   using V_span = std::span<const V>;
   using V_span_it = V_span::iterator;
 
+  struct pool_deleter {
+    void operator()(std::byte pool[]) {
+      free(pool);
+    }
+  };
+
   public:
   __attribute__((always_inline)) inline static bool V_equal(
     const std::span<const V>& a,
@@ -154,8 +160,15 @@ class store {
 
   protected:
   consteval static size_t capacity() {
-    return std::min(std::numeric_limits<I>::max() * alignof(M),
-                    std::numeric_limits<size_t>::max());
+#if defined(__has_feature)
+#  if __has_feature(address_sanitizer)
+    size_t absolute_max = 0x10000000000;
+#  else
+    size_t absolute_max = std::numeric_limits<size_t>::max();
+#  endif
+#endif
+    return std::min(static_cast<size_t>(std::numeric_limits<I>::max() * alignof(M)),
+                    absolute_max);
   }
 
   constexpr inline M& get_metadata_from_id(I id) {
@@ -180,7 +193,7 @@ class store {
   M zero_metadata_;
   bool scratch_metadata_created_ = false;
 
-  std::unique_ptr<std::byte[]> pool_;
+  std::unique_ptr<std::byte[], pool_deleter> pool_;
 
   /// Work on the current tip but do not commit anything. The tip can later be
   /// committed using insert_scratch.
@@ -257,12 +270,12 @@ class store {
 
   store()
     : pool_(reinterpret_cast<std::byte*>(
-        std::aligned_alloc(2097152 /* 2^21, 2MB */, capacity()))) {
+        std::aligned_alloc(2097152 /* 2^21, 2MB */, 2097152 * (capacity() / 2097152)))) {
     if(pool_.get() == nullptr) {
-      pool_ = std::make_unique_for_overwrite<std::byte[]>(capacity());
+      pool_.reset(reinterpret_cast<std::byte*>(std::malloc(2097152 * (capacity() / 2097152))));
     }
 #ifdef __linux__
-    madvise(pool_.get(), capacity(), MADV_HUGEPAGE);
+    madvise(pool_.get(), 2097152 * (capacity() / 2097152), MADV_HUGEPAGE);
 #endif
   }
   ~store() {
@@ -667,18 +680,28 @@ class polynomial_store
 
   friend base;
 
+  constexpr static size_t capacity() {
+#if defined(__has_feature)
+#  if __has_feature(address_sanitizer)
+    size_t absolute_max = 0x10000000000;
+#  else
+    size_t absolute_max = std::numeric_limits<size_t>::max();
+#  endif
+#endif
+    return std::min(static_cast<size_t>(std::numeric_limits<I>::max()), absolute_max);
+  }
+
   inline polynomial_store(monomial_store_& store)
     : base::store()
     , store_(store)
     , cpool_(reinterpret_cast<std::byte*>(
         std::aligned_alloc(2097152 /* 2^21, 2MB */,
-                           std::numeric_limits<I>::max()))) {
+                           2097152 * (capacity() / 2097152)))) {
     if(cpool_.get() == nullptr) {
-      cpool_ = std::make_unique_for_overwrite<std::byte[]>(
-        std::numeric_limits<I>::max());
+      cpool_.reset(reinterpret_cast<std::byte*>(std::malloc(2097152 * (capacity() / 2097152))));
     }
 #ifdef __linux__
-    madvise(cpool_.get(), std::numeric_limits<I>::max(), MADV_HUGEPAGE);
+    madvise(cpool_.get(), 2097152 * (capacity() / 2097152), MADV_HUGEPAGE);
 #endif
   }
 
@@ -821,9 +844,7 @@ class polynomial_store
 
   protected:
   monomial_store_& store_;
-  std::unique_ptr<std::byte[]> cpool_
-    = std::make_unique_for_overwrite<std::byte[]>(
-      std::numeric_limits<I>::max());
+  std::unique_ptr<std::byte[], typename base::pool_deleter> cpool_;
   size_t cpool_size_ = 0;
 
   inline C* get_coefficients_raw(I id) {
