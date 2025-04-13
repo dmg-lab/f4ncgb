@@ -93,6 +93,9 @@ class parser_context {
 
   inline int getc() {
     assert(f);
+    if(!f || feof(f.get())) {
+      return EOF;
+    }
     last_line = line;
     last_col = col;
 
@@ -382,4 +385,7 @@ parse_rest_into_polynomial_store(parser_context& ctx, PS& s) {
 
   return parse_rest(ctx, add_cb, boundary_cb);
 }
+
+void
+dummy_parse_string(std::string s);
 }

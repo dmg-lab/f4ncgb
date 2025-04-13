@@ -583,4 +583,28 @@ parser_context::parse_header() {
   impl = impl_fun;
   return std::nullopt;
 }
+
+#ifdef __linux__
+void
+dummy_parse_string(std::string input) {
+  auto add_cb = [](uint32_t i) { (void)i; return std::nullopt; };
+  auto boundary_cb = [](long numerator, long denominator, bool is_rational) { (void) numerator; (void) denominator; (void) is_rational; return std::nullopt; };
+
+  FILE *f = fmemopen((void*)input.c_str(), input.size(), "r");
+
+  if(!f) {
+    std::cout << "Could not make a memory-backed file. Error: " << strerror(errno) << std::endl;
+    exit(1);
+  }
+
+  parser_context ctx(f);
+
+  parse(ctx, add_cb, boundary_cb);
+}
+#else
+dummy_parse_string(std::string input) {
+
+}
+#endif
+
 }
