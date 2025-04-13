@@ -6,6 +6,7 @@
 #include "freegb.hpp"
 #include "fuzztest/fuzztest.h"
 #include "fuzztest/internal/any.h"
+#include <gtest/gtest.h>
 #include "parser.hpp"
 
 using namespace kommunopp;
@@ -195,7 +196,30 @@ FUZZ_TEST(freegb, fuzz_ax_b_mod_p)
 #ifdef __linux__
 void
 fuzz_parser(std::string input) {
-  dummy_parse_string(input);
+  int add_cb_count = 0;
+  int boundary_cb_count = 0;
+
+  auto add_cb = [&add_cb_count](uint32_t i) { (void)i; if(add_cb_count++ > 1000000) throw std::runtime_error("too many ADDs"); return std::nullopt; };
+  auto boundary_cb = [&boundary_cb_count](long numerator, long denominator, bool is_rational) { (void) numerator; (void) denominator; (void) is_rational; if(boundary_cb_count++ > 1000000) throw std::runtime_error("too many BOUNDARYs"); return std::nullopt; };
+
+  FILE *f = fmemopen((void*)input.c_str(), input.size(), "r");
+
+  if(!f) {
+    std::cout << "Could not make a memory-backed file. Error: " << strerror(errno) << std::endl;
+    exit(1);
+  }
+
+  parser_context ctx(f);
+
+  try {
+    parse(ctx, add_cb, boundary_cb);
+  } catch(std::runtime_error &e) {
+    EXPECT_LT(add_cb_count, 1000000);
+    EXPECT_LT(boundary_cb_count, 1000000);
+    FAIL() << e.what();
+  } catch(...) {
+    FAIL() << "Some error";
+  }
 }
 
 FUZZ_TEST(freegb, fuzz_parser);

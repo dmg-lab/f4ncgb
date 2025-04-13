@@ -236,6 +236,9 @@ parser_context::impl_msolve(parse_add_cb add_cb,
           c = swallow_whitespace_no_newline();
           EXPECT_DIGIT();
           size_t sup = read_positive_int();
+          if(sup > 1000) {
+            return "Exponent too high";
+          }
           c = swallow_whitespace_no_newline();
           for(size_t i = 0; i < sup; ++i) {
             ADD(id);
@@ -572,6 +575,8 @@ parser_context::parse_header() {
   c = getc();
   EXPECT_DIGIT();
   num_blocks_ = read_positive_int();
+  if(num_blocks_ > 100)
+    return "too many blocks";
   blocks.resize(num_blocks_);
   EXPECT(' ');
   c = getc();
@@ -587,8 +592,11 @@ parser_context::parse_header() {
 #ifdef __linux__
 void
 dummy_parse_string(std::string input) {
-  auto add_cb = [](uint32_t i) { (void)i; return std::nullopt; };
-  auto boundary_cb = [](long numerator, long denominator, bool is_rational) { (void) numerator; (void) denominator; (void) is_rational; return std::nullopt; };
+  int add_cb_count = 0;
+  int boundary_cb_count = 0;
+
+  auto add_cb = [&add_cb_count](uint32_t i) { (void)i; if(add_cb_count++ > 10000000) { assert(false); }return std::nullopt; };
+  auto boundary_cb = [&boundary_cb_count](long numerator, long denominator, bool is_rational) { (void) numerator; (void) denominator; (void) is_rational; if(boundary_cb_count++ > 10000000) { assert(false); } return std::nullopt; };
 
   FILE *f = fmemopen((void*)input.c_str(), input.size(), "r");
 
