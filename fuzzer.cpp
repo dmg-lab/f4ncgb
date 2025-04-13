@@ -15,6 +15,9 @@ using block = std::vector<uint8_t>;
 using monomial = std::tuple<long, long, std::vector<uint8_t>>;
 using polynomial = std::vector<monomial>;
 
+bool proof = false;
+bool tracer = false;
+
 Domain<std::vector<std::vector<uint8_t>>>
 UniqueAcrossVectors(uint8_t max_value = 254,
                     size_t max_vectors = MAX_BLOCKS - 1) {
@@ -170,7 +173,7 @@ fuzz_freegb_main(
     nblocks = ctx.num_blocks();
 
   int res
-    = kommunopp_main(ctx, nblocks, nvars, 0, maxiter, maxdeg, 1, "", true);
+    = kommunopp_main(ctx, nblocks, nvars, 0, maxiter, maxdeg, 1, "", "");
 }
 
 FUZZ_TEST(freegb, fuzz_freegb_main)
