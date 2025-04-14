@@ -258,9 +258,6 @@ struct f4 {
         msg("==== Iteration %d has finished. Basis has now %d elements ====",
             iter,
             basis.size() - 1);
-
-      if(iter >= 3)
-        break;
     }
   }
   //------------------------------------------------------------------------------
