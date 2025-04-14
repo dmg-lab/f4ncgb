@@ -401,10 +401,11 @@ class store {
 //================================================================
 template<internal::metadata_concept M = internal::metadata<uint8_t>,
          internal::value_concept V = uint8_t,
-         typename I = uint32_t>
+         typename I = uint32_t,
+         uint16_t Nblocks = 0>
 class monomial_store;
 
-template<metadata_concept M, value_concept V, typename I>
+template<metadata_concept M, value_concept V, typename I, uint16_t Nblocks>
 class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
   using self = monomial_store<M, V, I>;
   using base = store<self, M, V, I>;
@@ -614,16 +615,49 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     return is_divisible((*this)[a], (*this)[b]);
   }
   //-----------------------------------------------------------------
+  // if v is  blocks[i] <= v <= blocks[i+1], then v is in block i
+  std::vector<size_t> blocks;
+  inline void set_blocks(std::vector<size_t> block_sizes) {
+    blocks.resize(block_sizes.size() + 1);
+    size_t n = 0;
+    for(size_t i = 0; i < block_sizes.size(); i++) {
+      blocks[i] = n;
+      n += block_sizes[i];
+    }
+    blocks[blocks.size() - 1] = n;
+  }
+
+  template<bool block_order>
   inline bool cmp(I a, I b) {
     // this is a strict order
     if(a == b)
       return false;
 
-    // compare lengths
-    size_t la = base::get_length(a);
-    size_t lb = base::get_length(b);
-    if(la != lb)
-      return la < lb;
+    size_t la, lb;
+
+    if(block_order) {
+      auto a_it = (*this)[a];
+      auto b_it = (*this)[b];
+
+      // compare all blocks
+      for(size_t i = 0; i < Nblocks; i++) {
+        size_t n = Nblocks - i;
+        la = (size_t)std::ranges::count_if(
+          a_it,
+          [l = blocks[n - 1], u = blocks[n]](V v) { return l < v && v <= u; });
+        lb = (size_t)std::ranges::count_if(
+          b_it,
+          [l = blocks[n - 1], u = blocks[n]](V v) { return l < v && v <= u; });
+        if(la != lb)
+          return la < lb;
+      }
+    } else {
+      // compare lengths
+      la = base::get_length(a);
+      lb = base::get_length(b);
+      if(la != lb)
+        return la < lb;
+    }
 
     // compare monomials lexicographically
     auto a_it = (*this)[a];
@@ -632,7 +666,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     return std::lexicographical_compare(
       a_it.begin(), a_it.end(), b_it.begin(), b_it.end());
   }
-
+  //-----------------------------------------------------------------
   std::ostream& print_ambiguity(const ambiguity_& a, std::ostream& o) const {
     o << "(" << a.degree() << ", ";
     print_monomial(a.ai(), o);
@@ -660,19 +694,20 @@ template<metadata_concept PM = internal::metadata<uint8_t>,
          metadata_concept MM = internal::metadata<uint8_t>,
          value_concept V = uint8_t,
          typename I = uint32_t,
-         typename C = boost::multiprecision::gmp_rational>
+         typename C = boost::multiprecision::gmp_rational,
+         uint16_t Nblocks = 0>
 class polynomial_store
-  : public store<polynomial_store<PM, MM, V, I, C>,
+  : public store<polynomial_store<PM, MM, V, I, C, Nblocks>,
                  polynomial_metadata<PM, I>,
                  I,
                  I> {
   public:
-  using self = polynomial_store<PM, MM, V, I, C>;
-  using base = store<polynomial_store<PM, MM, V, I, C>,
+  using self = polynomial_store<PM, MM, V, I, C, Nblocks>;
+  using base = store<polynomial_store<PM, MM, V, I, C, Nblocks>,
                      polynomial_metadata<PM, I>,
                      I,
                      I>;
-  using monomial_store_ = monomial_store<MM, V, I>;
+  using monomial_store_ = monomial_store<MM, V, I, Nblocks>;
   using monomial = monomial_store_::value_type;
   using metadata = polynomial_metadata<PM, I>;
 
@@ -681,6 +716,8 @@ class polynomial_store
   using coefficient = C;
 
   friend base;
+
+  constexpr static bool block_order = Nblocks > 0;
 
   constexpr static size_t capacity() {
 #if defined(__has_feature)
@@ -787,7 +824,7 @@ class polynomial_store
 
   inline void sort_polynomial(std::vector<std::pair<coefficient, I>>& p) {
     std::stable_sort(p.begin(), p.end(), [this](const auto& a, const auto& b) {
-      return this->store_.cmp(b.second, a.second);
+      return this->store_.template cmp<block_order>(b.second, a.second);
     });
   }
 

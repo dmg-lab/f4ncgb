@@ -80,11 +80,36 @@ kommunopp_main(parser_context& context,
         else
           out_name += output_name;
 
-        msg(out_name.c_str());
+        std::ostringstream mon_order;
+        mon_order << "Monomial order:    ";
+        bool first = true;
+        if(Nblocks == 0) {
+          for(size_t v = 1; v <= nvars; v++) {
+            if(!first)
+              mon_order << " < ";
+            context.var_to_ostream(mon_order, v);
+            first = false;
+          }
+        } else {
+          for(size_t i = 0; i < context.num_blocks(); i++) {
+            first = true;
+            for(auto v : context.block(i)) {
+              if(!first)
+                mon_order << " < ";
+              context.var_to_ostream(mon_order, v);
+              first = false;
+            }
+            if(i < context.num_blocks() - 1)
+              mon_order << " << ";
+          }
+        }
+
         msg("Characteristic:    %lu", characteristic);
         msg("Max. Iterations:   %lu", maxiter);
         msg("Max. amb. degree:  %lu", maxdeg);
+        msg(mon_order.str().c_str());
         msg("Nr. threads:       %lu", threads);
+        msg(out_name.c_str());
         msg("Proof logging:     %d", proof);
         msg("Tracer:            %d", tracer);
         msg("Verified algebra:  %d", verified_algebra);
@@ -92,7 +117,7 @@ kommunopp_main(parser_context& context,
       }
 
       algo.compute_basis();
-      
+
       msg("==== Basis computation finished ====");
 
       std::ostream& basis_file = std::cout;

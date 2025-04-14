@@ -59,8 +59,8 @@ struct f4 {
   using MM = metadata_monomial<Nblocks>;
   using PM = metadata_polynomial<1>;
   using coefficient = C;
-  using monomial_store = internal::monomial_store<MM, V, I>;
-  using polynomial_store = internal::polynomial_store<PM, MM, V, I, C>;
+  using monomial_store = internal::monomial_store<MM, V, I, Nblocks>;
+  using polynomial_store = internal::polynomial_store<PM, MM, V, I, C, Nblocks>;
 
   using monomial = std::span<const V>;
   using mon_id = I;
@@ -108,6 +108,7 @@ struct f4 {
   size_t maxiter = UINT_MAX;
   size_t maxdeg = UINT_MAX;
   bool verified_algebra = true;
+  static constexpr bool block_order = Nblocks > 0;
 
   std::ostream& proof_file = std::cout;
 
@@ -127,6 +128,9 @@ struct f4 {
     , maxiter(maxiter_)
     , maxdeg(maxdeg_)
     , verified_algebra(verified_algebra_) {
+
+    mons.set_blocks(context.block_sizes());
+    
     if(num_threads > 1)
       pool = std::make_unique<BS::thread_pool<BS::none>>(num_threads);
   }
@@ -255,7 +259,7 @@ struct f4 {
             iter,
             basis.size() - 1);
 
-      if(iter >= 2)
+      if(iter >= 3)
         break;
     }
   }
@@ -329,7 +333,7 @@ struct f4 {
         return a.degree() < b.degree();
       if(a.j() != b.j())
         return a.j() < b.j();
-      return this->mons.cmp(a.aj(), b.aj());
+      return this->mons.template cmp<block_order>(a.aj(), b.aj());
     };
 
     tmp.clear();
@@ -500,13 +504,13 @@ struct f4 {
     else if(true)
       match = *std::max_element(
         reducers.begin(), reducers.end(), [this](auto a, auto b) {
-          return this->mons.cmp(b.first, a.first);
+          return this->mons.template cmp<block_order>(b.first, a.first);
         });
     // strategy 3 : the one with largest lm
     else
       match = *std::max_element(
         reducers.begin(), reducers.end(), [this](auto a, auto b) {
-          return this->mons.cmp(a.first, b.first);
+          return this->mons.template cmp<block_order>(a.first, b.first);
         });
 
     monomial mm = mons[m];
@@ -629,8 +633,9 @@ struct f4 {
     columns.resize(
       static_cast<size_t>(std::distance(col_set.begin(), col_set.end())));
     std::copy(col_set.begin(), col_set.end(), columns.begin());
-    auto cmp
-      = [this](const mon_id a, const mon_id b) { return this->mons.cmp(b, a); };
+    auto cmp = [this](const mon_id a, const mon_id b) {
+      return this->mons.template cmp<block_order>(b, a);
+    };
     std::sort(columns.begin(), columns.end(), cmp);
 
     // set up matrix

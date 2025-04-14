@@ -216,6 +216,13 @@ class parser_context {
     return blocks[id];
   }
 
+  std::vector<size_t> block_sizes() {
+    std::vector<size_t> res(blocks.size());
+    for(size_t i = 0; i < blocks.size(); i++)
+      res[i] = blocks[i].size();
+    return res;
+  }
+
   std::function<parse_res(parse_add_cb add_cb,
                           void* add_cb_userdata,
                           parse_monomial_boundary_cb boundary_cb,
@@ -258,11 +265,13 @@ class parser_context {
   }
 
   template<class PS>
-  std::ostream& to_msolve_mon(std::ostream& o,
-                              const PS& p,
-                              PS::monomial_store_::index_type mon_id,
-                              bool first,
-                              std::span<const typename PS::coefficient>::iterator *coeff_it_ptr = nullptr) {
+  std::ostream& to_msolve_mon(
+    std::ostream& o,
+    const PS& p,
+    PS::monomial_store_::index_type mon_id,
+    bool first,
+    std::span<const typename PS::coefficient>::iterator* coeff_it_ptr
+    = nullptr) {
     using monomial_store = PS::monomial_store_;
     const monomial_store& m = p.get_monomial_store();
     if(coeff_it_ptr) {
@@ -274,6 +283,7 @@ class parser_context {
         }
       }
     }
+
     bool was_neutral = false;
     bool output_asterisk = false;
     if(coeff_it_ptr) {
