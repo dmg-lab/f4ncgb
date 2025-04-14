@@ -103,9 +103,7 @@ class store {
   using V_span_it = V_span::iterator;
 
   struct pool_deleter {
-    void operator()(std::byte pool[]) {
-      free(pool);
-    }
+    void operator()(std::byte pool[]) { free(pool); }
   };
 
   public:
@@ -161,14 +159,15 @@ class store {
   protected:
   consteval static size_t capacity() {
 #if defined(__has_feature)
-#  if __has_feature(address_sanitizer)
+#if __has_feature(address_sanitizer)
     size_t absolute_max = 0x10000000000;
-#  else
+#else
     size_t absolute_max = std::numeric_limits<size_t>::max();
-#  endif
 #endif
-    return std::min(static_cast<size_t>(std::numeric_limits<I>::max() * alignof(M)),
-                    absolute_max);
+#endif
+    return std::min(
+      static_cast<size_t>(std::numeric_limits<I>::max() * alignof(M)),
+      absolute_max);
   }
 
   constexpr inline M& get_metadata_from_id(I id) {
@@ -270,9 +269,11 @@ class store {
 
   store()
     : pool_(reinterpret_cast<std::byte*>(
-        std::aligned_alloc(2097152 /* 2^21, 2MB */, 2097152 * (capacity() / 2097152)))) {
+        std::aligned_alloc(2097152 /* 2^21, 2MB */,
+                           2097152 * (capacity() / 2097152)))) {
     if(pool_.get() == nullptr) {
-      pool_.reset(reinterpret_cast<std::byte*>(std::malloc(2097152 * (capacity() / 2097152))));
+      pool_.reset(reinterpret_cast<std::byte*>(
+        std::malloc(2097152 * (capacity() / 2097152))));
     }
 #ifdef __linux__
     madvise(pool_.get(), 2097152 * (capacity() / 2097152), MADV_HUGEPAGE);
@@ -652,6 +653,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
 template<metadata_concept M, typename I>
 struct polynomial_metadata : public M {
   I coefficients;
+  size_t idx;
 };
 
 template<metadata_concept PM = internal::metadata<uint8_t>,
@@ -682,13 +684,14 @@ class polynomial_store
 
   constexpr static size_t capacity() {
 #if defined(__has_feature)
-#  if __has_feature(address_sanitizer)
+#if __has_feature(address_sanitizer)
     size_t absolute_max = 0x10000000000;
-#  else
+#else
     size_t absolute_max = std::numeric_limits<size_t>::max();
-#  endif
 #endif
-    return std::min(static_cast<size_t>(std::numeric_limits<I>::max()), absolute_max);
+#endif
+    return std::min(static_cast<size_t>(std::numeric_limits<I>::max()),
+                    absolute_max);
   }
 
   inline polynomial_store(monomial_store_& store)
@@ -698,7 +701,8 @@ class polynomial_store
         std::aligned_alloc(2097152 /* 2^21, 2MB */,
                            2097152 * (capacity() / 2097152)))) {
     if(cpool_.get() == nullptr) {
-      cpool_.reset(reinterpret_cast<std::byte*>(std::malloc(2097152 * (capacity() / 2097152))));
+      cpool_.reset(reinterpret_cast<std::byte*>(
+        std::malloc(2097152 * (capacity() / 2097152))));
     }
 #ifdef __linux__
     madvise(cpool_.get(), 2097152 * (capacity() / 2097152), MADV_HUGEPAGE);
@@ -795,6 +799,21 @@ class polynomial_store
   }
 
   inline std::span<const V> get_lm(I id) const { return get_monomial(id, 0); }
+
+  inline void set_idx(I id, size_t idx) {
+    assert(idx != 0);
+    if(id == 0)
+      return;
+    metadata& m = this->get_metadata(id);
+    m.idx = idx;
+  }
+
+  inline size_t get_idx(I id) {
+    if(id == 0)
+      return 0;
+    metadata& m = this->get_metadata(id);
+    return m.idx;
+  }
 
   template<bool front, bool back>
   inline I multiply_front_or_back_or_both(I f, I p, I b) {

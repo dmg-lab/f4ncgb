@@ -124,7 +124,29 @@ struct f4 {
     if(num_threads > 1)
       pool = std::make_unique<BS::thread_pool<BS::none>>(num_threads);
   }
+  //------------------------------------------------------------------------------
+  struct triplet {
+    mon_id a;
+    size_t i;
+    mon_id b;
 
+    triplet(mon_id a_, size_t i_, mon_id b_)
+      : a(a_)
+      , i(i_)
+      , b(b_) {}
+  };
+
+  struct cofactor {
+    C c;
+    triplet t;
+
+    cofactor(C c_, mon_id a_, size_t i_, mon_id b_)
+      : c(c_)
+      , t(a_, i_, b_) {}
+  };
+
+  std::vector<triplet> extended_rows;
+  std::vector<std::vector<cofactor>> cofactors;
   //------------------------------------------------------------------------------
   inline parse_res read_input(parser_context& context) {
     parse_res res = parse_rest_into_polynomial_store(context, poly);
@@ -138,7 +160,10 @@ struct f4 {
     if(verbose > 1)
       msg("Linearly interreducing input of size %d.", input.size());
 
+    size_t i = 0;
     for(const auto& p : input) {
+      extended_rows.emplace_back(0, i, 0);
+      extended_rows.emplace_back(0, i++, 0);
       crit_pair c(p, p);
       crit_pairs.insert(c);
     }
@@ -147,6 +172,9 @@ struct f4 {
       KOMMUNOPP_TIME(crit_pair);
       stage_crit_pairs();
     }
+
+    // to leave 0th position open; just like in basis 
+    cofactors.emplace_back();
 
     std::vector<poly_id> new_elements = reduction(true);
     if(verbose > 1)
@@ -185,6 +213,7 @@ struct f4 {
         msg("Adding %d new elements to basis.", new_elements.size());
 
       update_basis_and_amb(new_elements);
+
       iter++;
       if(verbose > 0)
         msg("==== Iteration %d has finished. Basis has now %d elements ====",
@@ -194,7 +223,6 @@ struct f4 {
 
     return basis;
   }
-
   //------------------------------------------------------------------------------
   inline crit_pair to_crit_pair(const ambiguity& a) {
     poly_id i = lm_to_poly[a.i()];
@@ -208,6 +236,12 @@ struct f4 {
     poly_id f = poly.multiply_front_and_back(ai, i, ci);
     poly_id g = poly.multiply_front_and_back(aj, j, cj);
 
+    if(proof) {
+      assert(poly.get_idx(i) > 0);
+      assert(poly.get_idx(j) > 0);
+      extended_rows.emplace_back(ai, poly.get_idx(i), ci);
+      extended_rows.emplace_back(aj, poly.get_idx(j), cj);
+    }
     crit_pair c(f, g);
     return c;
   }
@@ -378,109 +412,6 @@ struct f4 {
   }
 
   //------------------------------------------------------------------------------
-  // boost::unordered_set<poly_id> symbolic_preprocessing() {
-  //   boost::unordered_set<mon_id> todo;
-  //   boost::unordered_set<mon_id> done;
-  //   boost::unordered_set<poly_id> rows;
-
-  //   for(const auto& [f, g] : crit_pairs) {
-  //     // add monomials to corresponding sets
-  //     auto mon_it = poly[f];
-  //     done.insert(*mon_it.begin());
-  //     todo.insert(++mon_it.begin(), mon_it.end());
-
-  //     mon_it = poly[g];
-  //     done.insert(*mon_it.begin());
-  //     todo.insert(++mon_it.begin(), mon_it.end());
-
-  //     rows.insert(f);
-  //     rows.insert(g);
-  //   }
-  //   crit_pairs.clear();
-
-  //   size_t k = 0;
-  //   while(!todo.empty()) {
-  //     mon_id m = *todo.begin();
-  //     todo.erase(todo.begin());
-  //     done.insert(m);
-  //     std::vector<poly_id> reducer = find_reducer(m);
-  //     if(reducer.size() != 3)
-  //       continue;
-
-  //     auto a = reducer[0];
-  //     auto g = reducer[1];
-  //     auto b = reducer[2];
-
-  //     poly_id agb = poly.multiply_front_and_back(a, lm_to_poly[g], b);
-  //     assert(m == poly.get_lm_id(agb));
-  //     rows.insert(agb);
-  //     for(auto mm : poly[agb]) {
-  //       if(!done.count(mm))
-  //         todo.insert(mm);
-  //     }
-
-  //     auto n = todo.begin();
-  //     while(n != todo.end()) {
-  //       if(mons.is_divisible(*n, g)) {
-  //         k++;
-  //         done.insert(*n);
-  //         auto nn = mons[*n];
-  //         auto i = std::distance(nn.begin(),
-  //                                std::ranges::search(nn, mons[g]).begin());
-  //         auto a = mons.getid(nn.first(i));
-  //         auto b = mons.getid(nn.last(nn.size() - i - mons.get_length(g)));
-  //         poly_id agb = poly.multiply_front_and_back(a, lm_to_poly[g], b);
-  //         assert(*n == poly.get_lm_id(agb));
-  //         rows.insert(agb);
-  //         n = todo.erase(n);
-  //         for(auto mm : poly[agb]) {
-  //           if(!done.count(mm))
-  //             todo.insert(mm);
-  //         }
-  //       } else
-  //         n++;
-  //     }
-  //   }
-
-  //   std::cout << "Saved = " << k << "\n";
-  //   return rows;
-  // }
-
-  // //------------------------------------------------------------------------------
-  // std::vector<poly_id> find_reducer(mon_id m, bool strategy = false) {
-
-  //   auto reducers = prefix_trie.divisors(mons[m]);
-  //   if(reducers.empty())
-  //     return std::vector<poly_id>();
-
-  //   std::pair<mon_id, size_t> match;
-  //   // strategy 1 : the last one
-  //   if(strategy)
-  //     match = *std::max_element(reducers.begin(), reducers.end());
-  //   // strategy 2 : the one with smallest lm
-  //   else if(true)
-  //     match = *std::max_element(
-  //       reducers.begin(), reducers.end(), [this](auto a, auto b) {
-  //         return this->mons.cmp(b.first, a.first);
-  //       });
-  //   // strategy 3 : the one with largest lm
-  //   else
-  //     match = *std::max_element(
-  //       reducers.begin(), reducers.end(), [this](auto a, auto b) {
-  //         return this->mons.cmp(a.first, b.first);
-  //       });
-
-  //   monomial mm = mons[m];
-  //   monomial lm = mons[match.first];
-  //   mon_id a = mons.getid(mm.first(match.second));
-  //   mon_id b = mons.getid(mm.last(mm.size() - match.second - lm.size()));
-
-  //   std::vector<poly_id> res = { a, match.first, b };
-
-  //   return res;
-  // }
-  //------------------------------------------------------------------------------
-
   std::vector<poly_id> symbolic_preprocessing() {
     KOMMUNOPP_TIME(sym_pre);
     boost::unordered_set<mon_id> todo;
@@ -546,14 +477,40 @@ struct f4 {
     monomial lm = mons[match.first];
     mon_id a = mons.getid(mm.first(match.second));
     mon_id b = mons.getid(mm.last(mm.size() - match.second - lm.size()));
+    poly_id g = lm_to_poly[match.first];
 
-    poly_id res = poly.multiply_front_and_back(a, lm_to_poly[match.first], b);
+    if(proof) {
+      assert(poly.get_idx(g) > 0);
+      extended_rows.emplace_back(a, poly.get_idx(g), b);
+    }
+
+    poly_id res = poly.multiply_front_and_back(a, g, b);
 
     return res;
   }
   //------------------------------------------------------------------------------
+  void log_cofactors() {
+    std::cout << "|G| = " << basis.size() << std::endl;
+    std::cout << "|C| = " << cofactors.size() << std::endl;
+    size_t n = basis.size();
+
+    // logging input
+    if(n == 1) {
+      for(; n < cofactors.size(); n++) {
+        for(auto& c : cofactors[n])
+          std::cout << c.c << " * (" << c.t.a << ", " << c.t.i << ", " << c.t.b << ") + ";
+        std::cout << "\n";
+      }
+      // logging regular polies; requires more work
+    } else {
+      die(-1,"");
+      return;
+    }
+  }
+  //------------------------------------------------------------------------------
   std::vector<poly_id> res;
   std::vector<std::pair<C, mon_id>> p;
+  std::vector<cofactor> current_cofactors;
   const std::vector<poly_id>& compute_new_polynomials(
     std::vector<std::pair<size_t, size_t>>& idxs,
     std::vector<C>& coeffs,
@@ -561,10 +518,12 @@ struct f4 {
 
     res.clear();
     p.clear();
+    current_cofactors.clear();
 
     if(idxs.size() == 0)
       return res;
 
+    size_t n = columns.size();
     size_t k = 0;
     size_t cur_i = idxs[0].first;
     for(auto [i, j] : idxs) {
@@ -573,15 +532,29 @@ struct f4 {
         res.push_back(poly.add_polynomial(p));
         p.clear();
         cur_i = i;
+        if(proof) {
+          cofactors.emplace_back(std::move(current_cofactors));
+          current_cofactors.clear();
+        }
       }
-      if(j < columns.size()) {
+      if(j < n) {
         assert(mpq_rational(coeffs[k]) != 0);
         p.emplace_back(coeffs[k], columns[j]);
+      } else {
+        std::cout << coeffs[k] << std::endl;
+        current_cofactors.emplace_back(coeffs[k],
+                                       extended_rows[j - n].a,
+                                       extended_rows[j - n].i,
+                                       extended_rows[j - n].b);
       }
       k++;
     }
     // don't forget to add last element
     res.push_back(poly.add_polynomial(p));
+    if(proof)
+      cofactors.emplace_back(std::move(current_cofactors));
+
+    extended_rows.clear();
 
     return res;
   }
@@ -707,6 +680,11 @@ struct f4 {
   //------------------------------------------------------------------------------
   void update_basis_and_amb(std::vector<poly_id>& new_elements) {
 
+    // log cofactors
+    if(proof)
+      log_cofactors();
+
+    size_t n = basis.size();
     for(const poly_id p_id : new_elements) {
       // only do all of this if we don't termiante next iteration
       if(iter < maxiter) {
@@ -725,6 +703,7 @@ struct f4 {
       }
 
       // update basis
+      poly.set_idx(p_id, n++);
       basis.push_back(p_id);
     }
   }
