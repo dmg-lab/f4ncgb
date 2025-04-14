@@ -258,13 +258,52 @@ class parser_context {
   }
 
   template<class PS>
+  std::ostream& to_msolve_mon(std::ostream& o,
+                              const PS& p,
+                              PS::monomial_store_::index_type mon_id,
+                              bool first,
+                              std::span<const typename PS::coefficient>::iterator *coeff_it_ptr = nullptr) {
+    using monomial_store = PS::monomial_store_;
+    const monomial_store& m = p.get_monomial_store();
+    if(coeff_it_ptr) {
+      if(!first) {
+        if(coefficient_sign(**coeff_it_ptr) < 0) {
+          o << " - ";
+        } else {
+          o << " + ";
+        }
+      }
+    }
+    bool was_neutral = false;
+    bool output_asterisk = false;
+    if(coeff_it_ptr) {
+      if(coefficient_is_posneg_neutral(**coeff_it_ptr)) {
+        ++(*coeff_it_ptr);
+      }
+      was_neutral = true;
+    } else {
+      output_asterisk = true;
+      o << coefficient_abs(*(*coeff_it_ptr)++);
+    }
+    for(auto mon : m[mon_id]) {
+      if(output_asterisk)
+        o << "*";
+      output_asterisk = true;
+      var_to_ostream(o, mon);
+    }
+    if(m[mon_id].size() == 0 && was_neutral) {
+      if(output_asterisk)
+        o << "*";
+      o << "1";
+    }
+    return o;
+  }
+
+  template<class PS>
   std::ostream& to_msolve_poly(std::ostream& o,
                                const PS& p,
                                PS::index_type poly_id,
                                bool first_poly) {
-    using monomial_store = PS::monomial_store_;
-    const monomial_store& m = p.get_monomial_store();
-
     if(first_poly)
       first_poly = false;
     else {
@@ -273,34 +312,9 @@ class parser_context {
     auto coeff_it = p.get_coefficients(poly_id).begin();
     bool first = true;
     for(auto mon_id : p[poly_id]) {
+      to_msolve_mon(o, p, mon_id, first, &coeff_it);
       if(first) {
         first = false;
-      } else {
-        if(coefficient_sign(*coeff_it) < 0) {
-          o << " - ";
-        } else {
-          o << " + ";
-        }
-      }
-      bool was_neutral = false;
-      bool output_asterisk = false;
-      if(coefficient_is_posneg_neutral(*coeff_it)) {
-        ++coeff_it;
-        was_neutral = true;
-      } else {
-        output_asterisk = true;
-        o << coefficient_abs(*coeff_it++);
-      }
-      for(auto mon : m[mon_id]) {
-        if(output_asterisk)
-          o << "*";
-        output_asterisk = true;
-        var_to_ostream(o, mon);
-      }
-      if(m[mon_id].size() == 0 && was_neutral) {
-        if(output_asterisk)
-          o << "*";
-        o << "1";
       }
     }
     return o;
