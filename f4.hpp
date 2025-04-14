@@ -91,6 +91,8 @@ struct f4 {
   };
 
   public:
+  parser_context& context;
+
   monomial_store mons;
   polynomial_store poly;
   std::vector<poly_id> basis;
@@ -107,13 +109,17 @@ struct f4 {
   size_t maxdeg = UINT_MAX;
   bool verified_algebra = true;
 
-  f4(size_t nvars,
+  std::ostream& proof_file = std::cout;
+
+  f4(parser_context& context_,
+     size_t nvars,
      size_t characteristic_,
      size_t maxiter_,
      size_t maxdeg_,
      size_t num_threads,
      bool verified_algebra_)
-    : mons()
+    : context(context_)
+    , mons()
     , poly(mons)
     , prefix_trie(nvars)
     , suffix_trie(nvars)
@@ -143,6 +149,26 @@ struct f4 {
     cofactor(C c_, mon_id a_, size_t i_, mon_id b_)
       : c(c_)
       , t(a_, i_, b_) {}
+
+    inline mon_id a() { return t.a; }
+    inline size_t i() { return t.i; }
+    inline mon_id b() { return t.b; }
+
+    inline void log(std::ostream& o,
+                    parser_context& context,
+                    polynomial_store& poly,
+                    bool first = false) {
+      if(!first) {
+        o << (mpq_sgn(c.data()) > 0 ? " + " : " - ");
+        mpq_abs(c.data(), c.data());
+      }
+      o << c;
+      if(t.a != 0)
+        context.to_msolve_mon(o, poly, t.a, false);
+      o << "*(" << t.i << ")";
+      if(t.b != 0)
+        context.to_msolve_mon(o, poly, t.b, false);
+    }
   };
 
   std::vector<triplet> extended_rows;
@@ -153,6 +179,15 @@ struct f4 {
     // Print in case of doubt.
     // context.to_msolve(std::cout, poly);
     return res;
+  }
+  //------------------------------------------------------------------------------
+  inline void write_basis(std::ostream& o) {
+    bool first = true;
+    for(size_t n = 1; n < basis.size(); n++) {
+      context.to_msolve_poly(o, poly, basis[n], first);
+      first = false;
+    }
+    o << "\n";
   }
   //------------------------------------------------------------------------------
   void interreduce_and_add_to_basis(std::vector<poly_id> input) {
@@ -173,7 +208,7 @@ struct f4 {
       stage_crit_pairs();
     }
 
-    // to leave 0th position open; just like in basis 
+    // to leave 0th position open; just like in basis
     cofactors.emplace_back();
 
     std::vector<poly_id> new_elements = reduction(true);
@@ -185,7 +220,7 @@ struct f4 {
   //------------------------------------------------------------------------------
 
   std::vector<poly_id> input;
-  std::vector<poly_id> compute_basis() {
+  void compute_basis() {
     // add something at 0th position
     // so that index 0 remains free
     basis.push_back(0);
@@ -219,9 +254,10 @@ struct f4 {
         msg("==== Iteration %d has finished. Basis has now %d elements ====",
             iter,
             basis.size() - 1);
-    }
 
-    return basis;
+      if(iter >= 2)
+        break;
+    }
   }
   //------------------------------------------------------------------------------
   inline crit_pair to_crit_pair(const ambiguity& a) {
@@ -490,21 +526,37 @@ struct f4 {
   }
   //------------------------------------------------------------------------------
   void log_cofactors() {
-    std::cout << "|G| = " << basis.size() << std::endl;
-    std::cout << "|C| = " << cofactors.size() << std::endl;
-    size_t n = basis.size();
 
-    // logging input
-    if(n == 1) {
-      for(; n < cofactors.size(); n++) {
-        for(auto& c : cofactors[n])
-          std::cout << c.c << " * (" << c.t.a << ", " << c.t.i << ", " << c.t.b << ") + ";
-        std::cout << "\n";
+    std::vector<cofactor> expanded;
+    bool first = true;
+    // if not input, we have to rewrite
+    if(basis.size() > 1) {
+      for(size_t n = basis.size(); n < cofactors.size(); n++) {
+        expanded.clear();
+        for(auto& cofactor : cofactors[n]) {
+          C& c = cofactor.c;
+          mon_id a = cofactor.a();
+          mon_id b = cofactor.b();
+          for(auto& cofactor_i : cofactors[cofactor.i()]) {
+            C cc;
+            mpq_mul(cc.data(), c.data(), cofactor_i.c.data());
+
+            mon_id aa = mons.get_product_id(a, cofactor_i.a());
+            mon_id bb = mons.get_product_id(cofactor_i.b(), b);
+            expanded.emplace_back(cc, aa, cofactor_i.i(), bb);
+          }
+        }
+        cofactors[n] = std::move(expanded);
       }
-      // logging regular polies; requires more work
-    } else {
-      die(-1,"");
-      return;
+    }
+
+    for(size_t n = basis.size(); n < cofactors.size(); n++) {
+      first = true;
+      for(auto& cofactor : cofactors[n]) {
+        cofactor.log(proof_file, context, poly, first);
+        first = false;
+      }
+      proof_file << "\n";
     }
   }
   //------------------------------------------------------------------------------
@@ -541,7 +593,6 @@ struct f4 {
         assert(mpq_rational(coeffs[k]) != 0);
         p.emplace_back(coeffs[k], columns[j]);
       } else {
-        std::cout << coeffs[k] << std::endl;
         current_cofactors.emplace_back(coeffs[k],
                                        extended_rows[j - n].a,
                                        extended_rows[j - n].i,

@@ -53,8 +53,13 @@ kommunopp_main(parser_context& context,
      verified_algebra,
      output_name,
      print_read_problem](auto Nblocks) {
-      f4<Nblocks> algo(
-        nvars, characteristic, maxiter, maxdeg, threads, verified_algebra);
+      f4<Nblocks> algo(context,
+                       nvars,
+                       characteristic,
+                       maxiter,
+                       maxdeg,
+                       threads,
+                       verified_algebra);
       {
         KOMMUNOPP_TIME(parse);
         if(auto err = algo.read_input(context)) {
@@ -69,25 +74,29 @@ kommunopp_main(parser_context& context,
 
       if(verbose > 0) {
         msg("==== Input Parameters ====");
-        std::string out = "Output file:       ";
+        std::string out_name = "Output file:       ";
         if(output_name == "")
-          out += "None. Writing output to console.";
+          out_name += "None. Writing output to console.";
         else
-          out += output_name;
+          out_name += output_name;
 
-        msg(out.c_str());
+        msg(out_name.c_str());
         msg("Characteristic:    %lu", characteristic);
         msg("Max. Iterations:   %lu", maxiter);
         msg("Max. amb. degree:  %lu", maxdeg);
         msg("Nr. threads:       %lu", threads);
-        msg("Proof logging:     %d",  proof);
-        msg("Tracer:            %d",  tracer);
-        msg("Verified algebra:  %d",  verified_algebra);
+        msg("Proof logging:     %d", proof);
+        msg("Tracer:            %d", tracer);
+        msg("Verified algebra:  %d", verified_algebra);
         msg("==== Starting Gröbner Basis Computation ====");
       }
 
       algo.compute_basis();
-      // msg("Success");
+      
+      msg("==== Basis computation finished ====");
+
+      std::ostream& basis_file = std::cout;
+      algo.write_basis(basis_file);
     });
   return 0;
 }
