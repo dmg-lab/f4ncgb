@@ -610,7 +610,7 @@ dummy_parse_string(std::string input) {
   parse(ctx, add_cb, boundary_cb);
 }
 #else
-dummy_parse_string(std::string input) {
+void dummy_parse_string(std::string input) {
 
 }
 #endif
