@@ -283,7 +283,9 @@ class parser_context {
       was_neutral = true;
     } else {
       output_asterisk = true;
-      o << coefficient_abs(*(*coeff_it_ptr)++);
+      if(coeff_it_ptr) {
+        o << coefficient_abs(*(*coeff_it_ptr)++);
+      }
     }
     for(auto mon : m[mon_id]) {
       if(output_asterisk)
