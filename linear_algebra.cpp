@@ -122,7 +122,7 @@ crt_reconstruction(fmpz*& entries,
     for(auto& rref : rrefs) {
       auto row = sparse_mat_row(rref, i);
       // include row only if polynomial part is nonzero
-      if(!proof or row->indices[0] < rref->ncol - rref->nrow)
+      if(!proof or row->nnz > 0)
         nnz_pos_row.insert(row->indices, row->indices + row->nnz);
     }
   }
@@ -538,8 +538,10 @@ gauss_elim(uint32_mat_t mat,
         }
 
         // we have a zero row
-        if(buffer_ids_local.empty()) {
+        if(buffer_ids_local.empty() or (proof and buffer_ids_local[0] >= mat->ncol - mat->nrow)) {
           sparse_vec_clear(row);
+          for(auto id : buffer_ids_local)
+            buffer_local[id] = 0;
           // only set them if tracer is actived
           trace[r] = tracer;
           return;

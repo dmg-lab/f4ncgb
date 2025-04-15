@@ -110,9 +110,9 @@ kommunopp_main(parser_context& context,
         msg(mon_order.str().c_str());
         msg("Nr. threads:       %lu", threads);
         msg(out_name.c_str());
-        msg("Proof logging:     %d", proof);
-        msg("Tracer:            %d", tracer);
-        msg("Verified algebra:  %d", verified_algebra);
+        msg("Proof logging:     %s", proof ? "on" : "off");
+        msg("Tracer:            %s", tracer ? "on" : "off");
+        msg("Verified algebra:  %s", verified_algebra ? "on" : "off");
         msg("==== Starting Gröbner Basis Computation ====");
       }
 

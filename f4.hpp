@@ -37,16 +37,12 @@ using namespace boost::multiprecision;
 
 namespace kommunopp {
 
-template<size_t N>
 struct metadata_monomial {
   uint16_t length = 0;
-  uint16_t t[N];
 };
 
-template<size_t N>
 struct metadata_polynomial {
   uint16_t length = 0;
-  uint16_t t[N];
 };
 
 //------------------------------------------------------------------------------
@@ -56,8 +52,8 @@ template<size_t Nblocks,
          typename I = uint32_t,
          typename C = boost::multiprecision::gmp_rational>
 struct f4 {
-  using MM = metadata_monomial<Nblocks>;
-  using PM = metadata_polynomial<1>;
+  using MM = metadata_monomial;
+  using PM = metadata_polynomial;
   using coefficient = C;
   using monomial_store = internal::monomial_store<MM, V, I, Nblocks>;
   using polynomial_store = internal::polynomial_store<PM, MM, V, I, C, Nblocks>;
