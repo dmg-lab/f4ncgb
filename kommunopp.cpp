@@ -147,10 +147,10 @@ kommunopp_main(parser_context& context,
 #if defined(__has_feature) && NDEBUG
 #if !__has_feature(address_sanitizer)
       algo_ptr.release();
+#endif
+#endif
+      return 0;
     });
-  return 0;
-#endif
-#endif
 }
 }
 
