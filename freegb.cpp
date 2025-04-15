@@ -20,8 +20,9 @@ namespace po = boost::program_options;
 static std::string input_name = "";
 
 // / \brief
-// / Name of output file
+// / Name of output files
 static std::string output_name = "";
+static std::string proof_file = "";
 
 // / Selected prime, maxiter, maxdeg, and number of threads
 static size_t maxiter = 0;
@@ -30,7 +31,7 @@ static size_t threads = 0;
 
 // / Verified multimodular computations and proof logging
 static bool verified_algebra = true;
-bool proof = true;
+bool proof = false;
 bool tracer = true;
 /*------------------------------------------------------------------------*/
 // ERROR CODES:
@@ -63,7 +64,7 @@ main(int argc, char** argv) {
     ("maxdeg,d", po::value<size_t>(&maxdeg)->default_value(UINT_MAX), "Maximal degree of ambiguities that are considered.")
     ("output,o", po::value<std::string>(&output_name)->default_value(""), "Set the output file.")
     ("print-problem", po::value<bool>(&print_problem)->default_value(false), "Re-print the problem after parsing.")
-    ("proof,p",  po::value<bool>(&proof)->default_value(false), "Proof logging.")
+    ("proof,p",  po::value<std::string>(&proof_file)->default_value(""), "Proof logging.")
     ("threads,T", po::value<size_t>(&threads)->default_value(1), "Number of threads to be used.")
     ("tracer,t", po::value<bool>(&tracer)->default_value(true), "Whether computations with the first prime shall be traced. Speeds up the computation, but yields the correct result only with high probability.")
     ("verbosity,V", po::value<int>(&verbose)->default_value(1), "Set the verbosity level.")
@@ -128,6 +129,8 @@ main(int argc, char** argv) {
         "Provided nonzero characteristic %lu is not prime.",
         characteristic);
 
+  proof = (proof_file != "");
+
   res = kommunopp::kommunopp_main(context,
                                   nblocks,
                                   nvars,
@@ -137,6 +140,7 @@ main(int argc, char** argv) {
                                   threads,
                                   verified_algebra,
                                   output_name,
+                                  proof_file,
                                   print_problem);
 
   KOMMUNOPP_PROFILE(gstats.print(threads));

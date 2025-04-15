@@ -8,6 +8,7 @@
 #include <span>
 #include <utility>
 #include <vector>
+#include <fstream>
 
 #include <boost/align/align_down.hpp>
 #include <boost/align/align_up.hpp>
@@ -106,7 +107,7 @@ struct f4 {
   bool verified_algebra = true;
   static constexpr bool block_order = Nblocks > 0;
 
-  std::ostream& proof_file = std::cout;
+  std::ofstream proof_file;
 
   f4(parser_context& context_,
      size_t nvars,
@@ -114,7 +115,8 @@ struct f4 {
      size_t maxiter_,
      size_t maxdeg_,
      size_t num_threads,
-     bool verified_algebra_)
+     bool verified_algebra_,
+     const std::string& proof_file_)
     : context(context_)
     , mons()
     , poly(mons)
@@ -126,17 +128,23 @@ struct f4 {
     , verified_algebra(verified_algebra_) {
 
     mons.set_blocks(context.block_sizes());
-    
+
     if(num_threads > 1)
       pool = std::make_unique<BS::thread_pool<BS::none>>(num_threads);
+
+    if(proof_file_ != "") {
+        proof_file.open(proof_file_);
+        if(!proof_file)
+          die(19, "Failed to open proof file.");
+      }
   }
   //------------------------------------------------------------------------------
   struct triplet {
     mon_id a;
-    size_t i;
+    uint16_t i;
     mon_id b;
 
-    triplet(mon_id a_, size_t i_, mon_id b_)
+    triplet(mon_id a_, uint16_t i_, mon_id b_)
       : a(a_)
       , i(i_)
       , b(b_) {}
@@ -146,7 +154,7 @@ struct f4 {
     C c;
     triplet t;
 
-    cofactor(C c_, mon_id a_, size_t i_, mon_id b_)
+    cofactor(C c_, mon_id a_, uint16_t i_, mon_id b_)
       : c(c_)
       , t(a_, i_, b_) {}
 
@@ -733,7 +741,7 @@ struct f4 {
     if(proof)
       log_cofactors();
 
-    size_t n = basis.size();
+    uint16_t n = basis.size();
     for(const poly_id p_id : new_elements) {
       // only do all of this if we don't termiante next iteration
       if(iter < maxiter) {

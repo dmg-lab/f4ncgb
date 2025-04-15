@@ -687,7 +687,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
 template<metadata_concept M, typename I>
 struct polynomial_metadata : public M {
   I coefficients;
-  size_t idx;
+  uint16_t idx;
 };
 
 template<metadata_concept PM = internal::metadata<uint8_t>,
@@ -837,7 +837,7 @@ class polynomial_store
 
   inline std::span<const V> get_lm(I id) const { return get_monomial(id, 0); }
 
-  inline void set_idx(I id, size_t idx) {
+  inline void set_idx(I id, uint16_t idx) {
     assert(idx != 0);
     if(id == 0)
       return;
@@ -845,7 +845,7 @@ class polynomial_store
     m.idx = idx;
   }
 
-  inline size_t get_idx(I id) {
+  inline uint16_t get_idx(I id) {
     if(id == 0)
       return 0;
     metadata& m = this->get_metadata(id);
@@ -938,6 +938,7 @@ kommunopp_main(parser_context& context,
                size_t threads,
                bool verified_algebra,
                const std::string& output_name,
+               const std::string& proof_file,
                bool print_read_problem = false);
 }
 

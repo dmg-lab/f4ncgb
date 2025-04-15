@@ -5,6 +5,7 @@
 
 #include <boost/multiprecision/detail/default_ops.hpp>
 #include <boost/multiprecision/gmp.hpp>
+#include <fstream>
 
 extern bool tracer;
 
@@ -41,6 +42,7 @@ kommunopp_main(parser_context& context,
                size_t threads,
                bool verified_algebra,
                const std::string& output_name,
+               const std::string& proof_file,
                bool print_read_problem) {
   boost::mp11::mp_with_index<MAX_BLOCKS>(
     nblocks,
@@ -52,6 +54,7 @@ kommunopp_main(parser_context& context,
      threads,
      verified_algebra,
      output_name,
+     proof_file,
      print_read_problem](auto Nblocks) {
       f4<Nblocks> algo(context,
                        nvars,
@@ -59,7 +62,8 @@ kommunopp_main(parser_context& context,
                        maxiter,
                        maxdeg,
                        threads,
-                       verified_algebra);
+                       verified_algebra,
+                       proof_file);
       {
         KOMMUNOPP_TIME(parse);
         if(auto err = algo.read_input(context)) {
@@ -110,7 +114,7 @@ kommunopp_main(parser_context& context,
         msg(mon_order.str().c_str());
         msg("Nr. threads:       %lu", threads);
         msg(out_name.c_str());
-        msg("Proof logging:     %s", proof ? "on" : "off");
+        msg("Proof logging:     %s", proof ? ("on (writing to " + proof_file + ")").c_str() : "off");
         msg("Tracer:            %s", tracer ? "on" : "off");
         msg("Verified algebra:  %s", verified_algebra ? "on" : "off");
         msg("==== Starting Gröbner Basis Computation ====");
@@ -120,8 +124,15 @@ kommunopp_main(parser_context& context,
 
       msg("==== Basis computation finished ====");
 
-      std::ostream& basis_file = std::cout;
-      algo.write_basis(basis_file);
+      std::ostream* out_file = &std::cout;
+      std::ofstream filestream;
+      if(output_name != "") {
+        filestream.open(output_name);
+        if(!filestream)
+          die(18, "Failed to open output file.");
+        out_file = &filestream;
+      }
+      algo.write_basis(*out_file);
     });
   return 0;
 }
