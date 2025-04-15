@@ -23,12 +23,12 @@ int verbose = 1;
 
 void msg(const char *fmt, ...) {
   va_list ap;
-  fputs("[freegb] ", stdout);
+  fputs("[freegb] ", stderr);
   va_start(ap, fmt);
-  vfprintf(stdout, fmt, ap);
+  vfprintf(stderr, fmt, ap);
   va_end(ap);
-  fputc('\n', stdout);
-  fflush(stdout);
+  fputc('\n', stderr);
+  fflush(stderr);
 }
 
 /*------------------------------------------------------------------------*/
