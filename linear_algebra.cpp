@@ -438,11 +438,15 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
     slong rr;
     size_t i = row->indices[1];
     while(i < mat->ncol) {
+#ifdef KOMMUNOPP_FAST_MERSENNE_PRIME_MODULO
       if constexpr(mersenne) {
         cc = mersenne_mod(buffer[i]);
       } else {
+#endif
         cc = (int64_t)(((uint64_t)buffer[i]) % p);
+#ifdef KOMMUNOPP_FAST_MERSENNE_PRIME_MODULO
       }
+#endif
       buffer[i] = cc;
       if(cc != 0) {
         rr = piv_array[i];
@@ -514,12 +518,16 @@ gauss_elim(uint32_mat_t mat,
           assert(buffer_local[i] > 0);
           // v must be smaller than 2^2b, i.e. 2^62
           assert(buffer_local[i] < 4611686018427387904);
+#ifdef KOMMUNOPP_FAST_MERSENNE_PRIME_MODULO
           if constexpr(mersenne) {
             (void)p;// p is not used in this case.
             cc = mersenne_mod(buffer_local[i]);
           } else {
+#endif
             cc = (int64_t)(((uint64_t)buffer_local[i]) % p);
+#ifdef KOMMUNOPP_FAST_MERSENNE_PRIME_MODULO
           }
+#endif
           buffer_local[i] = cc;
           if(cc != 0) {
             rr = atomic_pivots[i];
@@ -538,7 +546,8 @@ gauss_elim(uint32_mat_t mat,
         }
 
         // we have a zero row
-        if(buffer_ids_local.empty() or (proof and buffer_ids_local[0] >= mat->ncol - mat->nrow)) {
+        if(buffer_ids_local.empty()
+           or (proof and buffer_ids_local[0] >= mat->ncol - mat->nrow)) {
           sparse_vec_clear(row);
           for(auto id : buffer_ids_local)
             buffer_local[id] = 0;

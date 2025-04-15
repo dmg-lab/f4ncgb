@@ -9,6 +9,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 option(ENABLE_PROFILING "Enable tracking statistics" ON)
 option(ENABLE_FUZZER "Enable building the fuzzer, if available" OFF)
+option(ENABLE_FAST_MERSENNE_PRIME_MODULO "Enable fast mersenne prime modulo operation" ON)
 option(ENABLE_MONOMIAL_PRODUCTS_MAP "Track and cache monomial products in map" OFF)
 option(ENABLE_COMPACT_MONOMIAL_MAP "Use a more compact map for lookups in the monomial store" OFF)
 
@@ -66,6 +67,13 @@ target_link_libraries(freegb PUBLIC kommunopp)
 set_property(TARGET kommunopp PROPERTY CXX_STANDARD 20)
 set_property(TARGET kommunopp_test PROPERTY CXX_STANDARD 20)
 set_property(TARGET freegb PROPERTY CXX_STANDARD 20)
+
+if(ENABLE_FAST_MERSENNE_PRIME_MODULO)
+  message(STATUS "Fast % 2^31-1 (mersenne prime) modulo operation is enabled.")
+  target_compile_definitions(kommunopp PUBLIC KOMMUNOPP_FAST_MERSENNE_PRIME_MODULO)
+else()
+  message(STATUS "Fast % 2^31-1 (mersenne prime) modulo operation is disabled.")
+endif()
 
 if(ENABLE_MONOMIAL_PRODUCTS_MAP)
   message(STATUS "Monomial products map is enabled.")
