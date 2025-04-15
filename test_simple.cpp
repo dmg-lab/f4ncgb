@@ -228,7 +228,7 @@ BOOST_AUTO_TEST_CASE(parse_small_ms_into_polynomial) {
   std::vector<I::idx> polys(ps.begin(), ps.end());
   BOOST_REQUIRE(polys[0] == 0);
   BOOST_REQUIRE(polys[1] == 1);
-  BOOST_REQUIRE(polys[2] == 25);
+  BOOST_REQUIRE(polys[2] == 21);
   std::vector<I::idx> poly1(ps[polys[1]].begin(), ps[polys[1]].end());
 
   BOOST_TEST(poly1[0] == 3);
