@@ -36,6 +36,11 @@
 #include <sys/mman.h>
 #endif
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Walloc-size"
+#endif
+
 namespace kommunopp {
 
 namespace internal {
@@ -916,6 +921,10 @@ class polynomial_store
   }
 };
 }
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 int
 coefficient_sign(const boost::multiprecision::backends::gmp_rational& r);
