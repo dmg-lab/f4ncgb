@@ -10,8 +10,8 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 option(ENABLE_PROFILING "Enable tracking statistics" ON)
 option(ENABLE_FUZZER "Enable building the fuzzer, if available" OFF)
 option(ENABLE_FAST_MERSENNE_PRIME_MODULO "Enable fast mersenne prime modulo operation" ON)
-option(ENABLE_MONOMIAL_PRODUCTS_MAP "Track and cache monomial products in map" OFF)
-option(ENABLE_COMPACT_MONOMIAL_MAP "Use a more compact map for lookups in the monomial store" OFF)
+option(ENABLE_MONOMIAL_PRODUCTS_MAP "Track and cache monomial products in map (usually slower)" OFF)
+option(ENABLE_COMPACT_MONOMIAL_MAP "Use a more compact map for lookups in the monomial store (usually slower)" OFF)
 
 set(KOMMUNOPP_SRCS
   kommunopp.cpp
