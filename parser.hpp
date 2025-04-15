@@ -282,6 +282,8 @@ class parser_context {
         } else {
           o << " + ";
         }
+      } else if(coefficient_sign(**coeff_it_ptr) < 0) {
+        o << "-";
       }
     }
 

@@ -233,3 +233,27 @@ BOOST_AUTO_TEST_CASE(parse_small_ms_into_polynomial) {
 
   BOOST_TEST(poly1[0] == 3);
 }
+
+BOOST_AUTO_TEST_CASE(parse_braid3) {
+  auto dir_optional = get_test_input_files_location();
+  BOOST_REQUIRE(dir_optional.has_value());
+  std::filesystem::path dir = *dir_optional;
+
+  std::filesystem::path input = dir / "braid3.ms";
+
+  using I = impl<>;
+  I::monomial_store ms;
+  I::polynomial_store ps(ms);
+
+  parser_context ctx;
+  ctx.open(input);
+  parse_res r = ctx.parse_header();
+  BOOST_REQUIRE(!r.has_value());
+
+  r = parse_rest_into_polynomial_store(ctx, ps);
+  BOOST_REQUIRE(!r.has_value());
+
+  BOOST_CHECK(ctx.characteristic() == 0);
+  BOOST_CHECK(ctx.num_vars() == 3);
+  BOOST_CHECK(ctx.num_blocks() == 1);
+}
