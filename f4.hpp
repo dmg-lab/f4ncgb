@@ -171,7 +171,7 @@ struct f4 {
       o << c;
       if(t.a != 0)
         context.to_msolve_mon(o, poly, t.a, false);
-      o << "*G[" << t.i << "]";
+      o << "*[" << t.i << "]";
       if(t.b != 0)
         context.to_msolve_mon(o, poly, t.b, false);
     }
