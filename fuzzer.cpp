@@ -21,7 +21,7 @@ bool tracer = false;
 
 Domain<std::vector<std::vector<uint8_t>>>
 UniqueAcrossVectors(uint8_t max_value = 254,
-                    size_t max_vectors = MAX_BLOCKS - 1) {
+                    size_t max_vectors = KOMMUNOPP_MAX_BLOCKS - 1) {
   auto number_of_values = InRange<uint8_t>(2, max_value);
 
   return Map(

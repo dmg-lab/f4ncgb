@@ -44,7 +44,7 @@ kommunopp_main(parser_context& context,
                const std::string& output_name,
                const std::string& proof_file,
                bool print_read_problem) {
-  boost::mp11::mp_with_index<MAX_BLOCKS>(
+  boost::mp11::mp_with_index<KOMMUNOPP_MAX_BLOCKS>(
     nblocks,
     [&context,
      nvars,
@@ -55,7 +55,8 @@ kommunopp_main(parser_context& context,
      verified_algebra,
      output_name,
      proof_file,
-     print_read_problem](auto Nblocks) {
+     print_read_problem,
+     nblocks](auto Nblocks) {
       f4<Nblocks> algo(context,
                        nvars,
                        characteristic,
@@ -111,10 +112,13 @@ kommunopp_main(parser_context& context,
         msg("Characteristic:    %lu", characteristic);
         msg("Max. Iterations:   %lu", maxiter);
         msg("Max. amb. degree:  %lu", maxdeg);
+        msg("Number of blocks:  %lu", nblocks);
+        msg("Max nr. of blocks: %lu", KOMMUNOPP_MAX_BLOCKS);
         msg(mon_order.str().c_str());
         msg("Nr. threads:       %lu", threads);
         msg(out_name.c_str());
-        msg("Proof logging:     %s", proof ? ("on (writing to " + proof_file + ")").c_str() : "off");
+        msg("Proof logging:     %s",
+            proof ? ("on (writing to " + proof_file + ")").c_str() : "off");
         msg("Tracer:            %s", tracer ? "on" : "off");
         msg("Verified algebra:  %s", verified_algebra ? "on" : "off");
         msg("==== Starting Gröbner Basis Computation ====");

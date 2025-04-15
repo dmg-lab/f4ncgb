@@ -116,7 +116,7 @@ main(int argc, char** argv) {
   size_t nblocks = 0;
   if(context.num_blocks() > 1)
     nblocks = context.num_blocks();
-  if(nblocks > MAX_BLOCKS)
+  if(nblocks > KOMMUNOPP_MAX_BLOCKS)
     die(4, "More blocks than current compilation allows\n");
 
   size_t characteristic = context.characteristic();

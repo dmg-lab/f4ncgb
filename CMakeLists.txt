@@ -13,6 +13,8 @@ option(ENABLE_FAST_MERSENNE_PRIME_MODULO "Enable fast mersenne prime modulo oper
 option(ENABLE_MONOMIAL_PRODUCTS_MAP "Track and cache monomial products in map (usually slower)" OFF)
 option(ENABLE_COMPACT_MONOMIAL_MAP "Use a more compact map for lookups in the monomial store (usually slower)" OFF)
 
+set(MAX_BLOCKS 16 CACHE STRING "Maximum number of blocks to compile for. Must be integral. Changes compilation time (duplicates implementation for each block).")
+
 set(KOMMUNOPP_SRCS
   kommunopp.cpp
   signal_statistics.cpp
@@ -67,6 +69,9 @@ target_link_libraries(freegb PUBLIC kommunopp)
 set_property(TARGET kommunopp PROPERTY CXX_STANDARD 20)
 set_property(TARGET kommunopp_test PROPERTY CXX_STANDARD 20)
 set_property(TARGET freegb PROPERTY CXX_STANDARD 20)
+
+target_compile_definitions(kommunopp PUBLIC KOMMUNOPP_MAX_BLOCKS=${MAX_BLOCKS})
+message(STATUS "Compiling with " ${MAX_BLOCKS} " maximum blocks.")
 
 if(ENABLE_FAST_MERSENNE_PRIME_MODULO)
   message(STATUS "Fast % 2^31-1 (mersenne prime) modulo operation is enabled.")
