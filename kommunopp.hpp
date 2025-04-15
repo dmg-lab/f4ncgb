@@ -36,7 +36,7 @@
 #include <sys/mman.h>
 #endif
 
-#ifdef __GNUC__
+#if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Walloc-size"
 #endif
@@ -922,7 +922,7 @@ class polynomial_store
 };
 }
 
-#ifdef __GNUC__
+#if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
 
