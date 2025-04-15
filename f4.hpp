@@ -3,12 +3,12 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <fstream>
 #include <ostream>
 #include <set>
 #include <span>
 #include <utility>
 #include <vector>
-#include <fstream>
 
 #include <boost/align/align_down.hpp>
 #include <boost/align/align_up.hpp>
@@ -133,10 +133,10 @@ struct f4 {
       pool = std::make_unique<BS::thread_pool<BS::none>>(num_threads);
 
     if(proof_file_ != "") {
-        proof_file.open(proof_file_);
-        if(!proof_file)
-          die(19, "Failed to open proof file.");
-      }
+      proof_file.open(proof_file_);
+      if(!proof_file)
+        die(19, "Failed to open proof file.");
+    }
   }
   //------------------------------------------------------------------------------
   struct triplet {
@@ -166,14 +166,12 @@ struct f4 {
                     parser_context& context,
                     polynomial_store& poly,
                     bool first = false) {
-      if(!first) {
-        o << (mpq_sgn(c.data()) > 0 ? " + " : " - ");
-        mpq_abs(c.data(), c.data());
-      }
+      if(!first)
+        o << (mpq_sgn(c.data()) > 0 ? " + " : " ");
       o << c;
       if(t.a != 0)
         context.to_msolve_mon(o, poly, t.a, false);
-      o << "*(" << t.i << ")";
+      o << "*G[" << t.i << "]";
       if(t.b != 0)
         context.to_msolve_mon(o, poly, t.b, false);
     }
@@ -529,11 +527,11 @@ struct f4 {
 
     return res;
   }
+
   //------------------------------------------------------------------------------
   void log_cofactors() {
 
     std::vector<cofactor> expanded;
-    bool first = true;
     // if not input, we have to rewrite
     if(basis.size() > 1) {
       for(size_t n = basis.size(); n < cofactors.size(); n++) {
@@ -545,7 +543,6 @@ struct f4 {
           for(auto& cofactor_i : cofactors[cofactor.i()]) {
             C cc;
             mpq_mul(cc.data(), c.data(), cofactor_i.c.data());
-
             mon_id aa = mons.get_product_id(a, cofactor_i.a());
             mon_id bb = mons.get_product_id(cofactor_i.b(), b);
             expanded.emplace_back(cc, aa, cofactor_i.i(), bb);
@@ -555,6 +552,7 @@ struct f4 {
       }
     }
 
+    bool first = true;
     for(size_t n = basis.size(); n < cofactors.size(); n++) {
       first = true;
       for(auto& cofactor : cofactors[n]) {
@@ -699,7 +697,6 @@ struct f4 {
     for(auto r : rows) {
       auto row = sparse_mat_row(mat, i);
       std::span<C> coeffs = poly.get_coefficients(r);
-
       // compute common denominator so that we can normalize row
       get_common_denom(denom, tmp, coeffs);
 
@@ -726,7 +723,7 @@ struct f4 {
       // insert transformation matrix - if required
       if(proof) {
         row->indices[k] = n + i;
-        fmpz_set_ui(row->entries + k, 1);
+        fmpz_set(row->entries + k, denom);
       }
       i++;
     }
@@ -738,8 +735,10 @@ struct f4 {
   void update_basis_and_amb(std::vector<poly_id>& new_elements) {
 
     // log cofactors
-    if(proof)
+    if(proof) {
+      KOMMUNOPP_TIME(other);
       log_cofactors();
+    }
 
     uint16_t n = basis.size();
     for(const poly_id p_id : new_elements) {

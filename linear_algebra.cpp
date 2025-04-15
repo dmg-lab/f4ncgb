@@ -454,6 +454,7 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
           buffer_ids.push_back(i);
         } else {
           assert(sparse_mat_row(mat, rr)->indices[0] == i);
+          assert(sparse_mat_row(mat, rr)->entries[0] == 1);
           buffer[i] = 0;
           xmay(buffer, cc, sparse_mat_row(mat, rr), p2);
         }
@@ -555,7 +556,6 @@ gauss_elim(uint32_mat_t mat,
           trace[r] = tracer;
           return;
         }
-
         copy_from_buffer_and_clear(buffer_local, buffer_ids_local, row);
         normalize_row(row, mod);
         expected = -1;
