@@ -594,14 +594,15 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
   mpz_int prod = 1;
   mpz_int M = mat->ncol * 10000000 * (h + 100) * h + 1;
 
-  uint32_t p;
+  uint32_t p = PRIMES[0];
   nmod_t mod;
   bool res;
 
   while(true) {
     while(prod < M) {
-      if(i >= MAX_PRIMES)
+      if(i >= MAX_PRIMES) {
         die(-1, "Multimodular Gaussian elimination is not converging");
+      }
       p = PRIMES[i++];
 
       if(verbose > 2)
