@@ -57,14 +57,16 @@ kommunopp_main(parser_context& context,
      proof_file,
      print_read_problem,
      nblocks](auto Nblocks) {
-      f4<Nblocks> algo(context,
-                       nvars,
-                       characteristic,
-                       maxiter,
-                       maxdeg,
-                       threads,
-                       verified_algebra,
-                       proof_file);
+      std::unique_ptr<f4<Nblocks>> algo_ptr
+        = std::make_unique<f4<Nblocks>>(context,
+                                        nvars,
+                                        characteristic,
+                                        maxiter,
+                                        maxdeg,
+                                        threads,
+                                        verified_algebra,
+                                        proof_file);
+      auto& algo = *algo_ptr;
       {
         KOMMUNOPP_TIME(parse);
         if(auto err = algo.read_input(context)) {
@@ -137,8 +139,18 @@ kommunopp_main(parser_context& context,
         out_file = &filestream;
       }
       algo.write_basis(*out_file);
+
+    // This is the main function. We do not need to clean up
+    // usually. This optimization is only done when not doing
+    // Address Sanitizing and when building without assertions.
+
+#if defined(__has_feature) && NDEBUG
+#if !__has_feature(address_sanitizer)
+      algo_ptr.release();
     });
   return 0;
+#endif
+#endif
 }
 }
 
