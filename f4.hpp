@@ -67,7 +67,7 @@ struct f4 {
   using amb_hash = ambiguity_hash<mon_id>;
   using crit_pair = std::pair<poly_id, poly_id>;
 
-  using monomial_trie = monomial_trie<V, I>;
+  using monomial_trie_ = monomial_trie<V, I>;
 
   // Custom hash function for std::span
   struct monomial_hash {
@@ -96,8 +96,8 @@ struct f4 {
   std::map<size_t, boost::unordered_set<ambiguity, amb_hash>> amb;
   std::set<crit_pair> crit_pairs;
   boost::unordered_map<mon_id, poly_id> lm_to_poly;
-  monomial_trie prefix_trie;
-  monomial_trie suffix_trie;
+  monomial_trie_ prefix_trie;
+  monomial_trie_ suffix_trie;
   std::unique_ptr<BS::thread_pool<BS::none>> pool;
 
   size_t characteristic = 0;
