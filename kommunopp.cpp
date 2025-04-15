@@ -44,7 +44,7 @@ kommunopp_main(parser_context& context,
                const std::string& output_name,
                const std::string& proof_file,
                bool print_read_problem) {
-  boost::mp11::mp_with_index<KOMMUNOPP_MAX_BLOCKS>(
+  return boost::mp11::mp_with_index<KOMMUNOPP_MAX_BLOCKS>(
     nblocks,
     [&context,
      nvars,
@@ -56,7 +56,7 @@ kommunopp_main(parser_context& context,
      output_name,
      proof_file,
      print_read_problem,
-     nblocks](auto Nblocks) {
+     nblocks](auto Nblocks) -> int {
       std::unique_ptr<f4<Nblocks>> algo_ptr
         = std::make_unique<f4<Nblocks>>(context,
                                         nvars,
