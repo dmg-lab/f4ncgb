@@ -94,6 +94,7 @@ class parser_context {
   inline int getc() {
     assert(f);
     if(!f || feof(f.get())) {
+      this->c = EOF;
       return EOF;
     }
     last_line = line;
@@ -286,15 +287,14 @@ class parser_context {
 
     bool was_neutral = false;
     bool output_asterisk = false;
-    if(coeff_it_ptr) {
-      if(coefficient_is_posneg_neutral(**coeff_it_ptr)) {
-        ++(*coeff_it_ptr);
-      }
+    if(coeff_it_ptr && coefficient_is_posneg_neutral(**coeff_it_ptr)) {
+      ++(*coeff_it_ptr);
       was_neutral = true;
     } else {
       output_asterisk = true;
       if(coeff_it_ptr) {
-        o << coefficient_abs(*(*coeff_it_ptr)++);
+        o << coefficient_abs(**coeff_it_ptr);
+        ++(*coeff_it_ptr);
       }
     }
     for(auto mon : m[mon_id]) {
