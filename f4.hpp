@@ -63,7 +63,7 @@ struct f4 {
   using mon_id = I;
   using poly_id = I;
 
-  using ambiguity = ambiguity<mon_id>;
+  using ambiguity_ = ambiguity<mon_id>;
   using amb_hash = ambiguity_hash<mon_id>;
   using crit_pair = std::pair<poly_id, poly_id>;
 
@@ -93,7 +93,7 @@ struct f4 {
   monomial_store mons;
   polynomial_store poly;
   std::vector<poly_id> basis;
-  std::map<size_t, boost::unordered_set<ambiguity, amb_hash>> amb;
+  std::map<size_t, boost::unordered_set<ambiguity_, amb_hash>> amb;
   std::set<crit_pair> crit_pairs;
   boost::unordered_map<mon_id, poly_id> lm_to_poly;
   monomial_trie_ prefix_trie;
@@ -265,7 +265,7 @@ struct f4 {
     }
   }
   //------------------------------------------------------------------------------
-  inline crit_pair to_crit_pair(const ambiguity& a) {
+  inline crit_pair to_crit_pair(const ambiguity_& a) {
     poly_id i = lm_to_poly[a.i()];
     poly_id j = lm_to_poly[a.j()];
 
@@ -307,7 +307,7 @@ struct f4 {
    *   0 if self == other
    *   1 if self is properly divisble by other
    **/
-  int inline divisible_by(const ambiguity& self, const ambiguity& other) const {
+  int inline divisible_by(const ambiguity_& self, const ambiguity_& other) const {
     assert(self.i() == other.i());
 
     std::span<const V> s_ai = mons[self.ai()];
@@ -324,12 +324,12 @@ struct f4 {
       return -1;
   }
   //------------------------------------------------------------------------------
-  std::vector<ambiguity> tmp;
+  std::vector<ambiguity_> tmp;
   std::vector<char> to_remove;
-  void gebauer_moeller(boost::unordered_set<ambiguity, amb_hash>& new_amb) {
+  void gebauer_moeller(boost::unordered_set<ambiguity_, amb_hash>& new_amb) {
     // first index is always the newer polynomial
 
-    auto cmp = [this](ambiguity& a, ambiguity& b) {
+    auto cmp = [this](ambiguity_& a, ambiguity_& b) {
       if(a.degree() != b.degree())
         return a.degree() < b.degree();
       if(a.j() != b.j())
@@ -369,7 +369,7 @@ struct f4 {
   //------------------------------------------------------------------------------
   std::vector<std::pair<mon_id, size_t>> overlaps;
   std::vector<std::pair<mon_id, size_t>> inclusions;
-  boost::unordered_set<ambiguity, amb_hash> new_amb;
+  boost::unordered_set<ambiguity_, amb_hash> new_amb;
   void compute_ambiguities(mon_id i) {
     monomial m = mons[i];
     monomial ab, b, bc, abc;
@@ -391,7 +391,7 @@ struct f4 {
           continue;
         I aj = mons.getid(ab.first(ab.size() - k));
         I ci = mons.getid(bc.last(bc.size() - k));
-        ambiguity a(d, i, j, 0, ci, aj, 0);
+        ambiguity_ a(d, i, j, 0, ci, aj, 0);
         new_amb.insert(a);
       }
       overlaps.clear();
@@ -407,7 +407,7 @@ struct f4 {
           continue;
         I ai = mons.getid(ab.first(ab.size() - k));
         I cj = mons.getid(bc.last(bc.size() - k));
-        ambiguity a(d, i, j, ai, 0, 0, cj);
+        ambiguity_ a(d, i, j, ai, 0, 0, cj);
         new_amb.insert(a);
       }
     }
@@ -423,7 +423,7 @@ struct f4 {
         b = mons[j];
         I aj = mons.getid(m.first(k));
         I cj = mons.getid(m.last(d - k - b.size()));
-        ambiguity a(d, i, j, 0, 0, aj, cj);
+        ambiguity_ a(d, i, j, 0, 0, aj, cj);
         new_amb.insert(a);
       }
       inclusions.clear();
@@ -441,7 +441,7 @@ struct f4 {
           continue;
         I ai = mons.getid(abc.first(abc.size() - b.size() - k));
         I ci = mons.getid(abc.last(k));
-        ambiguity a(d, i, j, ai, ci, 0, 0);
+        ambiguity_ a(d, i, j, ai, ci, 0, 0);
         new_amb.insert(a);
       }
     }
