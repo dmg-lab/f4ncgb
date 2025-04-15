@@ -27,7 +27,8 @@ struct monomial_trie {
   void print() {
     size_t i = 0;
     while(i < nodes.size()) {
-      std::cout << "nodes[" << i << "] = " << nodes[i++];
+      std::cout << "nodes[" << i << "] = " << nodes[i];
+      i++;
       std::cout << " : [";
       for(size_t j = 1; j < child_size + 1; j++)
         std::cout << nodes[i++] << ", ";
