@@ -32,7 +32,7 @@
 
 extern template struct kommunopp::monomial_trie<uint8_t, uint32_t>;
 extern int verbose;
-extern bool proof;
+extern int proof;
 
 using namespace boost::multiprecision;
 
@@ -141,10 +141,10 @@ struct f4 {
   //------------------------------------------------------------------------------
   struct triplet {
     mon_id a;
-    uint16_t i;
+    int i;
     mon_id b;
 
-    triplet(mon_id a_, uint16_t i_, mon_id b_)
+    triplet(mon_id a_, int i_, mon_id b_)
       : a(a_)
       , i(i_)
       , b(b_) {}
@@ -154,12 +154,12 @@ struct f4 {
     C c;
     triplet t;
 
-    cofactor(C c_, mon_id a_, uint16_t i_, mon_id b_)
+    cofactor(C c_, mon_id a_, int i_, mon_id b_)
       : c(c_)
       , t(a_, i_, b_) {}
 
     inline mon_id a() { return t.a; }
-    inline size_t i() { return t.i; }
+    inline int i() { return t.i; }
     inline mon_id b() { return t.b; }
 
     inline void log(std::ostream& o,
@@ -275,7 +275,7 @@ struct f4 {
     poly_id f = poly.multiply_front_and_back(ai, i, ci);
     poly_id g = poly.multiply_front_and_back(aj, j, cj);
 
-    if(proof) {
+    if(proof > 0) {
       assert(poly.get_idx(i) > 0);
       assert(poly.get_idx(j) > 0);
       extended_rows.emplace_back(ai, poly.get_idx(i), ci);
@@ -305,7 +305,8 @@ struct f4 {
    *   0 if self == other
    *   1 if self is properly divisble by other
    **/
-  int inline divisible_by(const ambiguity_& self, const ambiguity_& other) const {
+  int inline divisible_by(const ambiguity_& self,
+                          const ambiguity_& other) const {
     assert(self.i() == other.i());
 
     std::span<const V> s_ai = mons[self.ai()];
@@ -518,7 +519,7 @@ struct f4 {
     mon_id b = mons.getid(mm.last(mm.size() - match.second - lm.size()));
     poly_id g = lm_to_poly[match.first];
 
-    if(proof) {
+    if(proof > 0) {
       assert(poly.get_idx(g) > 0);
       extended_rows.emplace_back(a, poly.get_idx(g), b);
     }
@@ -531,16 +532,16 @@ struct f4 {
   //------------------------------------------------------------------------------
   void log_cofactors() {
 
-    std::vector<cofactor> expanded;
-    // if not input, we have to rewrite
-    if(basis.size() > 1) {
+    // compute expanded proofs
+    if(proof > 1 and basis.size() > 1) {
+      std::vector<cofactor> expanded;
       for(size_t n = basis.size(); n < cofactors.size(); n++) {
         expanded.clear();
         for(auto& cofactor : cofactors[n]) {
           C& c = cofactor.c;
           mon_id a = cofactor.a();
           mon_id b = cofactor.b();
-          for(auto& cofactor_i : cofactors[cofactor.i()]) {
+          for(auto& cofactor_i : cofactors[(uint)cofactor.i()]) {
             C cc;
             mpq_mul(cc.data(), c.data(), cofactor_i.c.data());
             mon_id aa = mons.get_product_id(a, cofactor_i.a());
@@ -550,8 +551,21 @@ struct f4 {
         }
         cofactors[n] = std::move(expanded);
       }
+      // non-expanded proof
+    } else if(proof == 1) {
+      // mark input
+      if(basis.size() == 1)
+        for(size_t n = basis.size(); n < cofactors.size(); n++)
+          for(auto& cofactor : cofactors[n])
+            cofactor.t.i *= -1;
+      // not input -> shift all indices down by one
+      else
+        for(size_t n = basis.size(); n < cofactors.size(); n++)
+          for(auto& cofactor : cofactors[n])
+            cofactor.t.i--;
     }
 
+    // write to file
     bool first = true;
     for(size_t n = basis.size(); n < cofactors.size(); n++) {
       first = true;
@@ -587,7 +601,7 @@ struct f4 {
         res.push_back(poly.add_polynomial(p));
         p.clear();
         cur_i = i;
-        if(proof) {
+        if(proof > 0) {
           cofactors.emplace_back(std::move(current_cofactors));
           current_cofactors.clear();
         }
@@ -605,7 +619,7 @@ struct f4 {
     }
     // don't forget to add last element
     res.push_back(poly.add_polynomial(p));
-    if(proof)
+    if(proof > 0)
       cofactors.emplace_back(std::move(current_cofactors));
 
     extended_rows.clear();
@@ -679,7 +693,7 @@ struct f4 {
     size_t n = columns.size();
 
     // initialize matrix
-    if(proof)
+    if(proof > 0)
       sparse_mat_init(mat, m, m + n);
     else
       sparse_mat_init(mat, m, n);
@@ -702,7 +716,7 @@ struct f4 {
 
       auto p = poly[r];
       auto nnz = p.size();
-      if(proof)
+      if(proof > 0)
         nnz += 1;// for transformation matrix
       sparse_vec_realloc(row, nnz);
       row->nnz = nnz;
@@ -721,7 +735,7 @@ struct f4 {
       }
 
       // insert transformation matrix - if required
-      if(proof) {
+      if(proof > 0) {
         row->indices[k] = n + i;
         fmpz_set(row->entries + k, denom);
       }
@@ -735,7 +749,7 @@ struct f4 {
   void update_basis_and_amb(std::vector<poly_id>& new_elements) {
 
     // log cofactors
-    if(proof) {
+    if(proof > 0) {
       KOMMUNOPP_TIME(other);
       log_cofactors();
     }

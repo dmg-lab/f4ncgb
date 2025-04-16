@@ -16,7 +16,7 @@ using block = std::vector<uint8_t>;
 using monomial = std::tuple<long, long, std::vector<uint8_t>>;
 using polynomial = std::vector<monomial>;
 
-bool proof = false;
+int proof = 0;
 bool tracer = false;
 
 Domain<std::vector<std::vector<uint8_t>>>

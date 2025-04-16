@@ -30,7 +30,7 @@ std::pair<std::vector<std::pair<size_t, size_t>>,
 multimodular_gauss_elim(sfmpz_mat_t mat,
                         std::unique_ptr<BS::thread_pool<BS::none>>& pool,
                         bool interreduce = false,
-                        bool proof = true);
+                        bool verify = true);
 
 std::pair<std::vector<std::pair<size_t, size_t>>,
           std::vector<boost::multiprecision::gmp_rational>>
@@ -45,5 +45,5 @@ linear_algebra(sfmpz_mat_t mat,
                size_t characteristic,
                std::unique_ptr<BS::thread_pool<BS::none>>& pool,
                bool interreduce = false,
-               bool proof = true);
+               bool verify = true);
 }

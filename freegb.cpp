@@ -31,7 +31,8 @@ static size_t threads = 0;
 
 // / Verified multimodular computations and proof logging
 static bool verified_algebra = true;
-bool proof = false;
+static bool expanded_proof = false;
+int proof = 0;
 bool tracer = true;
 /*------------------------------------------------------------------------*/
 // ERROR CODES:
@@ -59,6 +60,7 @@ main(int argc, char** argv) {
   desc.add_options()
     ("version", "produce version message")
     ("help,h", "produce help message")
+    ("expanded-proof,e",  po::value<bool>(&expanded_proof)->default_value(false), "Whether the proofs should be expanded and written in terms of the input. Requires proof logging to be turned on.")
     ("input,i", po::value<std::string>(&input_name)->default_value(""), "Set the input file (either msolve, poly, or sympoly; switched according to content).")
     ("maxiter,m", po::value<size_t>(&maxiter)->default_value(10), "Maximal number of iterations of the F4-algorithm to be performed.")
     ("maxdeg,d", po::value<size_t>(&maxdeg)->default_value(UINT_MAX), "Maximal degree of ambiguities that are considered.")
@@ -129,7 +131,13 @@ main(int argc, char** argv) {
         "Provided nonzero characteristic %lu is not prime.",
         characteristic);
 
-  proof = (proof_file != "");
+  if(proof_file != "")
+    proof++;
+
+  if(proof == 0 and expanded_proof)
+    die(78, "Flag for expanded proofs provided but no proof file");
+  if(expanded_proof)
+    proof++;
 
   res = kommunopp::kommunopp_main(context,
                                   nblocks,

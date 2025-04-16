@@ -22,7 +22,7 @@
 using namespace boost::multiprecision;
 
 extern int verbose;
-extern bool proof;
+extern int proof;
 extern bool tracer;
 
 namespace kommunopp {
@@ -122,7 +122,7 @@ crt_reconstruction(fmpz*& entries,
     for(auto& rref : rrefs) {
       auto row = sparse_mat_row(rref, i);
       // include row only if polynomial part is nonzero
-      if(!proof or row->nnz > 0)
+      if(proof == 0 or row->nnz > 0)
         nnz_pos_row.insert(row->indices, row->indices + row->nnz);
     }
   }
@@ -548,7 +548,7 @@ gauss_elim(uint32_mat_t mat,
 
         // we have a zero row
         if(buffer_ids_local.empty()
-           or (proof and buffer_ids_local[0] >= mat->ncol - mat->nrow)) {
+           or (proof > 0 and buffer_ids_local[0] >= mat->ncol - mat->nrow)) {
           sparse_vec_clear(row);
           for(auto id : buffer_ids_local)
             buffer_local[id] = 0;
@@ -582,7 +582,7 @@ std::pair<std::vector<std::pair<size_t, size_t>>, std::vector<gmp_rational>>
 multimodular_gauss_elim(sfmpz_mat_t mat,
                         std::unique_ptr<BS::thread_pool<BS::none>>& pool,
                         bool interreduce,
-                        bool proof) {
+                        bool verify) {
   std::vector<std::unique_ptr<sparse_mat_struct<uint32_t>>> rrefs;
   pivots best_piv;
   std::vector<pivots> pivs;
@@ -702,7 +702,7 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
       continue;
     }
 
-    if(!proof or verify_result(rat_entries, h, mat->ncol, prod))
+    if(!verify or verify_result(rat_entries, h, mat->ncol, prod))
       break;
   }
   for(const auto& rref : rrefs)
@@ -774,7 +774,7 @@ linear_algebra(sfmpz_mat_t mat,
                size_t characteristic,
                std::unique_ptr<BS::thread_pool<BS::none>>& pool,
                bool interreduce,
-               bool proof) {
+               bool verify) {
   // sort rows by first index and nnz
   std::sort(mat->rows, mat->rows + mat->nrow, [](auto& r1, auto& r2) {
     auto id1 = r1.indices[0];
@@ -785,7 +785,7 @@ linear_algebra(sfmpz_mat_t mat,
   });
 
   if(characteristic == 0)
-    return multimodular_gauss_elim(mat, pool, interreduce, proof);
+    return multimodular_gauss_elim(mat, pool, interreduce, verify);
   else
     return nmod_gauss_elim(mat, characteristic, pool, interreduce);
 }
