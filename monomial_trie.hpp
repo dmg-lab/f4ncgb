@@ -166,6 +166,7 @@ struct monomial_trie {
       uint64_t word = nodes[cur_idx];
       if(word)
         res.emplace_back(word, depth);
+      assert(cur_idx + c < nodes.size());
       cur_idx = nodes[cur_idx + c];
       // no more matching prefixes
       if(cur_idx == 0)
