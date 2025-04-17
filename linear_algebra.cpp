@@ -640,7 +640,6 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
         }
       };
       pivots piv(gauss_elim_wrapper());
-      KOMMUNOPP_PROFILE(timer.~adding_timer());
 
       if(cmp_pivots(best_piv, piv) <= 0) {
         best_piv = piv;
@@ -684,10 +683,12 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
       crt_reconstruction(crt_entries, idxs, good_rrefs, good_primes, n_piv);
     }
 
-    KOMMUNOPP_PROFILE(auto timer = gstats.time(gstats.ratrec));
-    bool success
-      = rational_reconstruction(rat_entries, crt_entries, prod, idxs.size());
-    KOMMUNOPP_PROFILE(timer.~adding_timer());
+    bool success;
+    {
+      KOMMUNOPP_PROFILE(auto timer = gstats.time(gstats.ratrec));
+      success
+        = rational_reconstruction(rat_entries, crt_entries, prod, idxs.size());
+    }
 
     for(size_t i = 0; i < idxs.size(); i++)
       fmpz_clear(crt_entries + i);
@@ -738,7 +739,6 @@ nmod_gauss_elim(sfmpz_mat_t mat,
     }
   };
   pivots piv(gauss_elim_wrapper());
-  KOMMUNOPP_PROFILE(timer.~adding_timer());
 
   // compute rows with new leading terms
   size_t n_piv;
