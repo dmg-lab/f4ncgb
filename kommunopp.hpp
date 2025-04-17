@@ -38,6 +38,8 @@
 
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push
+// Older GCC compilers warn about unknown warnings, which is really annoying.
+#pragma GCC diagnostic ignored "-Wpragmas"
 #pragma GCC diagnostic ignored "-Walloc-size"
 #endif
 
@@ -169,6 +171,8 @@ class store {
 #else
     size_t absolute_max = std::numeric_limits<size_t>::max();
 #endif
+#else
+    size_t absolute_max = std::numeric_limits<size_t>::max();
 #endif
     return std::min(
       static_cast<size_t>(std::numeric_limits<I>::max() * alignof(M)),
@@ -731,6 +735,8 @@ class polynomial_store
 #else
     size_t absolute_max = std::numeric_limits<size_t>::max();
 #endif
+#else
+    size_t absolute_max = std::numeric_limits<size_t>::max();
 #endif
     return std::min(static_cast<size_t>(std::numeric_limits<I>::max()),
                     absolute_max);
