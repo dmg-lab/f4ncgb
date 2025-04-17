@@ -154,7 +154,7 @@ class parser_context {
     return c;
   }
   inline int swallow_whitespace_and_newline() {
-    while(c == ' ' || c == '\t' || c == '\n') {
+    while(c == ' ' || c == '\t' || c == '\n' || c == '\r') {
       getc();
     }
     return c;
@@ -162,10 +162,10 @@ class parser_context {
 
   static inline bool msolve_ident_filter(char c) {
     return c != '-' && c != '/' && c != '*' && c != '+' && c != ',' && c != ' '
-           && c != '\n' && c != '\t' && c != '^';
+           && c != '\n' && c != '\r' && c != '\t' && c != '^';
   }
   static inline bool sympoly_ident_filter(char c) {
-    return c != ' ' && c != '\n' && c != '\t';
+    return c != ' ' && c != '\n' && c != '\t' && c != '\r';
   }
 
   template<typename Filter>
