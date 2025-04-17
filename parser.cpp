@@ -254,13 +254,21 @@ parser_context::impl_msolve(parse_add_cb add_cb,
 
     // Maybe another polynomial, or break.
     if(c == ',') {
-      READ('\n');
       c = getc();
+      if(c == '\r') {
+        c = getc();
+      }
+      if(c == '\n') {
+        c = getc();
+      }
 
       // Boundary between polynomials.
       ADD(0);
-    } else if(c == '\n') {
+    } else if(c == '\n' || c == '\r') {
       // Very last polynomial.
+      if(c == '\r') {
+        c = getc();
+      }
       ADD(0);
       break;
     } else {
@@ -337,6 +345,10 @@ parser_context::impl_msolve_header(char first_char, char second_char) {
   while(true) {
     c = swallow_whitespace_no_newline();
 
+    if(c == '\r') {
+      c = getc();
+    }
+
     // No more variables.
     if(c == '\n') {
       break;
@@ -359,6 +371,9 @@ parser_context::impl_msolve_header(char first_char, char second_char) {
   }
 
   // Step over newline.
+  if(c == '\r') {
+    c = getc();
+  }
   EXPECT('\n');
   c = getc();
 
@@ -367,6 +382,9 @@ parser_context::impl_msolve_header(char first_char, char second_char) {
   characteristic_ = read_positive_int();
 
   // Step over newline.
+  if(c == '\r') {
+    c = getc();
+  }
   EXPECT('\n');
   c = getc();
 
@@ -595,13 +613,29 @@ dummy_parse_string(std::string input) {
   int add_cb_count = 0;
   int boundary_cb_count = 0;
 
-  auto add_cb = [&add_cb_count](uint32_t i) { (void)i; if(add_cb_count++ > 10000000) { assert(false); }return std::nullopt; };
-  auto boundary_cb = [&boundary_cb_count](long numerator, long denominator, bool is_rational) { (void) numerator; (void) denominator; (void) is_rational; if(boundary_cb_count++ > 10000000) { assert(false); } return std::nullopt; };
+  auto add_cb = [&add_cb_count](uint32_t i) {
+    (void)i;
+    if(add_cb_count++ > 10000000) {
+      assert(false);
+    }
+    return std::nullopt;
+  };
+  auto boundary_cb
+    = [&boundary_cb_count](long numerator, long denominator, bool is_rational) {
+        (void)numerator;
+        (void)denominator;
+        (void)is_rational;
+        if(boundary_cb_count++ > 10000000) {
+          assert(false);
+        }
+        return std::nullopt;
+      };
 
-  FILE *f = fmemopen((void*)input.c_str(), input.size(), "r");
+  FILE* f = fmemopen((void*)input.c_str(), input.size(), "r");
 
   if(!f) {
-    std::cout << "Could not make a memory-backed file. Error: " << strerror(errno) << std::endl;
+    std::cout << "Could not make a memory-backed file. Error: "
+              << strerror(errno) << std::endl;
     exit(1);
   }
 
@@ -610,9 +644,8 @@ dummy_parse_string(std::string input) {
   parse(ctx, add_cb, boundary_cb);
 }
 #else
-void dummy_parse_string(std::string input) {
-
-}
+void
+dummy_parse_string(std::string input) {}
 #endif
 
 }
