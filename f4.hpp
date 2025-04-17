@@ -659,12 +659,10 @@ struct f4 {
     KOMMUNOPP_PROFILE(auto timer = gstats.time(gstats.reduction));
     auto [idxs, entries] = linear_algebra(
       mat, characteristic, pool, interreduce, verified_algebra);
-    KOMMUNOPP_PROFILE(timer.~adding_timer());
 
     // compute new elements
     KOMMUNOPP_PROFILE(auto timer2 = gstats.time(gstats.new_elements));
     auto& new_elements = compute_new_polynomials(idxs, entries, columns);
-    KOMMUNOPP_PROFILE(timer2.~adding_timer());
 
     sparse_mat_clear(mat);
 
