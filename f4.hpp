@@ -171,7 +171,10 @@ struct f4 {
       o << c;
       if(t.a != 0)
         context.to_msolve_mon(o, poly, t.a, false);
-      o << "*[" << t.i << "]";
+      if(t.i >= 0)
+        o << "*[" << t.i << "]";
+      else
+        o << "*[i" << -t.i - 1 << "]";
       if(t.b != 0)
         context.to_msolve_mon(o, poly, t.b, false);
     }
@@ -557,7 +560,7 @@ struct f4 {
       if(basis.size() == 1)
         for(size_t n = basis.size(); n < cofactors.size(); n++)
           for(auto& cofactor : cofactors[n])
-            cofactor.t.i *= -1;
+            cofactor.t.i = -cofactor.t.i - 1;
       // not input -> shift all indices down by one
       else
         for(size_t n = basis.size(); n < cofactors.size(); n++)
