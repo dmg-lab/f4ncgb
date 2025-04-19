@@ -3,23 +3,17 @@
 import sys
 import getopt
 
+import argparse
+
 def read_input(argv):
- 
-    opts, args = getopt.getopt(argv[1:], "i:o:d:")
+    parser = argparse.ArgumentParser(description='Process some inputs.')
+    parser.add_argument('input', type=argparse.FileType('r'), help='Input file')
+    parser.add_argument('-o', '--output', type=argparse.FileType('w'), required=True, help='Output file')
+    parser.add_argument('-d', dest='deg', type=int, default=0, help='Degree value')
+
+    args = parser.parse_args(argv[1:])
     
-    input = None
-    output = None
-    deg = 0
-        
-    for opt, arg in opts:
-        if opt == "-i":
-            input = open(arg, 'r')
-        elif opt == "-o":
-            output = open(arg,'w')
-        elif opt == "-d":
-            deg = arg
-        
-    return input, output, deg
+    return args.input, args.output, str(args.deg)
     
 if __name__ == '__main__':  
     
