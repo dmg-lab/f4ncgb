@@ -13,3 +13,5 @@ perf.data.old
 /fuzztest/
 heaptrack.*
 massif.*
+*.zst
+*.png

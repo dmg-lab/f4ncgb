@@ -14,6 +14,10 @@
 #include <boost/program_options.hpp>
 #include <config.hpp>
 
+#ifdef KOMMUNOPP_ENABLE_STORE_TRACE
+#include "store_tracer.hpp"
+#endif
+
 namespace po = boost::program_options;
 
 // / Name of the input file
@@ -101,6 +105,10 @@ main(int argc, char** argv) {
   int res = 0;
 
   std::filesystem::path in = input_name;
+
+#ifdef KOMMUNOPP_ENABLE_STORE_TRACE
+  kommunopp::store_tracer::set_prefix(in.filename());
+#endif
 
   parser_context context;
   parse_res r;

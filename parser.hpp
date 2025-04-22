@@ -1,6 +1,8 @@
 #pragma once
 
 #include "kommunopp.hpp"
+#include "zip_utils.hpp"
+
 #include <filesystem>
 #include <format>
 #include <memory>

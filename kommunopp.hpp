@@ -32,6 +32,10 @@
 #include "ambiguity.hpp"
 #include "gmp.h"
 
+#ifdef KOMMUNOPP_ENABLE_STORE_TRACE
+#include "store_tracer.hpp"
+#endif
+
 #ifdef __linux__
 #include <sys/mman.h>
 #endif
@@ -323,6 +327,10 @@ class store {
 
     const V* start = get_value_from_id(id - 1);
 
+#ifdef KOMMUNOPP_ENABLE_STORE_TRACE
+    reinterpret_cast<B*>(const_cast<self*>(this))->tracer_.access(id);
+#endif
+
     return std::span<const V>(start, len);
   }
 
@@ -422,6 +430,10 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
 
   using ambiguity_ = ambiguity<I>;
   using amb_hash = ambiguity_hash<I>;
+
+#ifdef KOMMUNOPP_ENABLE_STORE_TRACE
+  store_tracer tracer_ = store_tracer("monomial_store");
+#endif
 
 #ifdef KOMMUNOPP_USE_COMPACT_MONOMIAL_MAP
   using lookup_map
@@ -710,6 +722,11 @@ class polynomial_store
                  polynomial_metadata<PM, I>,
                  I,
                  I> {
+
+#ifdef KOMMUNOPP_ENABLE_STORE_TRACE
+  store_tracer tracer_ = store_tracer("polynomial_store");
+#endif
+
   public:
   using self = polynomial_store<PM, MM, V, I, C, Nblocks>;
   using base = store<polynomial_store<PM, MM, V, I, C, Nblocks>,

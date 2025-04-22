@@ -12,6 +12,7 @@ option(ENABLE_FUZZER "Enable building the fuzzer, if available" OFF)
 option(ENABLE_FAST_MERSENNE_PRIME_MODULO "Enable fast mersenne prime modulo operation" ON)
 option(ENABLE_MONOMIAL_PRODUCTS_MAP "Track and cache monomial products in map (usually slower)" OFF)
 option(ENABLE_COMPACT_MONOMIAL_MAP "Use a more compact map for lookups in the monomial store (usually slower)" OFF)
+option(ENABLE_STORE_TRACE "Enable a (very expensive) trace of each access (operator[]) into a store." OFF)
 
 set(MAX_BLOCKS 16 CACHE STRING "Maximum number of blocks to compile for. Must be integral. Changes compilation time (duplicates implementation for each block).")
 
@@ -22,6 +23,7 @@ set(KOMMUNOPP_SRCS
   monomial_trie.cpp
   primes.cpp
   linear_algebra.cpp
+  zip_utils.cpp
 )
 
 set(KOMMUNOPP_TEST_SRCS
@@ -38,6 +40,10 @@ endif()
 set(KOMMUNOPP_TARGETS
   freegb.cpp
 )
+
+if(ENABLE_STORE_TRACE)
+  list(APPEND KOMMUNOPP_SRCS store_tracer.cpp)
+endif()
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/config.hpp.in" "${CMAKE_CURRENT_BINARY_DIR}/config.hpp")
 
@@ -92,6 +98,13 @@ if(ENABLE_COMPACT_MONOMIAL_MAP)
   target_compile_definitions(kommunopp PUBLIC KOMMUNOPP_USE_COMPACT_MONOMIAL_MAP)
 else()
   message(STATUS "Compact monomial map is disabled")
+endif()
+
+if(ENABLE_STORE_TRACE)
+  message(STATUS "Store tracing is enabled")
+  target_compile_definitions(kommunopp PUBLIC KOMMUNOPP_ENABLE_STORE_TRACE)
+else()
+  message(STATUS "Store tracing is disabled")
 endif()
 
 if(CMAKE_BUILD_TYPE MATCHES "Sanitize")
