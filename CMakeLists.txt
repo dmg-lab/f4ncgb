@@ -70,6 +70,8 @@ set(CMAKE_CXX_STANDARD 20)
 if(TARGET mimalloc)
   list(APPEND F4NCGB_SRCS enable-mimalloc.cpp)
   message(STATUS "Found mimalloc and use it")
+else()
+  message(STATUS "Not using mimalloc, but it gives you approx. 10-15% speedup. Consider installing its development package! See https://github.com/microsoft/mimalloc")
 endif()
 
 add_library(f4ncgb STATIC ${F4NCGB_SRCS})
