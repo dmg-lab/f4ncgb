@@ -60,12 +60,20 @@ else()
     endif()
 endif()
 
+find_package(mimalloc QUIET)
+
 # Do more optimizations in release mode. Also disable assertions.
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -g -DNDEBUG")
 
 set(CMAKE_CXX_STANDARD 20)
 
+if(TARGET mimalloc)
+  list(APPEND F4NCGB_SRCS enable-mimalloc.cpp)
+  message(STATUS "Found mimalloc and use it")
+endif()
+
 add_library(f4ncgb STATIC ${F4NCGB_SRCS})
+
 
 add_executable(f4ncgb_test ${F4NCGB_TEST_SRCS})
 add_executable(f4ncgb_bin ${F4NCGB_TARGETS})
@@ -76,6 +84,10 @@ set_target_properties(f4ncgb_bin PROPERTIES OUTPUT_NAME "f4ncgb")
 set_property(TARGET f4ncgb PROPERTY CXX_STANDARD 20)
 set_property(TARGET f4ncgb_test PROPERTY CXX_STANDARD 20)
 set_property(TARGET f4ncgb_bin PROPERTY CXX_STANDARD 20)
+
+if(TARGET mimalloc)
+  target_link_libraries(f4ncgb PUBLIC mimalloc)
+endif()
 
 target_compile_definitions(f4ncgb PUBLIC F4NCGB_MAX_BLOCKS=${MAX_BLOCKS})
 message(STATUS "Compiling with " ${MAX_BLOCKS} " maximum blocks.")
