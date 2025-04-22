@@ -23,7 +23,7 @@ if __name__ == '__main__':
     output.write('system("--ticks-per-sec", 100);\n')
     
     vars = '('
-    for v in input.readline().rstrip().split(","):
+    for v in reversed(input.readline().rstrip().split(",")):
         vars += v + ','
     vars = vars[:-1]
     vars += ')'    
