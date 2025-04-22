@@ -2,5 +2,5 @@
 
 #include <boost/exception/all.hpp>
 
-namespace kommunopp {
+namespace f4ncgb {
 }

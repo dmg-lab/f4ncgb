@@ -4,7 +4,7 @@
 #include "profiler.h"
 #include "profiling.hpp"
 
-using namespace kommunopp;
+using namespace f4ncgb;
 
 #define TEST(v) BOOST_REQUIRE(v_mod_2_31_1(v) == (v % 2'147'483'647))
 
@@ -20,7 +20,7 @@ BOOST_AUTO_TEST_CASE(test_v_mod_2_31_1) {
   TEST(1212124124);
   TEST(2'147'483'646);
 
-#ifdef KOMMUNOPP_ENABLE_PROFILING
+#ifdef F4NCGB_ENABLE_PROFILING
   volatile size_t N = 4'000'000;
   double mod_time = 0;
   double fast_mod_time = 0;
@@ -69,7 +69,7 @@ BOOST_AUTO_TEST_CASE(test_mult_mod_2_31_1) {
   TEST(0, 0, 2425);
   TEST(425, 635, 2425);
 
-#ifdef KOMMUNOPP_ENABLE_PROFILING
+#ifdef F4NCGB_ENABLE_PROFILING
   volatile size_t N = 4'000'000;
   double mod_time = 0;
   double fast_mod_time = 0;

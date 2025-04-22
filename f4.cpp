@@ -1,4 +1,4 @@
-#include "kommunopp.hpp"
+#include "f4ncgb.hpp"
 
-namespace kommunopp {
+namespace f4ncgb {
 }

@@ -2,7 +2,7 @@
 #include "zip_utils.hpp"
 #include <chrono>
 
-namespace kommunopp {
+namespace f4ncgb {
 std::string store_tracer::prefix_ = "trace";
 
 void

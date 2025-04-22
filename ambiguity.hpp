@@ -5,7 +5,7 @@
 #include <boost/functional/hash.hpp>
 #include <span>
 
-namespace kommunopp {
+namespace f4ncgb {
 
 template<typename I>
 size_t inline compute_hash(const std::array<I, 7>& values) noexcept {

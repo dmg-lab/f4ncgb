@@ -7,7 +7,7 @@
 //
 //   - [1]: https://arxiv.org/pdf/2008.08654
 
-namespace kommunopp {
+namespace f4ncgb {
 
 [[nodiscard]] constexpr inline int64_t
 mersenne_mod(int64_t v) noexcept {

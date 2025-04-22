@@ -25,7 +25,7 @@ extern int verbose;
 extern int proof;
 extern bool tracer;
 
-namespace kommunopp {
+namespace f4ncgb {
 
 static inline bool
 vec_mod(uint32_vec_t vec,
@@ -438,13 +438,13 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
     slong rr;
     size_t i = row->indices[1];
     while(i < mat->ncol) {
-#ifdef KOMMUNOPP_FAST_MERSENNE_PRIME_MODULO
+#ifdef F4NCGB_FAST_MERSENNE_PRIME_MODULO
       if constexpr(mersenne) {
         cc = mersenne_mod(buffer[i]);
       } else {
 #endif
         cc = (int64_t)(((uint64_t)buffer[i]) % p);
-#ifdef KOMMUNOPP_FAST_MERSENNE_PRIME_MODULO
+#ifdef F4NCGB_FAST_MERSENNE_PRIME_MODULO
       }
 #endif
       buffer[i] = cc;
@@ -502,7 +502,7 @@ gauss_elim(uint32_mat_t mat,
 
     // reduce row with all already known pivots
     auto task = [r, &mat, &atomic_pivots, &trace, p, p2, &mod]() {
-      KOMMUNOPP_TIME(elim_task_cpu);
+      F4NCGB_TIME(elim_task_cpu);
       auto row = sparse_mat_row(mat, r);
       int64_t rr;
       int64_t cc;
@@ -519,14 +519,14 @@ gauss_elim(uint32_mat_t mat,
           assert(buffer_local[i] > 0);
           // v must be smaller than 2^2b, i.e. 2^62
           assert(buffer_local[i] < 4611686018427387904);
-#ifdef KOMMUNOPP_FAST_MERSENNE_PRIME_MODULO
+#ifdef F4NCGB_FAST_MERSENNE_PRIME_MODULO
           if constexpr(mersenne) {
             (void)p;// p is not used in this case.
             cc = mersenne_mod(buffer_local[i]);
           } else {
 #endif
             cc = (int64_t)(((uint64_t)buffer_local[i]) % p);
-#ifdef KOMMUNOPP_FAST_MERSENNE_PRIME_MODULO
+#ifdef F4NCGB_FAST_MERSENNE_PRIME_MODULO
           }
 #endif
           buffer_local[i] = cc;
@@ -631,7 +631,7 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
         continue;
       }
 
-      KOMMUNOPP_TIME(rref);
+      F4NCGB_TIME(rref);
       auto gauss_elim_wrapper = [&]() -> pivots {
         if(mod.n == PRIMES[0]) {
           return gauss_elim<true>(nmod_mat.get(), mod, pool, trace);
@@ -679,13 +679,13 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
       n_piv = best_piv.size();
 
     {
-      KOMMUNOPP_TIME(crt);
+      F4NCGB_TIME(crt);
       crt_reconstruction(crt_entries, idxs, good_rrefs, good_primes, n_piv);
     }
 
     bool success;
     {
-      KOMMUNOPP_PROFILE(auto timer = gstats.time(gstats.ratrec));
+      F4NCGB_PROFILE(auto timer = gstats.time(gstats.ratrec));
       success
         = rational_reconstruction(rat_entries, crt_entries, prod, idxs.size());
     }
@@ -730,7 +730,7 @@ nmod_gauss_elim(sfmpz_mat_t mat,
   sparse_mat_init(nmod_mat, mat->nrow, mat->ncol);
   mat_mod(nmod_mat, mat, mod, trace);
 
-  KOMMUNOPP_TIME(rref);
+  F4NCGB_TIME(rref);
   auto gauss_elim_wrapper = [&]() -> pivots {
     if(mod.n == PRIMES[0]) {
       return gauss_elim<true>(nmod_mat, mod, pool, trace);

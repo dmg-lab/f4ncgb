@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 add_to_d=0
-executable="~/sai/kommunopp/build-release/freegb"
+executable="~/sai/f4ncgb/build-release/f4ncgb"
 
 POSITIONAL_ARGS=()
 
@@ -12,8 +12,8 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
-    --freegb)
-      echo "[freegb-runner] Using executable $2 instead of $executable"
+    --f4ncgb)
+      echo "[f4ncgb-runner] Using executable $2 instead of $executable"
       executable=$2
       shift
       shift
@@ -29,7 +29,7 @@ set -- "${POSITIONAL_ARGS[@]}"
 
 if [[ "$1" =~ ^.*-([0-9]+)\.ms$ ]]; then
   dint=${BASH_REMATCH[1]}
-  echo "[freegb-runner] Extracted -d$dint from argument $param, adding $add_to_d to it"
+  echo "[f4ncgb-runner] Extracted -d$dint from argument $param, adding $add_to_d to it"
   ((dint+=$add_to_d))
 else
   echo "[freebg-runner] Regex did not match!"

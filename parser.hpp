@@ -1,7 +1,6 @@
 #pragma once
 
-#include "kommunopp.hpp"
-#include "zip_utils.hpp"
+#include "store.hpp"
 
 #include <filesystem>
 #include <format>
@@ -14,7 +13,7 @@
 #include <boost/bimap.hpp>
 #include <boost/bimap/unordered_set_of.hpp>
 
-namespace kommunopp {
+namespace f4ncgb {
 using parse_res = std::optional<std::string>;
 using parse_add_cb = std::add_pointer<parse_res(void*, uint32_t)>::type;
 

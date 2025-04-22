@@ -3,7 +3,7 @@
 #include <filesystem>
 #include <string>
 
-namespace kommunopp {
+namespace f4ncgb {
 bool
 file_matches_signature(std::filesystem::path path, int* sig);
 

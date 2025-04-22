@@ -2,12 +2,11 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
-#include <iostream>
 #include <string>
 
 #include "zip_utils.hpp"
 
-namespace kommunopp {
+namespace f4ncgb {
 static int xzsig[] = { 0xFD, 0x37, 0x7A, 0x58, 0x5A, 0x00, 0x00, EOF };
 static int bz2sig[] = { 0x42, 0x5A, 0x68, EOF };
 static int gzsig[] = { 0x1F, 0x8B, EOF };
@@ -39,7 +38,6 @@ find_in_path(std::string command) {
   while((pos = path.find(":")) != std::string::npos) {
     result = path.substr(0, pos);
     result += "/" + command;
-    std::cout << "Check " << result << std::endl;
     if(std::filesystem::exists(result)) {
       return result;
     }

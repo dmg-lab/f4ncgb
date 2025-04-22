@@ -3,19 +3,19 @@
 #include <chrono>
 #include <cstddef>
 
-#ifdef KOMMUNOPP_ENABLE_PROFILING
-#define KOMMUNOPP_PROFILE(EXPR) EXPR
-#define KOMMUNOPP_TIME(TGT) \
-  auto timer = ::kommunopp::gstats.time(::kommunopp::gstats.TGT)
+#ifdef F4NCGB_ENABLE_PROFILING
+#define F4NCGB_PROFILE(EXPR) EXPR
+#define F4NCGB_TIME(TGT) \
+  auto timer = ::f4ncgb::gstats.time(::f4ncgb::gstats.TGT)
 #else
-#define KOMMUNOPP_PROFILE(EXPR)
-#define KOMMUNOPP_TIME(EXPR)
+#define F4NCGB_PROFILE(EXPR)
+#define F4NCGB_TIME(EXPR)
 #endif
 
-namespace kommunopp {
-#ifdef KOMMUNOPP_ENABLE_PROFILING
+namespace f4ncgb {
+#ifdef F4NCGB_ENABLE_PROFILING
 struct statistics {
-#ifdef KOMMUNOPP_USE_MONOMIAL_PRODUCTS_MAP
+#ifdef F4NCGB_USE_MONOMIAL_PRODUCTS_MAP
   size_t hashmap_hits = 0, hashmap_calls = 0;
 #endif
 

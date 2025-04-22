@@ -10,7 +10,7 @@ namespace po = boost::program_options;
 #include "fast_div.hpp"
 #include "profiling.hpp"
 
-using namespace kommunopp;
+using namespace f4ncgb;
 
 static void
 bench_mod_mersenne() {
@@ -134,7 +134,7 @@ main(int argc, char* argv[]) {
     "methods of calculating modulo using the nice\n"
     "properties of Mersenne primes. After it runs it prints some statistics\n"
     "that may be analyzed.\n\n"
-    "Part of freegb version " FREEGB_VERSION);
+    "Part of f4ncgb version " F4NCGB_VERSION);
 
   // clang-format off
   desc.add_options()
@@ -163,12 +163,12 @@ main(int argc, char* argv[]) {
   }
 
   if(vm.count("version")) {
-    std::cerr << FREEGB_VERSION << std::endl;
+    std::cerr << F4NCGB_VERSION << std::endl;
     return EXIT_SUCCESS;
   }
 
   if(vm.count("version")) {
-    std::cerr << FREEGB_VERSION << std::endl;
+    std::cerr << F4NCGB_VERSION << std::endl;
     return EXIT_SUCCESS;
   }
 

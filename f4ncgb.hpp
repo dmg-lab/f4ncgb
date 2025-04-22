@@ -2,6 +2,6 @@
 
 #include <cstddef>
 
-namespace kommunopp {
+namespace f4ncgb {
 class parser_context;
 }

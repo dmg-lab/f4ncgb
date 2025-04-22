@@ -3,8 +3,9 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "debug.hpp"
 #include "parser.hpp"
+#include "store.hpp"
+#include "zip_utils.hpp"
 
 #define xstr(s) str(s)
 #define str(s) #s
@@ -75,14 +76,14 @@ isdigit_(char c) {
 
 #define BOUNDARY(N, D, R) boundary_cb(boundary_cb_userdata, N, D, R)
 
-namespace kommunopp {
+namespace f4ncgb {
 parse_res
 parser_context::open(std::filesystem::path p) {
   if(!std::filesystem::exists(p)) {
     return std::format("File \"{}\" does not exist!", p.string());
   }
 
-  FILE* f_ptr = kommunopp::open_compressed_or_direct(p);
+  FILE* f_ptr = f4ncgb::open_compressed_or_direct(p);
 
   if(!f_ptr) {
     return std::format(

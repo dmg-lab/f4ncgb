@@ -4,7 +4,7 @@
 #include <string>
 #include <memory>
 
-namespace kommunopp {
+namespace f4ncgb {
 class store_tracer {
   static std::string prefix_;
   struct FILE_deleter {

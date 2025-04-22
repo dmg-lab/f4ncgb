@@ -111,8 +111,8 @@
 -DCMAKE_PREFIX_PATH:PATH=%{Qt:QT_INSTALL_PREFIX}
 -DCMAKE_CXX_FLAGS_INIT:STRING=%{Qt:QML_DEBUG_FLAG}
 -DCMAKE_BUILD_TYPE:STRING=Release</value>
-    <value type="QString" key="CMake.Source.Directory">/home/max/sai/kommunopp</value>
-    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory">/home/max/sai/kommunopp/build-gcc</value>
+    <value type="QString" key="CMake.Source.Directory">/home/max/sai/f4ncgb</value>
+    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory">/home/max/sai/f4ncgb/build-gcc</value>
     <valuemap type="QVariantMap" key="ProjectExplorer.BuildConfiguration.BuildStepList.0">
      <valuemap type="QVariantMap" key="ProjectExplorer.BuildStepList.Step.0">
       <value type="QString" key="CMakeProjectManager.MakeStep.BuildPreset"></value>
@@ -168,8 +168,8 @@
 -DCMAKE_PREFIX_PATH:PATH=%{Qt:QT_INSTALL_PREFIX}
 -DCMAKE_CXX_FLAGS_INIT:STRING=%{Qt:QML_DEBUG_FLAG}
 -DCMAKE_BUILD_TYPE:STRING=Release</value>
-    <value type="QString" key="CMake.Source.Directory">/home/max/sai/kommunopp</value>
-    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory">/home/max/sai/kommunopp/build-release-gcc</value>
+    <value type="QString" key="CMake.Source.Directory">/home/max/sai/f4ncgb</value>
+    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory">/home/max/sai/f4ncgb/build-release-gcc</value>
     <valuemap type="QVariantMap" key="ProjectExplorer.BuildConfiguration.BuildStepList.0">
      <valuemap type="QVariantMap" key="ProjectExplorer.BuildStepList.Step.0">
       <value type="QString" key="CMakeProjectManager.MakeStep.BuildPreset"></value>
@@ -225,8 +225,8 @@
 -DCMAKE_PREFIX_PATH:PATH=%{Qt:QT_INSTALL_PREFIX}
 -DCMAKE_CXX_FLAGS_INIT:STRING=%{Qt:QML_DEBUG_FLAG}
 -DCMAKE_BUILD_TYPE:STRING=Release</value>
-    <value type="QString" key="CMake.Source.Directory">/home/max/sai/kommunopp</value>
-    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory">/home/max/sai/kommunopp/build-release-gcc2</value>
+    <value type="QString" key="CMake.Source.Directory">/home/max/sai/f4ncgb</value>
+    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory">/home/max/sai/f4ncgb/build-release-gcc2</value>
     <valuemap type="QVariantMap" key="ProjectExplorer.BuildConfiguration.BuildStepList.0">
      <valuemap type="QVariantMap" key="ProjectExplorer.BuildStepList.Step.0">
       <value type="QString" key="CMakeProjectManager.MakeStep.BuildPreset"></value>
@@ -282,8 +282,8 @@
 -DCMAKE_PREFIX_PATH:PATH=%{Qt:QT_INSTALL_PREFIX}
 -DCMAKE_CXX_FLAGS_INIT:STRING=%{Qt:QML_DEBUG_FLAG}
 -DCMAKE_BUILD_TYPE:STRING=Release</value>
-    <value type="QString" key="CMake.Source.Directory">/home/max/sai/kommunopp</value>
-    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory">/home/max/sai/kommunopp/build-release-gcc-compact</value>
+    <value type="QString" key="CMake.Source.Directory">/home/max/sai/f4ncgb</value>
+    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory">/home/max/sai/f4ncgb/build-release-gcc-compact</value>
     <valuemap type="QVariantMap" key="ProjectExplorer.BuildConfiguration.BuildStepList.0">
      <valuemap type="QVariantMap" key="ProjectExplorer.BuildStepList.Step.0">
       <value type="QString" key="CMakeProjectManager.MakeStep.BuildPreset"></value>
@@ -337,8 +337,8 @@
 -DCMAKE_PREFIX_PATH:PATH=%{Qt:QT_INSTALL_PREFIX}
 -DCMAKE_CXX_FLAGS_INIT:STRING=%{Qt:QML_DEBUG_FLAG}
 -DCMAKE_BUILD_TYPE:STRING=Release</value>
-    <value type="QString" key="CMake.Source.Directory">/home/max/sai/kommunopp</value>
-    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory">/home/max/sai/kommunopp/build-release-gcc-nomersenne</value>
+    <value type="QString" key="CMake.Source.Directory">/home/max/sai/f4ncgb</value>
+    <value type="QString" key="ProjectExplorer.BuildConfiguration.BuildDirectory">/home/max/sai/f4ncgb/build-release-gcc-nomersenne</value>
     <valuemap type="QVariantMap" key="ProjectExplorer.BuildConfiguration.BuildStepList.0">
      <valuemap type="QVariantMap" key="ProjectExplorer.BuildStepList.Step.0">
       <value type="QString" key="CMakeProjectManager.MakeStep.BuildPreset"></value>
@@ -437,15 +437,15 @@
     <valuelist type="QVariantList" key="PE.EnvironmentAspect.Changes"/>
     <value type="bool" key="PE.EnvironmentAspect.PrintOnRun">false</value>
     <value type="QString" key="PerfRecordArgsId">-e cpu-cycles --call-graph dwarf,4096 -F 250</value>
-    <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName">freegb</value>
+    <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName">f4ncgb</value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">CMakeProjectManager.CMakeRunConfiguration.</value>
-    <value type="QString" key="ProjectExplorer.RunConfiguration.BuildKey">freegb</value>
+    <value type="QString" key="ProjectExplorer.RunConfiguration.BuildKey">f4ncgb</value>
     <value type="bool" key="ProjectExplorer.RunConfiguration.Customized">true</value>
-    <value type="QString" key="RunConfiguration.Arguments">/home/max/sai/kommunopp/test_inputs/braid3.ms</value>
+    <value type="QString" key="RunConfiguration.Arguments">/home/max/sai/f4ncgb/test_inputs/braid3.ms</value>
     <value type="bool" key="RunConfiguration.UseCppDebuggerAuto">true</value>
     <value type="bool" key="RunConfiguration.UseLibrarySearchPath">true</value>
     <value type="bool" key="RunConfiguration.UseQmlDebuggerAuto">true</value>
-    <value type="QString" key="RunConfiguration.WorkingDirectory.default">/home/max/sai/kommunopp/build-release-gcc</value>
+    <value type="QString" key="RunConfiguration.WorkingDirectory.default">/home/max/sai/f4ncgb/build-release-gcc</value>
    </valuemap>
    <valuemap type="QVariantMap" key="ProjectExplorer.Target.RunConfiguration.1">
     <value type="bool" key="Analyzer.Perf.Settings.UseGlobalSettings">true</value>
@@ -457,14 +457,14 @@
     <valuelist type="QVariantList" key="PE.EnvironmentAspect.Changes"/>
     <value type="bool" key="PE.EnvironmentAspect.PrintOnRun">false</value>
     <value type="QString" key="PerfRecordArgsId">-e cpu-cycles --call-graph dwarf,4096 -F 250</value>
-    <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName">kommunopp_test</value>
+    <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName">f4ncgb_test</value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">CMakeProjectManager.CMakeRunConfiguration.</value>
-    <value type="QString" key="ProjectExplorer.RunConfiguration.BuildKey">kommunopp_test</value>
+    <value type="QString" key="ProjectExplorer.RunConfiguration.BuildKey">f4ncgb_test</value>
     <value type="bool" key="ProjectExplorer.RunConfiguration.Customized">false</value>
     <value type="bool" key="RunConfiguration.UseCppDebuggerAuto">true</value>
     <value type="bool" key="RunConfiguration.UseLibrarySearchPath">true</value>
     <value type="bool" key="RunConfiguration.UseQmlDebuggerAuto">true</value>
-    <value type="QString" key="RunConfiguration.WorkingDirectory.default">/home/max/sai/kommunopp/build-release-gcc</value>
+    <value type="QString" key="RunConfiguration.WorkingDirectory.default">/home/max/sai/f4ncgb/build-release-gcc</value>
    </valuemap>
    <valuemap type="QVariantMap" key="ProjectExplorer.Target.RunConfiguration.2">
     <value type="bool" key="Analyzer.Perf.Settings.UseGlobalSettings">true</value>
@@ -483,7 +483,7 @@
     <value type="bool" key="RunConfiguration.UseCppDebuggerAuto">true</value>
     <value type="bool" key="RunConfiguration.UseLibrarySearchPath">true</value>
     <value type="bool" key="RunConfiguration.UseQmlDebuggerAuto">true</value>
-    <value type="QString" key="RunConfiguration.WorkingDirectory.default">/home/max/sai/kommunopp/build-release-gcc</value>
+    <value type="QString" key="RunConfiguration.WorkingDirectory.default">/home/max/sai/f4ncgb/build-release-gcc</value>
    </valuemap>
    <value type="qlonglong" key="ProjectExplorer.Target.RunConfigurationCount">3</value>
   </valuemap>

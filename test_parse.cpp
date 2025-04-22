@@ -6,10 +6,10 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include "kommunopp.hpp"
+#include "f4ncgb.hpp"
 #include "parser.hpp"
 
-using namespace kommunopp;
+using namespace f4ncgb;
 
 std::optional<std::filesystem::path>
 get_parse_tests_location() {
@@ -71,12 +71,14 @@ BOOST_AUTO_TEST_CASE(parse_files) {
     } else {
       // Expect the parsing to be successful.
       auto ret = invoke_parser(ctx, ps, e);
-      BOOST_CHECK_MESSAGE(!ret.has_value(),
-                          "parsing the input " << e.path().filename()
-                                               << " did lead to an error:\n"
-                                               << *ret);
+      if(ret) {
+        BOOST_CHECK_MESSAGE(!ret.has_value(),
+                            "parsing the input " << e.path().filename()
+                                                 << " did lead to an error:\n"
+                                                 << *ret);
+      }
       // Can also output the parsed files:
-      // 
+      //
       // if(e.path().extension() == ".ms")
       //   ctx.to_msolve(std::cout, ps);
     }

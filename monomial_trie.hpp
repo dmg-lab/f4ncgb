@@ -5,9 +5,9 @@
 #include <span>
 #include <vector>
 
-#include "kommunopp.hpp"
+#include "store.hpp"
 
-namespace kommunopp {
+namespace f4ncgb {
 
 template<internal::value_concept V = uint8_t, typename I = uint32_t>
 struct monomial_trie {

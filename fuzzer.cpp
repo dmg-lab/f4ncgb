@@ -3,13 +3,14 @@
 #include <optional>
 
 #include "fast_div.hpp"
-#include "freegb.hpp"
+#include "f4ncgb.hpp"
+#include "store.hpp"
 #include "fuzztest/fuzztest.h"
 #include "fuzztest/internal/any.h"
 #include <gtest/gtest.h>
 #include "parser.hpp"
 
-using namespace kommunopp;
+using namespace f4ncgb;
 using namespace fuzztest;
 
 using block = std::vector<uint8_t>;
@@ -21,7 +22,7 @@ bool tracer = false;
 
 Domain<std::vector<std::vector<uint8_t>>>
 UniqueAcrossVectors(uint8_t max_value = 254,
-                    size_t max_vectors = KOMMUNOPP_MAX_BLOCKS - 1) {
+                    size_t max_vectors = F4NCGB_MAX_BLOCKS - 1) {
   auto number_of_values = InRange<uint8_t>(2, max_value);
 
   return Map(
@@ -150,7 +151,7 @@ class fuzz_parser : public parser_context {
 };
 
 void
-fuzz_freegb_main(
+fuzz_f4ncgb_main(
   const std::pair<std::vector<block>, std::vector<polynomial>>& problem,
   size_t maxdeg,
   size_t maxiter) {
@@ -174,10 +175,10 @@ fuzz_freegb_main(
     nblocks = ctx.num_blocks();
 
   int res
-    = kommunopp_main(ctx, nblocks, nvars, 0, maxiter, maxdeg, 1, "", "");
+    = f4ncgb_main(ctx, nblocks, nvars, 0, maxiter, maxdeg, 1, "", "");
 }
 
-FUZZ_TEST(freegb, fuzz_freegb_main)
+FUZZ_TEST(f4ncgb, fuzz_f4ncgb_main)
   .WithDomains(AnyProblem(), InRange(8, 1000), InRange(4, 10));
 
 void
@@ -188,7 +189,7 @@ fuzz_ax_b_mod_p(uint32_t a, uint32_t x, uint32_t b) {
   assert(fast_res == normal_res);
 }
 
-FUZZ_TEST(freegb, fuzz_ax_b_mod_p)
+FUZZ_TEST(f4ncgb, fuzz_ax_b_mod_p)
   .WithDomains(InRange(0, 2'147'483'647),
                InRange(0, 2'147'483'647),
                InRange(0, 2'147'483'647));
@@ -222,5 +223,5 @@ fuzz_parser(std::string input) {
   }
 }
 
-FUZZ_TEST(freegb, fuzz_parser);
+FUZZ_TEST(f4ncgb, fuzz_parser);
 #endif

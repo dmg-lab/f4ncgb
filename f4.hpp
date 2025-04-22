@@ -19,7 +19,7 @@
 
 #include "ambiguity.hpp"
 #include "gmp.h"
-#include "kommunopp.hpp"
+#include "f4ncgb.hpp"
 #include "linear_algebra.hpp"
 #include "parser.hpp"
 #include "profiling.hpp"
@@ -30,13 +30,13 @@
 
 #include "monomial_trie.hpp"
 
-extern template struct kommunopp::monomial_trie<uint8_t, uint32_t>;
+extern template struct f4ncgb::monomial_trie<uint8_t, uint32_t>;
 extern int verbose;
 extern int proof;
 
 using namespace boost::multiprecision;
 
-namespace kommunopp {
+namespace f4ncgb {
 
 struct metadata_monomial {
   uint16_t length = 0;
@@ -213,7 +213,7 @@ struct f4 {
     }
 
     {
-      KOMMUNOPP_TIME(crit_pair);
+      F4NCGB_TIME(crit_pair);
       stage_crit_pairs();
     }
 
@@ -245,7 +245,7 @@ struct f4 {
     iter = 0;
     while((!amb.empty() or !crit_pairs.empty()) and iter < maxiter) {
       {
-        KOMMUNOPP_TIME(crit_pair);
+        F4NCGB_TIME(crit_pair);
         stage_crit_pairs();
       }
 
@@ -381,7 +381,7 @@ struct f4 {
     inclusions.clear();
 
     {
-      KOMMUNOPP_TIME(overlap);
+      F4NCGB_TIME(overlap);
       prefix_trie.overlaps_and_inclusions(m, overlaps, inclusions);
       // overlaps with m = AB
       ab = m;
@@ -415,7 +415,7 @@ struct f4 {
     }
 
     {
-      KOMMUNOPP_TIME(inclusion);
+      F4NCGB_TIME(inclusion);
       // inclusions with m = ABC
       I d = m.size();
       // k determines where B starts in m = ABC
@@ -456,7 +456,7 @@ struct f4 {
 
   //------------------------------------------------------------------------------
   std::vector<poly_id> symbolic_preprocessing() {
-    KOMMUNOPP_TIME(sym_pre);
+    F4NCGB_TIME(sym_pre);
     boost::unordered_set<mon_id> todo;
     boost::unordered_set<mon_id> done;
     std::vector<poly_id> rows;
@@ -659,12 +659,12 @@ struct f4 {
     set_up_matrix(mat, rows, columns);
 
     // reduction
-    KOMMUNOPP_PROFILE(auto timer = gstats.time(gstats.reduction));
+    F4NCGB_PROFILE(auto timer = gstats.time(gstats.reduction));
     auto [idxs, entries] = linear_algebra(
       mat, characteristic, pool, interreduce, verified_algebra);
 
     // compute new elements
-    KOMMUNOPP_PROFILE(auto timer2 = gstats.time(gstats.new_elements));
+    F4NCGB_PROFILE(auto timer2 = gstats.time(gstats.new_elements));
     auto& new_elements = compute_new_polynomials(idxs, entries, columns);
 
     sparse_mat_clear(mat);
@@ -751,7 +751,7 @@ struct f4 {
 
     // log cofactors
     if(proof > 0) {
-      KOMMUNOPP_TIME(other);
+      F4NCGB_TIME(other);
       log_cofactors();
     }
 
@@ -769,7 +769,7 @@ struct f4 {
         suffix_trie.insert_rev(m, m_id);
 
         // compute ambiguities
-        KOMMUNOPP_TIME(amb);
+        F4NCGB_TIME(amb);
         compute_ambiguities(m_id);
       }
 

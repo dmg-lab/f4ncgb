@@ -23,7 +23,7 @@ int verbose = 1;
 
 void msg(const char *fmt, ...) {
   va_list ap;
-  fputs("[freegb] ", stderr);
+  fputs("[f4ncgb] ", stderr);
   va_start(ap, fmt);
   vfprintf(stderr, fmt, ap);
   va_end(ap);
@@ -36,8 +36,8 @@ void msg(const char *fmt, ...) {
 void die(int error_code, const char *fmt, ...) {
   fflush(stdout);
   va_list ap;
-  fprintf(stderr, "*** [freegb] error code %i \n", error_code);
-  fputs("*** [freegb] ", stderr);
+  fprintf(stderr, "*** [f4ncgb] error code %i \n", error_code);
+  fputs("*** [f4ncgb] ", stderr);
   va_start(ap, fmt);
   vfprintf(stderr, fmt, ap);
   va_end(ap);

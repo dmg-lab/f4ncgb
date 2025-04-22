@@ -1,10 +1,10 @@
 #include <boost/test/unit_test.hpp>
 
-#include "kommunopp.hpp"
+#include "store.hpp"
 #include "monomial_trie.hpp"
 #include "parser.hpp"
 
-using namespace kommunopp;
+using namespace f4ncgb;
 
 std::optional<std::filesystem::path>
 get_test_input_files_location() {

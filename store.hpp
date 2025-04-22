@@ -32,7 +32,7 @@
 #include "ambiguity.hpp"
 #include "gmp.h"
 
-#ifdef KOMMUNOPP_ENABLE_STORE_TRACE
+#ifdef F4NCGB_ENABLE_STORE_TRACE
 #include "store_tracer.hpp"
 #endif
 
@@ -47,7 +47,7 @@
 #pragma GCC diagnostic ignored "-Walloc-size"
 #endif
 
-namespace kommunopp {
+namespace f4ncgb {
 
 namespace internal {
 struct monomial_store_overrun_exception : public std::exception {
@@ -327,7 +327,7 @@ class store {
 
     const V* start = get_value_from_id(id - 1);
 
-#ifdef KOMMUNOPP_ENABLE_STORE_TRACE
+#ifdef F4NCGB_ENABLE_STORE_TRACE
     reinterpret_cast<B*>(const_cast<self*>(this))->tracer_.access(id);
 #endif
 
@@ -431,11 +431,11 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
   using ambiguity_ = ambiguity<I>;
   using amb_hash = ambiguity_hash<I>;
 
-#ifdef KOMMUNOPP_ENABLE_STORE_TRACE
+#ifdef F4NCGB_ENABLE_STORE_TRACE
   store_tracer tracer_ = store_tracer("monomial_store");
 #endif
 
-#ifdef KOMMUNOPP_USE_COMPACT_MONOMIAL_MAP
+#ifdef F4NCGB_USE_COMPACT_MONOMIAL_MAP
   using lookup_map
     = boost::unordered_flat_set<I,
                                 typename base::V_hash_struct,
@@ -452,16 +452,16 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     map_;
 #endif
 
-#ifdef KOMMUNOPP_USE_MONOMIAL_PRODUCTS_MAP
+#ifdef F4NCGB_USE_MONOMIAL_PRODUCTS_MAP
   boost::unordered_flat_map<std::tuple<I, I, I>, I> products_;
 #endif
 
   protected:
-#ifdef KOMMUNOPP_USE_COMPACT_MONOMIAL_MAP
+#ifdef F4NCGB_USE_COMPACT_MONOMIAL_MAP
   inline void new_entry(I id) { map_.insert(id + 1); }
 
   std::optional<I> findscratch() const {
-    KOMMUNOPP_PROFILE(gstats.store_find_calls++);
+    F4NCGB_PROFILE(gstats.store_find_calls++);
 
     I id = base::scratch_id();
 
@@ -469,7 +469,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     if(it == map_.end())
       return std::nullopt;
 
-    KOMMUNOPP_PROFILE(gstats.store_find_hits++);
+    F4NCGB_PROFILE(gstats.store_find_hits++);
     return *it;
   }
 
@@ -487,7 +487,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
   inline void new_entry(I id) { map_.insert(std::pair((*this)[id + 1], id)); }
 
   std::optional<I> find(const std::span<const V>& v) const {
-    KOMMUNOPP_PROFILE(gstats.store_find_calls++);
+    F4NCGB_PROFILE(gstats.store_find_calls++);
     if(v.size() == 0)
       return 0;
 
@@ -495,7 +495,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     if(it == map_.end())
       return std::nullopt;
 
-    KOMMUNOPP_PROFILE(gstats.store_find_hits++);
+    F4NCGB_PROFILE(gstats.store_find_hits++);
     return it->second + 1;
   }
 #endif
@@ -504,7 +504,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
   inline const I getid(const std::span<const V>& v) {
     auto id = find(v);
     if(!id) {
-#ifdef KOMMUNOPP_USE_COMPACT_MONOMIAL_MAP
+#ifdef F4NCGB_USE_COMPACT_MONOMIAL_MAP
       id = base::insert_scratch();
 #else
       id = base::insert(v);
@@ -531,7 +531,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
   inline I get_product_id(I a, I b) {
     std::tuple<I, I, I> prod_tuple{ a, b, 0 };
 
-#ifdef KOMMUNOPP_USE_MONOMIAL_PRODUCTS_MAP
+#ifdef F4NCGB_USE_MONOMIAL_PRODUCTS_MAP
     {
       auto it = products_.find(prod_tuple);
       if(it != products_.end()) {
@@ -554,7 +554,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     auto b_it = (*this)[b];
     auto it = std::copy(a_it.begin(), a_it.end(), vv);
     std::copy(b_it.begin(), b_it.end(), it);
-#ifdef KOMMUNOPP_USE_COMPACT_MONOMIAL_MAP
+#ifdef F4NCGB_USE_COMPACT_MONOMIAL_MAP
     auto prod_idx = findscratch();
 #else
     auto prod_idx = find(std::span(vv, length_combined));
@@ -562,7 +562,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     if(!prod_idx) {
       prod_idx = base::insert_scratch();
     }
-#ifdef KOMMUNOPP_USE_MONOMIAL_PRODUCTS_MAP
+#ifdef F4NCGB_USE_MONOMIAL_PRODUCTS_MAP
     products_.insert(std::make_pair(prod_tuple, *prod_idx));
 #endif
     return *prod_idx;
@@ -571,13 +571,13 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
   inline I get_product_id(I a, I b, I c) {
     std::tuple<I, I, I> prod_tuple{ a, b, c };
 
-#ifdef KOMMUNOPP_USE_MONOMIAL_PRODUCTS_MAP
-    KOMMUNOPP_PROFILE(gstats.hashmap_calls++);
+#ifdef F4NCGB_USE_MONOMIAL_PRODUCTS_MAP
+    F4NCGB_PROFILE(gstats.hashmap_calls++);
 
     {
       auto it = products_.find(prod_tuple);
       if(it != products_.end()) {
-        KOMMUNOPP_PROFILE(gstats.hashmap_hits++);
+        F4NCGB_PROFILE(gstats.hashmap_hits++);
         return it->second;
       }
     }
@@ -600,7 +600,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     it = std::copy(b_it.begin(), b_it.end(), it);
     std::copy(c_it.begin(), c_it.end(), it);
 
-#ifdef KOMMUNOPP_USE_COMPACT_MONOMIAL_MAP
+#ifdef F4NCGB_USE_COMPACT_MONOMIAL_MAP
     auto prod_idx = findscratch();
 #else
     auto prod_idx = find(std::span(vv, length_combined));
@@ -609,7 +609,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     if(!prod_idx) {
       prod_idx = base::insert_scratch();
     }
-#ifdef KOMMUNOPP_USE_MONOMIAL_PRODUCTS_MAP
+#ifdef F4NCGB_USE_MONOMIAL_PRODUCTS_MAP
     products_.insert(std::make_pair(prod_tuple, *prod_idx));
 #endif
     return *prod_idx;
@@ -723,7 +723,7 @@ class polynomial_store
                  I,
                  I> {
 
-#ifdef KOMMUNOPP_ENABLE_STORE_TRACE
+#ifdef F4NCGB_ENABLE_STORE_TRACE
   store_tracer tracer_ = store_tracer("polynomial_store");
 #endif
 
@@ -961,7 +961,7 @@ coefficient_is_posneg_neutral(
 
 class parser_context;
 int
-kommunopp_main(parser_context& context,
+f4ncgb_main(parser_context& context,
                size_t nblocks,
                size_t nvars,
                size_t characteristic,

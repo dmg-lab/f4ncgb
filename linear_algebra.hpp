@@ -11,7 +11,7 @@
 #include "sparse_rref/sparse_vec.h"
 #include "sparse_rref/thread_pool.hpp"
 
-namespace kommunopp {
+namespace f4ncgb {
 
 typedef sparse_vec_t<fmpz> sfmpz_vec_t;
 typedef sparse_mat_t<fmpz> sfmpz_mat_t;

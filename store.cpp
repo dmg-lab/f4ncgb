@@ -1,6 +1,6 @@
-#include "kommunopp.hpp"
+#include "store.hpp"
 #include "f4.hpp"
-#include "freegb.hpp"
+#include "store.hpp"
 #include "parser.hpp"
 
 #include <boost/multiprecision/detail/default_ops.hpp>
@@ -9,7 +9,7 @@
 
 extern bool tracer;
 
-namespace kommunopp {
+namespace f4ncgb {
 int
 coefficient_sign(const boost::multiprecision::backends::gmp_rational& r) {
   using namespace boost::multiprecision;
@@ -33,7 +33,7 @@ coefficient_is_posneg_neutral(
 }
 
 int
-kommunopp_main(parser_context& context,
+f4ncgb_main(parser_context& context,
                size_t nblocks,
                size_t nvars,
                size_t characteristic,
@@ -44,7 +44,7 @@ kommunopp_main(parser_context& context,
                const std::string& output_name,
                const std::string& proof_file,
                bool print_read_problem) {
-  return boost::mp11::mp_with_index<KOMMUNOPP_MAX_BLOCKS>(
+  return boost::mp11::mp_with_index<F4NCGB_MAX_BLOCKS>(
     nblocks,
     [&context,
      nvars,
@@ -67,7 +67,7 @@ kommunopp_main(parser_context& context,
                                         proof_file);
       auto& algo = *algo_ptr;
       {
-        KOMMUNOPP_TIME(parse);
+        F4NCGB_TIME(parse);
         if(auto err = algo.read_input(context)) {
           std::cerr << *err << std::endl;
           die(17, "Error in parsing body of input file.");
@@ -120,7 +120,7 @@ kommunopp_main(parser_context& context,
         msg("Max. Iterations:   %lu", maxiter);
         msg("Max. amb. degree:  %lu", maxdeg);
         // msg("Number of blocks:  %lu", nblocks);
-        // msg("Max nr. of blocks: %lu", KOMMUNOPP_MAX_BLOCKS);
+        // msg("Max nr. of blocks: %lu", F4NCGB_MAX_BLOCKS);
         msg(mon_order.str().c_str());
         msg("Nr. threads:       %lu", threads);
         msg(out_name.c_str());

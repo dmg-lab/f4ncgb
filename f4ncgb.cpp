@@ -5,7 +5,8 @@
 #include <filesystem>
 #include <string.h>
 
-#include "freegb.hpp"
+#include "f4ncgb.hpp"
+#include "store.hpp"
 #include "parser.hpp"
 #include "profiling.hpp"
 #include "signal_statistics.hpp"
@@ -14,7 +15,7 @@
 #include <boost/program_options.hpp>
 #include <config.hpp>
 
-#ifdef KOMMUNOPP_ENABLE_STORE_TRACE
+#ifdef F4NCGB_ENABLE_STORE_TRACE
 #include "store_tracer.hpp"
 #endif
 
@@ -47,17 +48,17 @@ static int err_no_prime = 12;
 
 static bool print_problem = false;
 
-using namespace kommunopp;
+using namespace f4ncgb;
 
 /**
-    Main Function of freegb.
+    Main Function of f4ncgb.
 
     Prints statistics to stdout after finishing.
 */
 int
 main(int argc, char** argv) {
   // clang-format off
-  po::options_description desc("freegb, version " FREEGB_VERSION "\n"
+  po::options_description desc("f4ncgb, version " F4NCGB_VERSION "\n"
                                "Copyright(C) 2025 Clemens Hofstadler, Maximilian Heisinger\n"
                                "JKU Linz, Austria\n"
                                "USAGE");
@@ -95,7 +96,7 @@ main(int argc, char** argv) {
   }
 
   if(vm.count("version")) {
-    std::cout << FREEGB_VERSION << std::endl;
+    std::cout << F4NCGB_VERSION << std::endl;
     return EXIT_SUCCESS;
   }
 
@@ -106,14 +107,14 @@ main(int argc, char** argv) {
 
   std::filesystem::path in = input_name;
 
-#ifdef KOMMUNOPP_ENABLE_STORE_TRACE
-  kommunopp::store_tracer::set_prefix(in.filename());
+#ifdef F4NCGB_ENABLE_STORE_TRACE
+  f4ncgb::store_tracer::set_prefix(in.filename());
 #endif
 
   parser_context context;
   parse_res r;
   {
-    KOMMUNOPP_TIME(parse);
+    F4NCGB_TIME(parse);
     context.open(in);
     r = context.parse_header();
   }
@@ -126,7 +127,7 @@ main(int argc, char** argv) {
   size_t nblocks = 0;
   if(context.num_blocks() > 1)
     nblocks = context.num_blocks();
-  if(nblocks > KOMMUNOPP_MAX_BLOCKS)
+  if(nblocks > F4NCGB_MAX_BLOCKS)
     die(4, "More blocks than current compilation allows\n");
 
   size_t characteristic = context.characteristic();
@@ -147,7 +148,7 @@ main(int argc, char** argv) {
   if(expanded_proof)
     proof++;
 
-  res = kommunopp::kommunopp_main(context,
+  res = f4ncgb::f4ncgb_main(context,
                                   nblocks,
                                   nvars,
                                   characteristic,
@@ -159,6 +160,6 @@ main(int argc, char** argv) {
                                   proof_file,
                                   print_problem);
 
-  KOMMUNOPP_PROFILE(gstats.print(threads));
+  F4NCGB_PROFILE(gstats.print(threads));
   return res;
 }
