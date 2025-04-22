@@ -34,8 +34,8 @@ if __name__ == '__main__':
         ideal += line.rstrip()
     ideal += ';'
 
-    output.write('ring r = ' + char + ',' + vars + ',Dp;\n')
-    output.write('ring R = freeAlgebra(r,' + d + ');\n')
-    output.write('ideal I = ' + ideal + '\n')
-    output.write('timer = 0; ideal G = twostd(I); timer;')
+    output.write('ring rr = ' + char + ',' + vars + ',Dp;\n')
+    output.write('ring RR = freeAlgebra(rr,' + d + ');\n')
+    output.write('ideal II = ' + ideal + '\n')
+    output.write('timer = 0; ideal GG = twostd(II); timer;')
     output.write('quit;')

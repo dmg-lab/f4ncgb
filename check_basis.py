@@ -36,11 +36,11 @@ if __name__ == '__main__':
         ideal += line.rstrip()
     ideal += ';'
     
-    output.write('ring r = ' + char + ',' + vars + ',Dp;\n')
-    output.write('ring R = freeAlgebra(r,' + d + ');\n')
-    output.write('ideal I = ' + ideal + '\n')
-    output.write('ideal G = twostd(I);')
-    output.write('write(":w basis.sing", G);\n')
+    output.write('ring rr = ' + char + ',' + vars + ',Dp;\n')
+    output.write('ring RR = freeAlgebra(rr,' + d + ');\n')
+    output.write('ideal II = ' + ideal + '\n')
+    output.write('ideal GG = twostd(II);')
+    output.write('write(":w basis.sing", GG);\n')
     output.write('quit;')
     
     GB_sing = None
