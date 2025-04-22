@@ -1,3 +1,5 @@
+# Use with gnuplot -e "name='braid3.ms'" index_map.gnuplot
+
 set autoscale
 set terminal pngcairo size 3000,2000
 set output sprintf("%s_monomial_store_accesses.png", name)
