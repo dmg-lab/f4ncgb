@@ -767,8 +767,10 @@ class polynomial_store
 #else
     size_t absolute_max = std::numeric_limits<size_t>::max();
 #endif
-    return std::min(static_cast<size_t>(std::numeric_limits<I>::max() << 8),
-                    absolute_max);
+    return std::min(
+      static_cast<size_t>(static_cast<size_t>(std::numeric_limits<I>::max())
+                          * sizeof(C)),
+      absolute_max);
   }
 
   inline polynomial_store(monomial_store_& store)
