@@ -79,6 +79,18 @@ struct scratch_insertion_with_zero_length_exception : public std::exception {
         size)) {}
   virtual const char* what() const throw() { return msg.c_str(); }
 };
+struct coefficient_overrun_exception : public std::exception {
+  size_t size;
+  size_t capacity;
+  std::string msg;
+  coefficient_overrun_exception(size_t size, size_t capacity)
+    : size(size)
+    , capacity(capacity)
+    , msg(std::format("tried to get a coefficient {} the capacity is only {}",
+                      size,
+                      capacity)) {}
+  virtual const char* what() const throw() { return msg.c_str(); }
+};
 
 template<typename length_type = uint8_t>
 struct metadata {
@@ -932,6 +944,9 @@ class polynomial_store
   size_t cpool_size_ = 0;
 
   inline C* get_coefficients_raw(I id) {
+    if(static_cast<size_t>(id) * sizeof(C) + sizeof(C) > capacity()) {
+      throw coefficient_overrun_exception(id, capacity());
+    }
     return reinterpret_cast<C*>(cpool_.get()
                                 + static_cast<size_t>(id) * sizeof(C));
   }
