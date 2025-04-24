@@ -897,11 +897,14 @@ class polynomial_store
     assert(p != 0);
 
     metadata& p_metadata = this->get_metadata(p);
+    bool alloc_coefficient = !base::scratch_metadata_created_;
     C* p_coeff = get_coefficients_raw(p_metadata.coefficients);
     auto [new_m, new_i, new_c] = add(p_metadata.length);
     new_m.length = p_metadata.length;
     for(I i = 0; i < p_metadata.length; ++i) {
-      C* c = new(new_c + i) C;
+      // Only allocate new coefficient if no metadata existed here
+      // before.
+      C* c = alloc_coefficient ? new(new_c + i) C : new_c + i;
       *c = p_coeff[i];
       if constexpr(front && !back) {
         new_i[i] = store_.get_product_id(f, (*this)[p][i]);
