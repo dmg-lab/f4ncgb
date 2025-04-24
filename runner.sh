@@ -5,6 +5,9 @@ executable="~/sai/f4ncgb/build-release/f4ncgb"
 
 POSITIONAL_ARGS=()
 
+enable_outandproof=false
+outandproof=""
+
 while [[ $# -gt 0 ]]; do
   case $1 in
     --add-to-d)
@@ -16,6 +19,10 @@ while [[ $# -gt 0 ]]; do
       echo "[f4ncgb-runner] Using executable $2 instead of $executable"
       executable=$2
       shift
+      shift
+      ;;
+    --with-out-and-proof)
+      enable_outandproof=true
       shift
       ;;
     *)
@@ -36,4 +43,11 @@ else
   exit 1
 fi
 
-"$executable" -d$dint $@
+if [ "$enable_outandproof" = true ]; then
+  outpath="/tmp/f4ncgb-out"
+  mkdir -p $outpath
+  outandproof="-o \"$outpath/$(basename $1).out\" -p \"$outpath/$(basename $1).proof\""
+  echo "[f4ncgb-runner] Using additional parameters $outandproof"
+fi
+
+"$executable" -d$dint $outandproof $@
