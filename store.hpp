@@ -950,7 +950,7 @@ class polynomial_store
 
   inline C* get_coefficients_raw(I id) {
     if(static_cast<size_t>(id) * sizeof(C) + sizeof(C) > capacity()) {
-      throw coefficient_overrun_exception(id, capacity());
+      throw coefficient_overrun_exception(id * sizeof(C), capacity());
     }
     return reinterpret_cast<C*>(cpool_.get()
                                 + static_cast<size_t>(id) * sizeof(C));
