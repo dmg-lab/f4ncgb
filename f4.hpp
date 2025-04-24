@@ -133,7 +133,7 @@ struct f4 {
       pool = std::make_unique<BS::thread_pool<BS::none>>(num_threads);
 
     if(proof_file_ != "") {
-      proof_file.open(proof_file_);
+      proof_file.open(proof_file_, std::ios_base::trunc);
       if(!proof_file)
         die(19, "Failed to open proof file.");
     }

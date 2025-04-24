@@ -137,7 +137,7 @@ f4ncgb_main(parser_context& context,
       std::ostream* out_file = &std::cout;
       std::ofstream filestream;
       if(output_name != "") {
-        filestream.open(output_name);
+        filestream.open(output_name, std::ios_base::trunc);
         if(!filestream)
           die(18, "Failed to open output file.");
         out_file = &filestream;
