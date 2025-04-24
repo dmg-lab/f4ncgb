@@ -576,7 +576,7 @@ struct f4 {
         cofactor.log(proof_file, context, poly, first);
         first = false;
       }
-      proof_file << "\n";
+      proof_file << std::endl;
     }
   }
   //------------------------------------------------------------------------------

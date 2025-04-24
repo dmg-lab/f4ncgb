@@ -6,7 +6,7 @@ import re
 from sage.all import *
 
 
-// Usage: sage ./check_proof.py -i path/to/input -b path/to/basis -p path/to/proof -e (0 if non-expanded proof, >0 else) 
+# Usage: sage ./check_proof.py -i path/to/input -b path/to/basis -p path/to/proof -e (0 if non-expanded proof, >0 else) 
 
 def read_input(argv):
  
