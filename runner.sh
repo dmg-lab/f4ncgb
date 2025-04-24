@@ -46,7 +46,7 @@ fi
 if [ "$enable_outandproof" = true ]; then
   outpath="/tmp/f4ncgb-out"
   mkdir -p $outpath
-  outandproof="-o \"$outpath/$(basename $1).out\" -p \"$outpath/$(basename $1).proof\""
+  outandproof="-o $outpath/$(basename $1).out -p $outpath/$(basename $1).proof"
   echo "[f4ncgb-runner] Using additional parameters $outandproof"
 fi
 
