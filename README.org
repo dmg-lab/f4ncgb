@@ -85,7 +85,7 @@ below. We sorted the table according to the achieved speedup. While
 the optimized variant is slower for Clang, GCC produces binaries that
 overall are faster than the ones from Clang.
 
-| CPU                | Compiler                               | Standard [s] | Optimized [s] | Speedup [Optimized/Standard] |
+| CPU                | Compiler                               | Standard [s] | Optimized [s] | Speedup [Standard/Optimized] |
 |--------------------+----------------------------------------+--------------+---------------+------------------------------|
 | AMD EPYC 7443P     | GCC Ubuntu 13.3.0                      |     3.221571 |      0.268126 |                    12.015138 |
 | Intel i7-10700 CPU | GCC 15.1.1 20250425 (Red Hat 15.1.1-1) |     3.681353 |      0.459711 |                    8.0079724 |
