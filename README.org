@@ -1,5 +1,79 @@
+#+PROPERTY: HEADER-ARGS+ :eval never-export
 #+TITLE: F4ncgb
 
-* Storing Monomials
+* Compiling
 
-Each monomial is stored as a run of Vs in the monomial store.
+Please use [[https://cmake.org/][CMake]] to compile this project:
+
+#+BEGIN_SRC bash :export both
+git clone https://gitlab.sai.jku.at/f4ncgb/f4ncgb.git
+mkdir build-release
+cd build-release
+cmake .. -DCMAKE_BUILD_TYPE=Release
+make -j
+#+END_SRC
+
+Then, ~f4ncgb~, ~f4ncgb_test~, and ~mod_prime_tester~ are produced.
+
+* Usage
+
+** F4NCGB
+
+#+BEGIN_SRC bash :export both
+./f4ncgb <input.ms>
+#+END_SRC
+
+
+** F4NCGB Test
+
+#+BEGIN_SRC bash :export both
+./f4ncgb_test
+#+END_SRC
+
+This should produce the following output:
+
+: Running 12 test cases...
+:  
+: *** No errors detected
+
+Internally, the tests also create our store structure multiple times
+and test the memory allocation to fit our requirements.
+
+** Mod Prime Tester
+
+Run the exhaustive tests:
+
+#+BEGIN_SRC bash :export both
+./mod_prime_tester -t
+#+END_SRC
+
+The tests output three columns: ~test~, the highest number tested (up
+to the given prime number), and the time (in seconds). Each
+calculation is checked against the standard modulo operation. Below is
+an example output using GCC 15.1 on Fedora 42 on an Intel i7-10700
+CPU.
+
+#+BEGIN_EXAMPLE
+test			2147483647	0.924757
+#+END_EXAMPLE
+
+Run the benchmarks:
+
+#+BEGIN_SRC bash :export both
+./mod_prime_tester -b
+#+END_SRC
+
+The benchmark output three rows: The variant (the standard modulo, the
+optimized variant using the mersenne prime $2^31-1$, and a
+power-of-two variant which may enable the compiler to enable more
+compile-time optimizations). The columns are (as in the test) the
+highest number tested, the time (in seconds) for each run, and (for
+the optimized variant), the speedup compared to the standard modulo.
+Below is an example output using GCC 15.1 on Fedora 42 on an Intel
+i7-10700 CPU.
+
+#+BEGIN_EXAMPLE
+benchmark-standard	2147483647	3.685986
+benchmark-optimized	2147483647	0.461233	7.991587
+benchmark-power-of-two	2147483647	0.464492
+#+END_EXAMPLE
