@@ -64,13 +64,13 @@ Run the benchmarks:
 #+END_SRC
 
 The benchmark output three rows: The variant (the standard modulo, the
-optimized variant using the mersenne prime $2^31-1$, and a
-power-of-two variant which may enable the compiler to enable more
-compile-time optimizations). The columns are (as in the test) the
-highest number tested, the time (in seconds) for each run, and (for
-the optimized variant), the speedup compared to the standard modulo.
-Below is an example output using GCC 15.1 on Fedora 42 on an Intel
-i7-10700 CPU.
+optimized variant using the mersenne prime $2^31-1$, and a modulo
+power-of-two variant as "upper limit" of our mersenne-optimization, as
+the compiler can optimize a modulo power-of-two into a bitmask). The
+columns are (as in the test) the highest number tested, the time (in
+seconds) for each run, and (for the optimized variant), the speedup
+compared to the standard modulo. Below is an example output using GCC
+15.1 on Fedora 42 on an Intel i7-10700 CPU.
 
 #+BEGIN_EXAMPLE
 benchmark-standard	2147483647	3.685986
