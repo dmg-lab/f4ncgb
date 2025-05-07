@@ -17,35 +17,35 @@ option(ENABLE_STORE_TRACE "Enable a (very expensive) trace of each access (opera
 set(MAX_BLOCKS 16 CACHE STRING "Maximum number of blocks to compile for. Must be integral. Changes compilation time (duplicates implementation for each block).")
 
 set(F4NCGB_SRCS
-  store.cpp
-  signal_statistics.cpp
-  parser.cpp
-  monomial_trie.cpp
-  primes.cpp
-  linear_algebra.cpp
-  zip_utils.cpp
+  src/store.cpp
+  src/signal_statistics.cpp
+  src/parser.cpp
+  src/monomial_trie.cpp
+  src/primes.cpp
+  src/linear_algebra.cpp
+  src/zip_utils.cpp
 )
 
 set(F4NCGB_TEST_SRCS
-  test.cpp
-  test_simple.cpp
-  test_parse.cpp
-  test_fast_div.cpp
+  src/test.cpp
+  src/test_simple.cpp
+  src/test_parse.cpp
+  src/test_fast_div.cpp
 )
 
 if(ENABLE_PROFILING)
-  set(F4NCGB_SRCS ${F4NCGB_SRCS} profiling.cpp)
+  set(F4NCGB_SRCS ${F4NCGB_SRCS} src/profiling.cpp)
 endif()
 
 set(F4NCGB_TARGETS
-  f4ncgb.cpp
+  src/f4ncgb.cpp
 )
 
 if(ENABLE_STORE_TRACE)
-  list(APPEND F4NCGB_SRCS store_tracer.cpp)
+  list(APPEND F4NCGB_SRCS src/store_tracer.cpp)
 endif()
 
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/config.hpp.in" "${CMAKE_CURRENT_BINARY_DIR}/config.hpp")
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/config.hpp.in" "${CMAKE_CURRENT_BINARY_DIR}/config.hpp")
 
 if(isMultiConfig)
     if(NOT "Sanitize" IN_LIST CMAKE_CONFIGURATION_TYPES)
@@ -68,7 +68,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -g -DNDEBUG")
 set(CMAKE_CXX_STANDARD 20)
 
 if(TARGET mimalloc)
-  list(APPEND F4NCGB_SRCS enable-mimalloc.cpp)
+  list(APPEND F4NCGB_SRCS src/enable-mimalloc.cpp)
   message(STATUS "Found mimalloc and using it")
 else()
   message(STATUS "Not using mimalloc, but it gives you approx. 10-15% speedup. Consider installing its development package! See https://github.com/microsoft/mimalloc")
@@ -168,7 +168,7 @@ if(ENABLE_PROFILING)
   target_compile_definitions(f4ncgb PUBLIC F4NCGB_ENABLE_PROFILING)
 
   # This target makes no sense otherwise.
-  add_executable(mod_prime_tester mod_prime_tester.cpp)
+  add_executable(mod_prime_tester src/mod_prime_tester.cpp)
   target_link_libraries(mod_prime_tester PUBLIC Boost::boost Boost::program_options)
   target_include_directories(mod_prime_tester PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
   target_compile_definitions(mod_prime_tester PUBLIC F4NCGB_ENABLE_PROFILING)
@@ -198,7 +198,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/fuzztest/CMakeLists.txt" AND ENABLE_FUZZE
 
   add_executable(
     f4ncgb_fuzz
-    fuzzer.cpp
+    src/fuzzer.cpp
   )
 
   link_fuzztest(f4ncgb_fuzz)
