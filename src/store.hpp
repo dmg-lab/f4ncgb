@@ -300,6 +300,9 @@ class store {
       pool_.reset(reinterpret_cast<std::byte*>(
         std::malloc(2097152 * (capacity() / 2097152))));
     }
+    if(pool_.get() == nullptr) {
+      exit(5);
+    }
 #ifdef __linux__
     madvise(pool_.get(), 2097152 * (capacity() / 2097152), MADV_HUGEPAGE);
 #endif
@@ -773,15 +776,26 @@ class polynomial_store
       absolute_max);
   }
 
+  size_t cpool_capacity_ = capacity() / 2097152;
+
   inline polynomial_store(monomial_store_& store)
     : base::store()
     , store_(store)
     , cpool_(reinterpret_cast<std::byte*>(
         std::aligned_alloc(2097152 /* 2^21, 2MB */,
                            2097152 * (capacity() / 2097152)))) {
+    cpool_capacity_ = 2097152 * (capacity() / 2097152);
     if(cpool_.get() == nullptr) {
       cpool_.reset(reinterpret_cast<std::byte*>(
         std::malloc(2097152 * (capacity() / 2097152))));
+      if(cpool_.get() == nullptr) {
+        cpool_.reset(reinterpret_cast<std::byte*>(
+          std::malloc((2097152 / 2) * (capacity() / 2097152))));
+        cpool_capacity_ = (2097152 / 2) * (capacity() / 2097152);
+        if(cpool_.get() == nullptr) {
+          exit(6);
+        }
+      }
     }
 #ifdef __linux__
     madvise(cpool_.get(), 2097152 * (capacity() / 2097152), MADV_HUGEPAGE);
@@ -949,8 +963,8 @@ class polynomial_store
   size_t cpool_size_ = 0;
 
   inline C* get_coefficients_raw(I id) {
-    if(static_cast<size_t>(id) * sizeof(C) + sizeof(C) > capacity()) {
-      throw coefficient_overrun_exception(id * sizeof(C), capacity());
+    if(static_cast<size_t>(id) * sizeof(C) + sizeof(C) > cpool_capacity_) {
+      throw coefficient_overrun_exception(id * sizeof(C), cpool_capacity_);
     }
     return reinterpret_cast<C*>(cpool_.get()
                                 + static_cast<size_t>(id) * sizeof(C));
