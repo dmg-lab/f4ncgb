@@ -14,43 +14,48 @@ using namespace f4ncgb;
 
 static void
 bench_mod_mersenne() {
-  volatile uint32_t res = 0;
-  for(uint32_t i = 0; i < 2'147'483'646; ++i) {
-    res = v_mod_2_31_1(i);
+  uint32_t res = 0;
+  for(uint64_t i = 0; i < 2'147'483'646; ++i) {
+    res = v_mod_2_31_1((i << 16));
+    asm volatile ("" : "+r" (i) : "r" (res));
   }
 }
 
 static void
 bench_mod_arbitrary(uint32_t p) {
-  volatile uint32_t res = 0;
-  for(uint32_t i = 0; i < p; ++i) {
-    res = v_mod_p(i, p);
+  uint32_t res = 0;
+  for(uint64_t i = 0; i < p; ++i) {
+    res = v_mod_p((i << 16), p);
+    asm volatile ("" : "+r" (i) : "r" (res));
   }
 }
 
 template<uint32_t p>
 static void
 bench_mod_tmpl() {
-  volatile uint32_t res = 0;
-  for(uint32_t i = 0; i < p; ++i) {
-    res = v_mod_tmpl<p>(i);
+  uint32_t res = 0;
+  for(uint64_t i = 0; i < p; ++i) {
+    res = v_mod_tmpl<p>((i << 16));
+    asm volatile ("" : "+r" (i) : "r" (res));
   }
 }
 
 static void
 bench_mod_standard(uint32_t p) {
-  volatile uint32_t res = 0;
-  for(uint32_t i = 0; i < p; ++i) {
-    res = i % p;
+  uint32_t res = 0;
+  for(uint64_t i = 0; i < p; ++i) {
+    res = (i << 16) % p;
+    asm volatile ("" : "+r" (i) : "r" (res));
   }
 }
 
 template<uint32_t p>
 static void
 bench_mod_standard_tmpl() {
-  volatile uint32_t res = 0;
-  for(uint32_t i = 0; i < p; ++i) {
-    res = i % 2147483648;
+  uint32_t res = 0;
+  for(uint64_t i = 0; i < p; ++i) {
+    res = (i << 16) % 2147483648;
+    asm volatile ("" : "+r" (i) : "r" (res));
   }
 }
 
@@ -75,7 +80,7 @@ check(uint32_t res, uint32_t i, uint32_t p) {
 
 static void
 test_mod_mersenne() {
-  volatile uint32_t res = 0;
+  uint32_t res = 0;
   for(uint32_t i = 0; i < 2'147'483'646; ++i) {
     res = v_mod_2_31_1(i);
     check(res, i, 2'147'483'646);
@@ -84,7 +89,7 @@ test_mod_mersenne() {
 
 static void
 test_mod_arbitrary(uint32_t p) {
-  volatile uint32_t res = 0;
+  uint32_t res = 0;
   for(uint32_t i = 0; i < p; ++i) {
     res = v_mod_p(i, p);
     check(res, i, 2'147'483'646);
