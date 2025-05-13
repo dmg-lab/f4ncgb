@@ -39,11 +39,11 @@ using namespace boost::multiprecision;
 namespace f4ncgb {
 
 struct metadata_monomial {
-  uint16_t length = 0;
+  uint32_t length = 0;
 };
 
 struct metadata_polynomial {
-  uint16_t length = 0;
+  uint32_t length = 0;
 };
 
 //------------------------------------------------------------------------------
