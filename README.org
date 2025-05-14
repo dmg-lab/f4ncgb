@@ -35,6 +35,10 @@ make -j
 
 Then, ~f4ncgb~, ~f4ncgb_test~, and ~mod_prime_tester~ are produced.
 
+The release build automatically optimizes using ~-march=native~, so
+the resulting binary may not run on a machine that does not support
+the same instructions as the builder.
+
 * Usage
 
 ** F4NCGB
