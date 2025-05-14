@@ -105,6 +105,15 @@ through ~operator[]~. This accurately represents what areas in which
 store is being used over time. Below are some renderings of these
 access patterns for smaller input files.
 
+In order to create these images, add the CMake parameter
+~-DENABLE_STORE_TRACE=ON~. Then, the resulting store creates two
+archives: ~<input>_monomial_store.zst~ and
+~<input>_polynomial_store.zst~. These can be turned into two PNGs
+using Gnuplot by adding the ~<input>~ file as parameter, using our
+provided script: ~gnuplot -e "name='<input>'"
+scripts/index_map.gnuplot~. Gnuplot may require very large amounts of
+RAM for this step, as it renders each access individually as a point.
+
 ** ~test_inputs/braid3.ms~ with default options
 
 *** Monomial Store Accesses
