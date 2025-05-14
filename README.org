@@ -3,7 +3,27 @@
 
 * Compiling
 
-Please use [[https://cmake.org/][CMake]] to compile this project:
+** Dependencies
+
+Please install the following required dependencies:
+
+  - [[https://www.boost.org/][Boost]] (tested with 1.83, at least 1.80, Apt Package ~libboost-all-dev~)
+  - [[https://flintlib.org/][Flint]] (tested with 3.0.1, Apt Package ~libflint-dev~)
+  - [[https://gmplib.org/][GMP]] (tested with 6.3.0, Apt Package ~libgmp-dev~)
+
+And recommended:
+
+  - [[https://github.com/microsoft/mimalloc][Mimalloc]] (for more efficient memory allocation, tested with 2.1.2,
+    Apt Package ~libmimalloc-dev~)
+  - [[http://www.gnuplot.info/][Gnuplot]] (for access pattern plots)
+
+The fuzzer can be used by cloning [[https://github.com/google/fuzztest][FuzzTest]] into the project's root
+directory.
+
+** Compilation using CMake
+
+Please use [[https://cmake.org/][CMake]] to compile this project. All dependencies are
+automatically found:
 
 #+BEGIN_SRC bash :export both
 git clone https://gitlab.sai.jku.at/f4ncgb/f4ncgb.git
