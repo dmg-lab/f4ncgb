@@ -98,6 +98,23 @@ overall are faster than the ones from Clang.
 | MacBookAir M2 (ARM64) | AppleClang 16                          |     1.263310 |      1.491293 |                   0.84712394 |
 #+TBLFM: $5=$3/$4
 
+* Store Access Patterns
+
+The store supports writing traces of when which index is accessed
+through ~operator[]~. This accurately represents what areas in which
+store is being used over time. Below are some renderings of these
+access patterns for smaller input files.
+
+** ~test_inputs/braid3.ms~ with default options
+
+*** Monomial Store Accesses
+
+[[file:figures/braid3.ms_monomial_store_accesses.png]]
+
+*** Polynomial Store Accesses
+
+[[file:figures/braid3.ms_polynomial_store_accesses.png]]
+
 * Future Work
 
 ** Optimize the coefficent storage to be more memory efficient
