@@ -47,6 +47,103 @@ the same instructions as the builder.
 ./f4ncgb <input.ms>
 #+END_SRC
 
+These are the provided options (also visible from ~--help~:
+
+  - ~--version~ :: Produce version message
+  - ~--help~ :: Produce help message
+  - ~--expanded-proof~, ~-e~ :: Whether the proofs should be expanded
+    and written in terms of the input. Requires proof logging to be
+    turned on
+  - ~--input~, ~-i~ :: Set the input file (either msolve, poly, or
+    sympoly)
+  - ~--maxiter~, ~-m~ :: Maximal number of iterations of the
+    F4-algorithm to be performed (default: 10)
+  - ~--maxdeg~, ~-d~ :: Maximal degree of ambiguities that are
+    considered (default: INT_MAX)
+  - ~--output~, ~-o~ :: Set the output file
+  - ~--print-problem~ :: Re-print the problem after parsing.
+  - ~--proof~, ~-p~ :: Proof logging
+  - ~--threads~, ~-T~ :: Number of threads to be used
+  - ~--tracer~, ~-t~ :: Whether computations with the first prime
+    shall be traced. Speeds up the computation, but yields the correct
+    result only with high probability
+  - ~--verbosity~, ~-V~ :: Set the verbosity level
+  - ~--verify-algebra~, ~-v~ :: Whether the multimodular linear
+    algebra shall be verified (otherwise, the result is only correct
+    with high probability)
+
+*** ~msolve~ Input Format
+
+This format is compatible to the input format of [[https://msolve.lip6.fr/][msolve]]. We provide
+a simplified EBNF below.
+
+#+BEGIN_EXAMPLE
+input          := var_list EOL
+                  characteristic EOL
+                  poly_list EOF .
+
+var_list       := ident { "," ident } .
+
+characteristic := int .
+
+poly_list      := poly { "," EOL poly } .
+
+poly           := ["+","-"] [ factor ] mon { ["+","-"] factor mon } .
+
+mon            := ident [ exp ] { "*" ident [ exp ] } .
+
+factor         := int [ "/" int ] .
+
+exp            := "^" int .
+
+ident          := letter { letter | digit } .
+
+int            := digit { digit } .
+
+letter         := "A"..."Z" | "a"..."z" | ... .
+
+digit          := "0"..."9" .
+#+END_EXAMPLE
+
+*** ~poly~ Input Format
+
+Poly is a simplified format made for machine generation, inspired by
+DIMACS. We provide a simplified EBNF below.
+
+#+BEGIN_EXAMPLE
+input          := "p poly " nr_of_vars nr_of_blocks characteristic EOL
+                  block { EOL block } EOL
+                  poly { EOL poly } EOF .
+
+nr_of_vars     := nat .
+
+nr_of_blocks   := nat .
+
+characteristic := nat .
+
+block          := nat { nat } "0" .
+
+poly           := mon { "+" mon } 0 .
+
+mon            := numerator denominator var { var } .
+
+numerator      := int .
+
+denominator    := nat .
+
+var            := nat .
+
+int            := ["+","-"] nat .
+
+nat            := digit { digit } .
+
+digit          := "0"..."9" .
+#+END_EXAMPLE
+
+*** ~symboly~ Input Format
+
+This is the same as the ~poly~ format, but a ~var~ can be a symbol
+(ident).
 
 ** F4NCGB Test
 
