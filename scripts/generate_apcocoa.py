@@ -59,5 +59,5 @@ if __name__ == '__main__':
     for i in range(1,len(ideal)+1):
         I += 'F' + str(i) + ','
     output.write('G := [' + I[:-1] + '];\n')
-    output.write('NC.TruncatedGB(G, ' + d + ', 31, 1);\n')
+    output.write('NC.TruncatedGB(G, ' + d + ', 31, 0);\n')
     output.write('Quit;\n')
