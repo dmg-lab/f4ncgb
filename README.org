@@ -15,7 +15,6 @@ And recommended:
 
   - [[https://github.com/microsoft/mimalloc][Mimalloc]] (for more efficient memory allocation, tested with 2.1.2,
     Apt Package ~libmimalloc-dev~)
-  - [[http://www.gnuplot.info/][Gnuplot]] (for access pattern plots)
 
 The fuzzer can be used by cloning [[https://github.com/google/fuzztest][FuzzTest]] into the project's root
 directory.
@@ -107,8 +106,8 @@ digit          := "0"..."9" .
 
 *** ~poly~ Input Format
 
-Poly is a simplified format made for machine generation, inspired by
-DIMACS. We provide a simplified EBNF below.
+Poly is a simplified format made for machine generation, inspired by the 
+DIMACS format that SAT-solvers use. We provide a simplified EBNF below.
 
 #+BEGIN_EXAMPLE
 input          := "p poly " nr_of_vars nr_of_blocks characteristic EOL
@@ -160,7 +159,10 @@ This should produce the following output:
 Internally, the tests also create our store structure multiple times
 and test the memory allocation to fit our requirements.
 
-** Mod Prime Tester
+** Optimization for Mersenne Primes
+
+We provide a specialized implementation for computing modular images modulo Mersenne primes.
+To evaluate this implemenation against the standard ~%~-operator, we provide the ~mod_prime_tester~ executable.
 
 Run the exhaustive tests:
 
@@ -185,8 +187,8 @@ Run the benchmarks:
 #+END_SRC
 
 The benchmark output three rows: The variant (the standard modulo, the
-optimized variant using the mersenne prime $2^31-1$, and a modulo
-power-of-two variant as "upper limit" of our mersenne-optimization, as
+optimized variant using the mersenne prime ~2^31-1~, and a modulo
+power-of-two variant as "upper limit" of our Mersenne-optimization, as
 the compiler can optimize a modulo power-of-two into a bitmask). The
 columns are (as in the test) the highest number tested, the time (in
 seconds) for each run, and (for the optimized variant), the speedup
