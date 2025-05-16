@@ -237,6 +237,8 @@ provided script: ~gnuplot -e "name='<input>'"
 scripts/index_map.gnuplot~. Gnuplot may require very large amounts of
 RAM for this step, as it renders each access individually as a point.
 
+Creating the access patterns requires [[http://www.gnuplot.info/][Gnuplot]].
+
 ** ~test_inputs/braid3.ms~ with default options
 
 *** Monomial Store Accesses
