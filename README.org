@@ -66,10 +66,7 @@ These are the provided options (also visible from ~--help~:
   - ~--tracer~, ~-t~ :: Whether computations with the first prime
     shall be traced. Speeds up the computation, but yields the correct
     result only with high probability
-  - ~--verbosity~, ~-V~ :: Set the verbosity level
-  - ~--verify-algebra~, ~-v~ :: Whether the multimodular linear
-    algebra shall be verified (otherwise, the result is only correct
-    with high probability)
+  - ~--verbosity~, ~-v~ :: Set the verbosity level
 
 *** ~msolve~ Input Format
 
