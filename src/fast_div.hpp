@@ -25,15 +25,15 @@ v_mod_2_31_1(uint64_t v) noexcept {
   return mersenne_mod((int64_t)v);
 }
 
-[[nodiscard]] constexpr inline uint32_t
-v_mod_p(uint32_t v, uint32_t p) noexcept {
+[[nodiscard]] constexpr inline int64_t
+v_mod_p(int64_t v, uint32_t p) noexcept {
   // Algorithm 5 of [1]
-  const uint64_t c = 2'147'483'648 - p;// 2^31 - p = c; b = 31
-  const uint64_t b = 31;
-  const uint64_t v_prime = (uint64_t)v + (uint64_t)c;
-  uint64_t z = v_prime >> b;
-  z = (z * c + v_prime) >> b;
-  z = (z * c + v_prime) >> b;
+  const int64_t c = 2'147'483'648 - p;// 2^31 - p = c; b = 31
+  const int64_t v_prime = v + c;
+  int64_t z = v_prime >> 31;
+  z = (z * c + v_prime) >> 31;
+  z = (z * c + v_prime) >> 31;
+  z = (z * c + v_prime) >> 31;
   return (v - z * p);
 }
 
@@ -41,12 +41,11 @@ template<uint32_t p>
 [[nodiscard]] constexpr inline uint32_t
 v_mod_tmpl(uint32_t v) noexcept {
   // Algorithm 5 of [1]
-  const uint64_t c = 2'147'483'648 - p;// 2^31 - p = c; b = 31
-  const uint64_t b = 31;
-  const uint64_t v_prime = (uint64_t)v + (uint64_t)c;
-  uint64_t z = v_prime >> b;
-  z = (z * c + v_prime) >> b;
-  z = (z * c + v_prime) >> b;
+  const int64_t c = 2'147'483'648 - p;// 2^31 - p = c; b = 31
+  const int64_t v_prime = v + c;
+  int64_t z = v_prime >> 31;
+  z = (z * c + v_prime) >> 31;
+  z = (z * c + v_prime) >> 31;
   return (v - z * p);
 }
 

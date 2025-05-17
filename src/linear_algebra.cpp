@@ -443,7 +443,9 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
         cc = mersenne_mod(buffer[i]);
       } else {
 #endif
-        cc = (int64_t)(((uint64_t)buffer[i]) % p);
+        // cc = (int64_t)(((uint64_t)buffer[i]) % p);
+        cc = v_mod_p(buffer[i], p);
+
 #ifdef F4NCGB_FAST_MERSENNE_PRIME_MODULO
       }
 #endif
@@ -525,7 +527,8 @@ gauss_elim(uint32_mat_t mat,
             cc = mersenne_mod(buffer_local[i]);
           } else {
 #endif
-            cc = (int64_t)(((uint64_t)buffer_local[i]) % p);
+            // cc = (int64_t)(((uint64_t)buffer_local[i]) % p);
+            cc = v_mod_p(buffer_local[i], p);
 #ifdef F4NCGB_FAST_MERSENNE_PRIME_MODULO
           }
 #endif
