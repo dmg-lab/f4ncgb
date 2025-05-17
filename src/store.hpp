@@ -1002,7 +1002,6 @@ f4ncgb_main(parser_context& context,
             size_t maxiter,
             size_t maxdeg,
             size_t threads,
-            bool verified_algebra,
             const std::string& output_name,
             const std::string& proof_file,
             bool print_read_problem = false);

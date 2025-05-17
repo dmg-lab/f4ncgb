@@ -40,7 +40,6 @@ f4ncgb_main(parser_context& context,
                size_t maxiter,
                size_t maxdeg,
                size_t threads,
-               bool verified_algebra,
                const std::string& output_name,
                const std::string& proof_file,
                bool print_read_problem) {
@@ -52,7 +51,6 @@ f4ncgb_main(parser_context& context,
      maxiter,
      maxdeg,
      threads,
-     verified_algebra,
      output_name,
      proof_file,
      print_read_problem](auto Nblocks) -> int {
@@ -63,7 +61,6 @@ f4ncgb_main(parser_context& context,
                                         maxiter,
                                         maxdeg,
                                         threads,
-                                        verified_algebra,
                                         proof_file);
       auto& algo = *algo_ptr;
       {
@@ -126,7 +123,6 @@ f4ncgb_main(parser_context& context,
         msg(out_name.c_str());
         msg("Proof logging:     %s", proof_str.c_str());
         msg("Tracer:            %s", tracer ? "on" : "off");
-        msg("Verified algebra:  %s", verified_algebra ? "on" : "off");
         msg("==== Starting Gröbner Basis Computation ====");
       }
 

@@ -581,8 +581,7 @@ gauss_elim(uint32_mat_t mat,
 std::pair<std::vector<std::pair<size_t, size_t>>, std::vector<gmp_rational>>
 multimodular_gauss_elim(sfmpz_mat_t mat,
                         std::unique_ptr<BS::thread_pool<BS::none>>& pool,
-                        bool interreduce,
-                        bool verify) {
+                        bool interreduce) {
   std::vector<std::unique_ptr<sparse_mat_struct<uint32_t>>> rrefs;
   pivots best_piv;
   std::vector<pivots> pivs;
@@ -703,7 +702,7 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
       continue;
     }
 
-    if(!verify or verify_result(rat_entries, h, mat->ncol, prod))
+    if(verify_result(rat_entries, h, mat->ncol, prod))
       break;
   }
   for(const auto& rref : rrefs)
@@ -773,8 +772,7 @@ std::pair<std::vector<std::pair<size_t, size_t>>, std::vector<gmp_rational>>
 linear_algebra(sfmpz_mat_t mat,
                size_t characteristic,
                std::unique_ptr<BS::thread_pool<BS::none>>& pool,
-               bool interreduce,
-               bool verify) {
+               bool interreduce) {
   // sort rows by first index and nnz
   std::sort(mat->rows, mat->rows + mat->nrow, [](auto& r1, auto& r2) {
     auto id1 = r1.indices[0];
@@ -785,7 +783,7 @@ linear_algebra(sfmpz_mat_t mat,
   });
 
   if(characteristic == 0)
-    return multimodular_gauss_elim(mat, pool, interreduce, verify);
+    return multimodular_gauss_elim(mat, pool, interreduce);
   else
     return nmod_gauss_elim(mat, characteristic, pool, interreduce);
 }

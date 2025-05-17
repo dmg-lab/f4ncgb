@@ -34,8 +34,7 @@ static size_t maxiter = 0;
 static size_t maxdeg = 0;
 static size_t threads = 0;
 
-// / Verified multimodular computations and proof logging
-static bool verified_algebra = true;
+// / Proof logging
 static bool expanded_proof = false;
 int proof = 0;
 bool tracer = true;
@@ -74,8 +73,7 @@ main(int argc, char** argv) {
     ("proof,p",  po::value<std::string>(&proof_file)->default_value(""), "Proof logging.")
     ("threads,T", po::value<size_t>(&threads)->default_value(1), "Number of threads to be used.")
     ("tracer,t", po::value<bool>(&tracer)->default_value(true), "Whether computations with the first prime shall be traced. Speeds up the computation, but yields the correct result only with high probability.")
-    ("verbosity,V", po::value<int>(&verbose)->default_value(1), "Set the verbosity level.")
-    ("verify-algebra,v", po::value<bool>(&verified_algebra)->default_value(true), "Whether the multimodular linear algebra shall be verified (otherwise, the result is only correct with high probability).")
+    ("verbosity,v", po::value<int>(&verbose)->default_value(1), "Set the verbosity level.")
   ;
 
   po::positional_options_description positional_desc;
@@ -155,7 +153,6 @@ main(int argc, char** argv) {
                                   maxiter,
                                   maxdeg,
                                   threads,
-                                  verified_algebra,
                                   output_name,
                                   proof_file,
                                   print_problem);

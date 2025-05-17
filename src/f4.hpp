@@ -18,8 +18,8 @@
 #include <boost/unordered/unordered_set.hpp>
 
 #include "ambiguity.hpp"
-#include "gmp.h"
 #include "f4ncgb.hpp"
+#include "gmp.h"
 #include "linear_algebra.hpp"
 #include "parser.hpp"
 #include "profiling.hpp"
@@ -104,7 +104,6 @@ struct f4 {
   size_t iter = 0;
   size_t maxiter = UINT_MAX;
   size_t maxdeg = UINT_MAX;
-  bool verified_algebra = true;
   static constexpr bool block_order = Nblocks > 0;
 
   std::ofstream proof_file;
@@ -115,7 +114,6 @@ struct f4 {
      size_t maxiter_,
      size_t maxdeg_,
      size_t num_threads,
-     bool verified_algebra_,
      const std::string& proof_file_)
     : context(context_)
     , mons()
@@ -124,8 +122,7 @@ struct f4 {
     , suffix_trie(nvars)
     , characteristic(characteristic_)
     , maxiter(maxiter_)
-    , maxdeg(maxdeg_)
-    , verified_algebra(verified_algebra_) {
+    , maxdeg(maxdeg_) {
 
     mons.set_blocks(context.block_sizes());
 
@@ -493,29 +490,18 @@ struct f4 {
   }
 
   //------------------------------------------------------------------------------
-  poly_id find_reducer(mon_id m, bool strategy = false) {
+  poly_id find_reducer(mon_id m) {
 
     auto& reducers = prefix_trie.divisors(mons[m]);
     if(reducers.empty())
       return 0;
 
-    std::pair<mon_id, size_t> match;
-    // strategy 1 : the last one
-    if(strategy)
-      match = *std::max_element(reducers.begin(), reducers.end());
-    // strategy 2 : the one with smallest lm
-    else if(true)
-      match = *std::max_element(
-        reducers.begin(), reducers.end(), [this](auto a, auto b) {
-          return this->mons.template cmp<block_order>(b.first, a.first);
-        });
-    // strategy 3 : the one with largest lm
-    else
-      match = *std::max_element(
-        reducers.begin(), reducers.end(), [this](auto a, auto b) {
-          return this->mons.template cmp<block_order>(a.first, b.first);
-        });
-
+    // strategy  : the one with smallest lm
+    std::pair<mon_id, size_t> match = *std::max_element(
+      reducers.begin(), reducers.end(), [this](auto a, auto b) {
+        return this->mons.template cmp<block_order>(b.first, a.first);
+      });
+   
     monomial mm = mons[m];
     monomial lm = mons[match.first];
     mon_id a = mons.getid(mm.first(match.second));
@@ -661,7 +647,7 @@ struct f4 {
     // reduction
     F4NCGB_PROFILE(auto timer = gstats.time(gstats.reduction));
     auto [idxs, entries] = linear_algebra(
-      mat, characteristic, pool, interreduce, verified_algebra);
+      mat, characteristic, pool, interreduce);
 
     // compute new elements
     F4NCGB_PROFILE(auto timer2 = gstats.time(gstats.new_elements));
