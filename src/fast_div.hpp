@@ -33,7 +33,6 @@ v_mod_p(int64_t v, uint32_t p) noexcept {
   int64_t z = v_prime >> 31;
   z = (z * c + v_prime) >> 31;
   z = (z * c + v_prime) >> 31;
-  z = (z * c + v_prime) >> 31;
   return (v - z * p);
 }
 
