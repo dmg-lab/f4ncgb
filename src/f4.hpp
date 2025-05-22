@@ -578,6 +578,8 @@ struct f4 {
     p.clear();
     current_cofactors.clear();
 
+    poly.reset();
+
     if(idxs.size() == 0)
       return res;
 

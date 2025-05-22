@@ -1,4 +1,4 @@
-x,y,z
+z,y,x
 0
 z*y*z-y*x*y,
 z*x*y-x*y*x,

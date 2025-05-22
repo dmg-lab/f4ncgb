@@ -213,6 +213,7 @@ class store {
   }
 
   I size_ = 0;
+  I real_size_ = 0;
   I inserted_count_ = 0;
   M zero_metadata_;
   bool scratch_metadata_created_ = false;
@@ -272,7 +273,7 @@ class store {
 
     size_ += ptr_next - ptr_start;
     ++inserted_count_;
-
+    real_size_ = size_;
     scratch_metadata_created_ = false;
 
     return id + 1;
@@ -333,6 +334,8 @@ class store {
   inline length_type get_length(I id) const noexcept {
     return get_metadata(id).length;
   }
+
+  inline void reset() { size_ = real_size_; }
 
   inline const std::span<const V> operator[](I id) const noexcept {
     if(id == 0)
@@ -912,16 +915,12 @@ class polynomial_store
   inline I multiply_front_or_back_or_both(I f, I p, I b) {
     assert(p != 0);
 
+    size_t cpool_size_old = cpool_size_;
+    size_t size_old = this->real_size_;
     metadata& p_metadata = this->get_metadata(p);
-    bool alloc_coefficient = !base::scratch_metadata_created_;
-    C* p_coeff = get_coefficients_raw(p_metadata.coefficients);
     auto [new_m, new_i, new_c] = add(p_metadata.length);
     new_m.length = p_metadata.length;
     for(I i = 0; i < p_metadata.length; ++i) {
-      // Only allocate new coefficient if no metadata existed here
-      // before.
-      C* c = alloc_coefficient ? new(new_c + i) C : new_c + i;
-      *c = p_coeff[i];
       if constexpr(front && !back) {
         new_i[i] = store_.get_product_id(f, (*this)[p][i]);
       } else if constexpr(!front && back) {
@@ -930,7 +929,11 @@ class polynomial_store
         new_i[i] = store_.get_product_id(f, (*this)[p][i], b);
       }
     }
-    return commit();
+    I g = commit();
+    this->get_metadata(g).coefficients = p_metadata.coefficients;
+    cpool_size_ = cpool_size_old;
+    this->real_size_ = size_old;
+    return g;
   }
 
   inline I multiply_front(I m, I p) {
