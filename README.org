@@ -1,7 +1,8 @@
 #+PROPERTY: HEADER-ARGS+ :eval never-export
-#+TITLE: F4ncgb
 
-* Compiling
+#+TITLE: f4ncgb
+
+* Compilation
 
 ** Dependencies
 
@@ -246,14 +247,28 @@ Creating the access patterns requires [[http://www.gnuplot.info/][Gnuplot]].
 
 [[file:figures/braid3.ms_polynomial_store_accesses.png]]
 
-* Future Work
+* Citation
 
-** Optimize the coefficent storage to be more memory efficient
+If you have used ~f4ncgb~ for a paper, we would kindly ask you to cite it as:
 
-Coefficients now always allocated on the heap (using GMP), with their
-wrappers being stored in the ~cpool_~ of the polynomial store. Some
-coefficents could be ommitted, saving the extra allocation. Also,
-according to analysis with the polynomial store trace, many
-polynomials are never used again after being initially created, making
-the polynomial store overall seemingly suited for garbage collection
-after each iteration.
+#+BEGIN_SRC bash :export both
+f4ncgb: High Performance Gröbner Basis Computations in Free Algebras.
+Maximilian Heisinger and Clemens Hofstadler.
+arXiv preprint arXiv:2505.19304, 2021.
+#+END_SRC
+
+Or, if you are using BibTeX:
+
+#+BEGIN_SRC bash :export both
+@misc{f4ncgb,
+      title={{f4ncgb: High Performance Gr\"obner Basis Computations in Free Algebras}}, 
+      author={Maximilian Heisinger and Clemens Hofstadler},
+      year={2025},
+      eprint={2505.19304},
+      archivePrefix={arXiv},
+      primaryClass={cs.MS},
+      url={https://arxiv.org/abs/2505.19304}, 
+}
+#+END_SRC
+
+The paper can be found [[https://arxiv.org/abs/2505.19304][here]].
