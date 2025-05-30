@@ -1,22 +1,6 @@
 # Table of Contents
 
-1.  [Compilation](#org4ed26a3)
-    1.  [Dependencies](#org682c20c)
-    2.  [Compilation using CMake](#org959c02e)
-2.  [Usage](#org0079508)
-    1.  [F4NCGB](#orgff16d2f)
-        1.  [`msolve` Input Format](#org89f78d9)
-        2.  [`poly` Input Format](#org9803c52)
-        3.  [`symboly` Input Format](#org015b48c)
-    2.  [F4NCGB Test](#org5bf89aa)
-    3.  [Optimization for Mersenne Primes](#org7028d8a)
-3.  [Store Access Patterns](#orgccc4565)
-    1.  [`test_inputs/braid3.ms` with default options](#org9f53e9b)
-        1.  [Monomial Store Accesses](#org5034f2e)
-        2.  [Polynomial Store Accesses](#orgb73efde)
-4.  [Citation](#org230d282)
-
-
+[[_TOC_]]
 
 <a id="org4ed26a3"></a>
 
