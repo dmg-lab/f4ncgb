@@ -90,13 +90,13 @@ These are the provided options (also visible from `--help`:
     F4-algorithm to be performed (default: 10)
 -   **`--maxdeg`, `-d`:** Maximal degree of ambiguities that are
     considered (default: INT<sub>MAX</sub>)
--   **`--output`, `-o`:** Set the output file
+-   **`--output`, `-o`:** Set the output file (default: std::cout)
 -   **`--print-problem`:** Re-print the problem after parsing.
--   **`--proof`, `-p`:** Proof logging
--   **`--threads`, `-T`:** Number of threads to be used
+-   **`--proof`, `-p`:** Proof logging (default: disabled)
+-   **`--threads`, `-T`:** Number of threads to be used (default: 1)
 -   **`--tracer`, `-t`:** Whether computations with the first prime
     shall be traced. Speeds up the computation, but yields the correct
-    result only with high probability
+    result only with high probability (default: enabled)
 -   **`--verbosity`, `-v`:** Set the verbosity level
 
 
