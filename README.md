@@ -5,7 +5,7 @@ in free algebras (with rational coefficients or coefficients in a prime field).
 It transfers recent advancements in commutative Gröbner basis software to the
 noncommutative setting.
 
-Below is a runtime comparison (in seconds) of `f4ncgb` with the state-of-the-art implemenation in [Singular](https://www.singular.uni-kl.de/index.php.html).
+Below is a runtime comparison (in seconds) of `f4ncgb` with the state-of-the-art tool [Singular](https://www.singular.uni-kl.de/index.php.html).
 The selected benchmarks are part of the [SymbolicData project](https://symbolicdata.github.io).
 
 
