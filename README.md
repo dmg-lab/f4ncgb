@@ -1,3 +1,28 @@
+# f4ncgb
+
+`f4ncgb` is an open-source C++ library for computing noncommutative Gröbner bases
+in free algebras (with rational coefficients or coefficients in a prime field). 
+It transfers recent advancements in commutative Gröbner basis software to the
+noncommutative setting.
+
+Below is a runtime comparison (in seconds) of `f4ncgb` with the state-of-the-art implemenation in [Singular](https://www.singular.uni-kl.de/index.php.html).
+The selected benchmarks are part of the [SymbolicData project](https://symbolicdata.github.io).
+
+
+| Example&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Singular&nbsp;&nbsp;&nbsp; | f4ncgb&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (1 core) |  f4ncgb&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (2 cores) |  f4ncgb&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (4 cores) |  f4ncgb&nbsp;&nbsp;&nbsp;&nbsp; (8 cores) | 
+| --------- | ------ |-----|------- | ------ |-----|
+| 4nilp5s-10 |  1 282.44 | 150.46 | 96.83 | 79.47  | 65.96  |
+| braid3-16  | 18 953.19  | 105.46 |  64.92  |    34.58     |   23.96   |
+| braidX-18  | >43 200 | 1 977.27 | 1 018.47 |  601.12  | 364.29 |
+| braidXY-12 | 1 847.97 | 62.40  | 55.45 | 52.44 | 53.51  |
+| holt_G3562h-17  | >43 200 | 25 021.62 | 14 660.04 | 12 671.38 | 8915.69 |
+| lascala_neuh-13  | 171.95 | 9.84 | 7.08 | 5.50 | 4.98 |
+| lv2d10-100  | >43 200 | 48.43  | 34.31 | 27.68 | 26.98 |
+| malle_G12h-100  | 4 142.27 | 89.93 | 78.04 | 74.15 | 74.19 | 
+|  serre-e6-17 | 113.95 | 130.62 | 130.07 | 130.53 | 131.01 |
+| serre-ha11-17 | 99.09 | 38.18 | 32.79 | 31.66 | 30.77 |
+
+
 # Table of Contents
 
 [[_TOC_]]
@@ -48,12 +73,7 @@ the same instructions as the builder.
 
 <a id="org0079508"></a>
 
-# Usage
-
-
-<a id="orgff16d2f"></a>
-
-## F4NCGB
+# Basic usage of `f4ncgb`
 
     ./f4ncgb <input.ms>
 
@@ -82,7 +102,7 @@ These are the provided options (also visible from `--help`:
 
 <a id="org89f78d9"></a>
 
-### `msolve` Input Format
+## `msolve` Input Format
 
 This format is compatible to the input format of [msolve](https://msolve.lip6.fr/). We provide
 a simplified EBNF below.
@@ -116,7 +136,7 @@ a simplified EBNF below.
 
 <a id="org9803c52"></a>
 
-### `poly` Input Format
+## `poly` Input Format
 
 Poly is a simplified format made for machine generation, inspired by the 
 DIMACS format that SAT-solvers use. We provide a simplified EBNF below.
@@ -152,7 +172,7 @@ DIMACS format that SAT-solvers use. We provide a simplified EBNF below.
 
 <a id="org015b48c"></a>
 
-### `symboly` Input Format
+## `symboly` Input Format
 
 This is the same as the `poly` format, but a `var` can be a symbol
 (ident).
@@ -160,7 +180,7 @@ This is the same as the `poly` format, but a `var` can be a symbol
 
 <a id="org5bf89aa"></a>
 
-## F4NCGB Test
+# Tests
 
     ./f4ncgb_test
 
@@ -175,6 +195,9 @@ and test the memory allocation to fit our requirements.
 
 
 <a id="org7028d8a"></a>
+
+# Additional features
+
 
 ## Optimization for Mersenne Primes
 
@@ -318,7 +341,7 @@ overall are faster than the ones from Clang.
 
 <a id="orgccc4565"></a>
 
-# Store Access Patterns
+## Store Access Patterns
 
 The store supports writing traces of when which index is accessed
 through `operator[]`. This accurately represents what areas in which
@@ -336,29 +359,20 @@ RAM for this step, as it renders each access individually as a point.
 
 Creating the access patterns requires [Gnuplot](http://www.gnuplot.info/).
 
-
-<a id="org9f53e9b"></a>
-
-## `test_inputs/braid3.ms` with default options
-
-
-<a id="org5034f2e"></a>
+Here are examples of the access patterns for the input
+ `test_inputs/braid3.ms` with default options of `f4ncgb`
 
 ### Monomial Store Accesses
 
 ![img](figures/braid3.ms_monomial_store_accesses.png)
 
 
-<a id="orgb73efde"></a>
-
 ### Polynomial Store Accesses
 
 ![img](figures/braid3.ms_polynomial_store_accesses.png)
 
 
-<a id="org230d282"></a>
-
-# Citation
+# Citing `f4ncgb`
 
 If you have used `f4ncgb` for a paper, we would kindly ask you to cite it as:
 
