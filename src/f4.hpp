@@ -476,6 +476,7 @@ struct f4 {
       mon_id m = *todo.begin();
       todo.erase(todo.begin());
       done.insert(m);
+
       poly_id reducer = find_reducer(m);
       if(reducer == 0)
         continue;
@@ -491,7 +492,6 @@ struct f4 {
 
   //------------------------------------------------------------------------------
   poly_id find_reducer(mon_id m) {
-
     auto& reducers = prefix_trie.divisors(mons[m]);
     if(reducers.empty())
       return 0;
@@ -501,7 +501,7 @@ struct f4 {
       reducers.begin(), reducers.end(), [this](auto a, auto b) {
         return this->mons.template cmp<block_order>(b.first, a.first);
       });
-   
+
     monomial mm = mons[m];
     monomial lm = mons[match.first];
     mon_id a = mons.getid(mm.first(match.second));
@@ -636,7 +636,7 @@ struct f4 {
     columns.clear();
     columns.resize(
       static_cast<size_t>(std::distance(col_set.begin(), col_set.end())));
-    std::copy(col_set.begin(), col_set.end(), columns.begin());
+    std::move(col_set.begin(), col_set.end(), columns.begin());
     auto cmp = [this](const mon_id a, const mon_id b) {
       return this->mons.template cmp<block_order>(b, a);
     };
@@ -648,8 +648,8 @@ struct f4 {
 
     // reduction
     F4NCGB_PROFILE(auto timer = gstats.time(gstats.reduction));
-    auto [idxs, entries] = linear_algebra(
-      mat, characteristic, pool, interreduce);
+    auto [idxs, entries]
+      = linear_algebra(mat, characteristic, pool, interreduce);
 
     // compute new elements
     F4NCGB_PROFILE(auto timer2 = gstats.time(gstats.new_elements));
