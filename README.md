@@ -6,7 +6,7 @@ It transfers recent advancements in commutative Gröbner basis software to the
 noncommutative setting.
 
 Below is a runtime comparison (in seconds) of `f4ncgb` with the state-of-the-art tool [Singular](https://www.singular.uni-kl.de/index.php.html).
-The selected benchmarks are part of the [SymbolicData project](https://symbolicdata.github.io).
+All benchmarks are part of the [SymbolicData project](https://symbolicdata.github.io).
 
 
 | Example&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Singular&nbsp;&nbsp;&nbsp; | f4ncgb&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (1 core) |  f4ncgb&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (2 cores) |  f4ncgb&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (4 cores) |  f4ncgb&nbsp;&nbsp;&nbsp;&nbsp; (8 cores) | 
@@ -172,11 +172,10 @@ DIMACS format that SAT-solvers use. We provide a simplified EBNF below.
 
 <a id="org015b48c"></a>
 
-## `symboly` Input Format
+## `sympoly` Input Format
 
 This is the same as the `poly` format, but a `var` can be a symbol
 (ident).
-
 
 <a id="org5bf89aa"></a>
 
@@ -225,7 +224,7 @@ optimized variant using the mersenne prime `2^31-1`, and a modulo
 power-of-two variant as "upper limit" of our Mersenne-optimization, as
 the compiler can optimize a modulo power-of-two into a bitmask). The
 columns are (as in the test) the highest number tested, the time (in
-seconds) for each run, and (for the optimized variant), the speedup
+seconds) for each run, and (for the optimized variant) the speedup
 compared to the standard modulo. Below is an example output using GCC
 15.1 on Fedora 42 on an Intel i7-10700 CPU.
 
@@ -345,11 +344,11 @@ overall are faster than the ones from Clang.
 
 The store supports writing traces of when which index is accessed
 through `operator[]`. This accurately represents what areas in which
-store is being used over time. Below are some renderings of these
+store are being used over time. Below are some renderings of these
 access patterns for smaller input files.
 
 In order to create these images, add the CMake parameter
-`-DENABLE_STORE_TRACE=ON`. Then, the resulting store creates two
+`-DENABLE_STORE_TRACE=ON` during compilation. Then the resulting store creates two
 archives: `<input>_monomial_store.zst` and
 `<input>_polynomial_store.zst`. These can be turned into two PNGs
 using Gnuplot by adding the `<input>` file as parameter, using our
