@@ -2,8 +2,6 @@
 
 #+TITLE: f4ncgb
 
-[[_TOC_]]
-
 * Compilation
 
 ** Dependencies
