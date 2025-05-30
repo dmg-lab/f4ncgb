@@ -2,7 +2,7 @@
 
 #+TITLE: f4ncgb
 
-[[TOC]]
+[[_TOC_]]
 
 * Compilation
 
