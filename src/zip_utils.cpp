@@ -95,7 +95,7 @@ open_compressed_or_direct(std::filesystem::path p) {
   else if(p.extension() == ".7z" && file_matches_signature(p, sig7z))
     f_ptr = popen_with_found_bin("7z", "x -so", p);
   else
-    f_ptr = std::fopen(p.c_str(), "r");
+    f_ptr = std::fopen(p.string().c_str(), "r");
 
   return f_ptr;
 }
