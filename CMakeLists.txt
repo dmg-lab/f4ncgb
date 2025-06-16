@@ -63,6 +63,9 @@ endif()
 
 find_package(mimalloc QUIET)
 
+set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+find_package( Threads QUIET)
+
 # Do more optimizations in release mode. Also disable assertions.
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -g -DNDEBUG")
 
@@ -87,6 +90,9 @@ add_executable(f4ncgb_bin ${F4NCGB_TARGETS})
 target_link_libraries(f4ncgb_test PUBLIC f4ncgb)
 target_link_libraries(f4ncgb_bin PUBLIC f4ncgb)
 set_target_properties(f4ncgb_bin PROPERTIES OUTPUT_NAME "f4ncgb")
+
+# needed for pthread flag
+target_link_libraries(f4ncgb_bin PUBLIC ${CMAKE_THREAD_LIBS_INIT} )
 
 set_property(TARGET f4ncgb PROPERTY CXX_STANDARD 20)
 set_property(TARGET f4ncgb_test PROPERTY CXX_STANDARD 20)
