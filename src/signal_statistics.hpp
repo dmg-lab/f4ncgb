@@ -5,7 +5,6 @@
 #include <cstddef>
 #include <csignal>
 #include <sys/time.h>
-#include <sys/resource.h>
 
 extern void(*original_SIGINT_handler)(int);
 extern void(*original_SIGSEGV_handler)(int);
