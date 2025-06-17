@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(f4ncgb VERSION 0.1)
+project(f4ncgb VERSION 0.2.1)
 
 if(POLICY CMP0167)
   cmake_policy(SET CMP0167 NEW)
@@ -83,7 +83,7 @@ else()
 endif()
 
 add_library(f4ncgb STATIC ${F4NCGB_SRCS})
-
+set_target_properties(f4ncgb PROPERTIES PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/f4ncgb.hpp)
 
 add_executable(f4ncgb_test ${F4NCGB_TEST_SRCS})
 add_executable(f4ncgb_bin ${F4NCGB_TARGETS})
@@ -223,3 +223,9 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/fuzztest/CMakeLists.txt" AND ENABLE_FUZZE
 else()
   message(STATUS "Fuzzer disabled")
 endif()
+
+include(GNUInstallDirs)
+
+install(TARGETS f4ncgb_bin)
+install(TARGETS f4ncgb
+  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/f4ncgb)

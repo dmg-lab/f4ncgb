@@ -3,5 +3,5 @@
 #include <cstddef>
 
 namespace f4ncgb {
-class parser_context;
+  const char* version() noexcept;
 }

@@ -60,6 +60,7 @@ main(int argc, char** argv) {
   po::options_description desc("f4ncgb, version " F4NCGB_VERSION "\n"
                                "Copyright(C) 2025 Clemens Hofstadler, Maximilian Heisinger\n"
                                "JKU Linz, Austria\n"
+                               "Repository: https://gitlab.sai.jku.at/f4ncgb/f4ncgb\n"
                                "USAGE");
   desc.add_options()
     ("version", "produce version message")
@@ -159,4 +160,11 @@ main(int argc, char** argv) {
 
   F4NCGB_PROFILE(gstats.print(threads));
   return res;
+}
+
+namespace f4ncgb {
+const char*
+version() noexcept {
+  return F4NCGB_VERSION;
+}  
 }
