@@ -239,7 +239,7 @@ BOOST_AUTO_TEST_CASE(parse_braid3) {
   BOOST_REQUIRE(dir_optional.has_value());
   std::filesystem::path dir = *dir_optional;
 
-  std::filesystem::path input = dir / "braid3.ms";
+  std::filesystem::path input = dir / "braid3-11.ms";
 
   using I = impl<>;
   I::monomial_store ms;
