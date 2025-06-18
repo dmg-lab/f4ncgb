@@ -246,6 +246,8 @@ class parser_context {
 
   parse_res parse_header();
 
+  const std::string& get_filename() const { return filename; }
+
   std::ostream& var_to_ostream(std::ostream& o, parser_symbolic_context::id i) {
     if(has_symbols())
       return o << id_to_str(i);

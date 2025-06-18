@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <format>
+#include <fstream>
 #include <iterator>
 #include <limits>
 #include <memory>
@@ -175,6 +176,17 @@ class store {
     }
   };
 
+#ifdef F4NCGB_ENABLE_STORE_DUMP
+  std::string dump_output_path_;
+  void dump_to_binary() {
+    msg("Dumping %d bytes to %s", size_, dump_output_path_.c_str());
+    std::ofstream of(dump_output_path_, std::ios::binary | std::ios::out);
+    for(size_t i = 0; i < size_; ++i) {
+      of << static_cast<uint8_t>(pool_[i]);
+    }
+  }
+#endif
+
   friend B;
 
   static_assert(
@@ -298,7 +310,7 @@ class store {
   store()
     : pool_(reinterpret_cast<std::byte*>(
         boost::alignment::aligned_alloc(2097152 /* 2^21, 2MB */,
-                           2097152 * (capacity() / 2097152)))) {
+                                        2097152 * (capacity() / 2097152)))) {
     if(pool_.get() == nullptr) {
       pool_.reset(reinterpret_cast<std::byte*>(
         std::malloc(2097152 * (capacity() / 2097152))));
@@ -311,6 +323,12 @@ class store {
 #endif
   }
   ~store() {
+#ifdef F4NCGB_ENABLE_STORE_DUMP
+    if(dump_output_path_ != "") {
+      dump_to_binary();
+    }
+#endif
+
     for(I i = 0; i < inserted_count_; ++i) {
       // Do not call the destructor of the 0 element, as this is special. Only
       // call higher ones.
@@ -433,6 +451,10 @@ class store {
 
   pos_iterator begin() const { return pos_iterator(*this, 0); }
   pos_iterator end() const { return pos_iterator(*this, size_ + 1); }
+
+#ifdef F4NCGB_ENABLE_STORE_DUMP
+  void set_binary_dump_path(const std::string& p) { dump_output_path_ = p; }
+#endif
 };
 
 //================================================================
@@ -788,7 +810,7 @@ class polynomial_store
     , store_(store)
     , cpool_(reinterpret_cast<std::byte*>(
         boost::alignment::aligned_alloc(2097152 /* 2^21, 2MB */,
-                           2097152 * (capacity() / 2097152)))) {
+                                        2097152 * (capacity() / 2097152)))) {
     cpool_capacity_ = 2097152 * (capacity() / 2097152);
     if(cpool_.get() == nullptr) {
       cpool_.reset(reinterpret_cast<std::byte*>(

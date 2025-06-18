@@ -62,6 +62,7 @@ f4ncgb_main(parser_context& context,
                                         maxdeg,
                                         threads,
                                         proof_file);
+ 
       auto& algo = *algo_ptr;
       {
         F4NCGB_TIME(parse);
@@ -74,6 +75,11 @@ f4ncgb_main(parser_context& context,
       if(print_read_problem) {
         context.to_msolve(std::cout, algo.poly);
       }
+
+#ifdef F4NCGB_ENABLE_STORE_DUMP
+      algo.mons.set_binary_dump_path(std::filesystem::path(context.get_filename()).filename().string() + "_mons.bin");
+      algo.poly.set_binary_dump_path(std::filesystem::path(context.get_filename()).filename().string() + "_poly.bin");
+#endif
 
       if(verbose > 0) {
         msg("==== Input Parameters ====");
@@ -143,8 +149,9 @@ f4ncgb_main(parser_context& context,
     // This is the main function. We do not need to clean up
     // usually. This optimization is only done when not doing
     // Address Sanitizing and when building without assertions.
+    // Store dumping also disables this optimization.
 
-#if defined(__has_feature) && NDEBUG
+#if defined(__has_feature) && NDEBUG && !defined(F4NCGB_ENABLE_STORE_DUMP)
 #if !__has_feature(address_sanitizer)
       algo_ptr.release();
 #endif

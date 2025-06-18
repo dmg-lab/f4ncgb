@@ -13,6 +13,7 @@ option(ENABLE_FAST_MERSENNE_PRIME_MODULO "Enable fast mersenne prime modulo oper
 option(ENABLE_MONOMIAL_PRODUCTS_MAP "Track and cache monomial products in map (usually slower)" OFF)
 option(ENABLE_COMPACT_MONOMIAL_MAP "Use a more compact map for lookups in the monomial store (usually slower)" OFF)
 option(ENABLE_STORE_TRACE "Enable a (very expensive) trace of each access (operator[]) into a store." OFF)
+option(ENABLE_STORE_DUMP "Enable a (very expensive) dump when deconstructing a store." OFF)
 option(ENABLE_NATIVE "Enable -march=native to target the host CPU (creates non-portable binaries)" ON)
 
 set(MAX_BLOCKS 16 CACHE STRING "Maximum number of blocks to compile for. Must be integral. Changes compilation time (duplicates implementation for each block).")
@@ -131,6 +132,13 @@ if(ENABLE_STORE_TRACE)
   target_compile_definitions(f4ncgb PUBLIC F4NCGB_ENABLE_STORE_TRACE)
 else()
   message(STATUS "Store tracing is disabled")
+endif()
+
+if(ENABLE_STORE_DUMP)
+  message(STATUS "Store dumping is enabled")
+  target_compile_definitions(f4ncgb PUBLIC F4NCGB_ENABLE_STORE_DUMP)
+else()
+  message(STATUS "Store dumping is disabled")
 endif()
 
 if(CMAKE_BUILD_TYPE MATCHES "Sanitize")
