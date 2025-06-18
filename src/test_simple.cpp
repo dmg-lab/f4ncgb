@@ -1,5 +1,6 @@
 #include <boost/test/unit_test.hpp>
 
+#include "f4ncgb.hpp"
 #include "store.hpp"
 #include "monomial_trie.hpp"
 #include "parser.hpp"
@@ -256,4 +257,9 @@ BOOST_AUTO_TEST_CASE(parse_braid3) {
   BOOST_CHECK(ctx.characteristic() == 0);
   BOOST_CHECK(ctx.num_vars() == 3);
   BOOST_CHECK(ctx.num_blocks() == 1);
+}
+
+BOOST_AUTO_TEST_CASE(c_api_use) {
+  Solver s;
+  BOOST_CHECK(s.state() == F4NCGB_STATE_INITIAL);
 }

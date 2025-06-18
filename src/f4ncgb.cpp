@@ -6,10 +6,10 @@
 #include <string.h>
 
 #include "f4ncgb.hpp"
-#include "store.hpp"
 #include "parser.hpp"
 #include "profiling.hpp"
 #include "signal_statistics.hpp"
+#include "store.hpp"
 #include <flint/ulong_extras.h>
 
 #include <boost/program_options.hpp>
@@ -148,23 +148,17 @@ main(int argc, char** argv) {
     proof++;
 
   res = f4ncgb::f4ncgb_main(context,
-                                  nblocks,
-                                  nvars,
-                                  characteristic,
-                                  maxiter,
-                                  maxdeg,
-                                  threads,
-                                  output_name,
-                                  proof_file,
-                                  print_problem);
+                            nblocks,
+                            nvars,
+                            characteristic,
+                            maxiter,
+                            maxdeg,
+                            threads,
+                            output_name,
+                            proof_file,
+                            print_problem);
 
   F4NCGB_PROFILE(gstats.print(threads));
   return res;
 }
 
-namespace f4ncgb {
-const char*
-version() noexcept {
-  return F4NCGB_VERSION;
-}  
-}
