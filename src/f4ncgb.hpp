@@ -16,7 +16,7 @@ typedef struct f4ncgb_handle f4ncgb_handle;
 
 typedef enum f4ncgb_state {
   F4NCGB_STATE_INITIAL,
-  F4NCGB_STATE_ADD,
+  F4NCGB_STATE_SOLVING,
 } f4ncgb_state;
 
 f4ncgb_handle*
@@ -28,16 +28,9 @@ f4ncgb_free(f4ncgb_handle*);
 f4ncgb_state
 f4ncgb_get_state(const f4ncgb_handle*);
 
-// Prepares the internal state from INITIAL to ADD. Uses all set parameters to
-// decide on the implementation to use and prepares the solver for the addition
-// of monomials and polynomials.
-const char*
-f4ncgb_prepare(f4ncgb_handle* h);
-
 // Add a monomial with some coefficient.
 //
-// This builds up the current polynomial. In order to terminate a
-// polynomial, issue a polynomial with varcount=0. Polynomials are
+// This builds up the current polynomial. Polynomials are
 // automatically sorted after they are added like this.
 const char*
 f4ncgb_add(f4ncgb_handle*,
@@ -47,7 +40,10 @@ f4ncgb_add(f4ncgb_handle*,
            uint32_t* vars);
 
 const char*
-f4ncgb_set_nblocks(f4ncgb_handle*, uint32_t);
+f4ncgb_end_poly(f4ncgb_handle*);
+
+const char*
+f4ncgb_set_blocks(f4ncgb_handle*, uint32_t blockcount, uint32_t* blocklengths);
 
 const char*
 f4ncgb_set_nvars(f4ncgb_handle*, uint32_t);
@@ -79,6 +75,7 @@ f4ncgb_solve(f4ncgb_handle*);
 
 #ifdef __cplusplus
 #include <memory>
+#include <vector>
 
 namespace f4ncgb {
 class Solver {
@@ -93,8 +90,23 @@ class Solver {
 
   f4ncgb_state state() const { return f4ncgb_get_state(handle_.get()); }
 
-  void set_nblocks(uint32_t nblocks) {
-    const char* msg = f4ncgb_set_nblocks(handle_.get(), nblocks);
+  void add(long numerator, long denominator, std::vector<uint32_t> vars) {
+    const char* msg = f4ncgb_add(
+      handle_.get(), numerator, denominator, vars.size(), vars.data());
+    if(msg) {
+      throw std::runtime_error(msg);
+    }
+  }
+
+  void end_poly() {
+    const char* msg = f4ncgb_end_poly(handle_.get());
+    if(msg) {
+      throw std::runtime_error(msg);
+    }
+  }
+
+  void set_blocks(std::vector<uint32_t> b) {
+    const char* msg = f4ncgb_set_blocks(handle_.get(), b.size(), b.data());
     if(msg) {
       throw std::runtime_error(msg);
     }
@@ -142,6 +154,7 @@ class Solver {
       throw std::runtime_error(msg);
     }
   }
+  int solve() { return f4ncgb_solve(handle_.get()); }
 };
 }
 #endif

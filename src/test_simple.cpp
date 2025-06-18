@@ -1,9 +1,9 @@
 #include <boost/test/unit_test.hpp>
 
 #include "f4ncgb.hpp"
-#include "store.hpp"
 #include "monomial_trie.hpp"
 #include "parser.hpp"
+#include "store.hpp"
 
 using namespace f4ncgb;
 
@@ -199,7 +199,6 @@ BOOST_AUTO_TEST_CASE(simple_with_extended_metadata) {
   BOOST_TEST(v[3] == 3);
 }
 
-
 BOOST_AUTO_TEST_CASE(parse_small_ms_into_polynomial) {
   auto dir_optional = get_test_input_files_location();
   BOOST_REQUIRE(dir_optional.has_value());
@@ -262,4 +261,28 @@ BOOST_AUTO_TEST_CASE(parse_braid3) {
 BOOST_AUTO_TEST_CASE(c_api_use) {
   Solver s;
   BOOST_CHECK(s.state() == F4NCGB_STATE_INITIAL);
+  s.set_blocks({ 3 });
+
+  s.add(1, 1, { 3, 2, 3 });
+  s.add(-1, 1, { 2, 1, 2 });
+  s.end_poly();
+
+  s.add(1, 1, { 3, 1, 2 });
+  s.add(-1, 1, { 1, 2, 1 });
+  s.end_poly();
+
+  s.add(1, 1, { 3, 1, 3 });
+  s.add(-1, 1, { 2, 3, 1 });
+  s.end_poly();
+
+  s.add(1, 1, { 3, 3, 3 });
+  s.add(1, 1, { 2, 2, 2 });
+  s.add(1, 1, { 1, 2, 3 });
+  s.add(1, 1, { 1, 1, 1 });
+  s.end_poly();
+
+  s.set_maxdeg(2);
+  s.set_maxiter(2);
+
+  s.solve();
 }

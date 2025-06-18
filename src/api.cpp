@@ -1,6 +1,8 @@
 #include "f4ncgb.hpp"
+#include "parser.hpp"
 #include <climits>
 #include <config.hpp>
+#include <numeric>
 #include <vector>
 
 using namespace f4ncgb;
@@ -10,18 +12,21 @@ using namespace f4ncgb;
     return "no handle given"; \
   }
 
+using monomial = std::vector<uint32_t>;
+using polynomial = std::vector<std::tuple<long, long, monomial>>;
+
 typedef struct f4ncgb_handle {
   f4ncgb_state state = F4NCGB_STATE_INITIAL;
-  uint32_t nblocks = 1;
-  uint32_t nvars = 0;
   uint32_t maxiter = 10;
   uint32_t maxdeg = UINT_MAX;
   uint32_t threads = 1;
-  uint32_t characteristic = 0;
-  const char* output_file = nullptr;
-  const char* proof_file = nullptr;
+  const char* output_file = "";
+  const char* proof_file = "";
 
-  std::vector<std::tuple<long, long, size_t>> polynomial;
+  parser_context ctx;
+
+  polynomial current_polynomial;
+  std::vector<polynomial> polynomials;
 } f4ncgb_handle;
 
 extern "C" const char*
@@ -32,6 +37,26 @@ f4ncgb_version() {
 extern "C" f4ncgb_handle*
 f4ncgb_init() {
   f4ncgb_handle* h = new f4ncgb_handle;
+
+  h->ctx.impl = [h](parse_add_cb add_cb,
+                    void* add_cb_userdata,
+                    parse_monomial_boundary_cb boundary_cb,
+                    void* boundary_cb_userdata) {
+    for(const auto& poly : h->polynomials) {
+      for(const auto& [numerator, denominator, mono] : poly) {
+        for(uint32_t v : mono) {
+          add_cb(add_cb_userdata, v);
+        }
+        boundary_cb(boundary_cb_userdata,
+                    numerator,
+                    denominator,
+                    numerator == denominator);
+      }
+      add_cb(add_cb_userdata, 0);
+    }
+    return std::nullopt;
+  };
+
   return h;
 }
 
@@ -46,46 +71,59 @@ f4ncgb_get_state(const f4ncgb_handle* h) {
 }
 
 extern "C" const char*
-f4ncgb_prepare(f4ncgb_handle* h) {
+f4ncgb_add(f4ncgb_handle* h,
+           long numerator,
+           long denominator,
+           size_t varcount,
+           uint32_t* vars) {
   REQUIRE_HANDLE(h);
   if(h->state != F4NCGB_STATE_INITIAL) {
     return "invalid state, must be in INITIAL";
   }
 
-  if(h->nvars == 0) {
-    return "nvars not set";
-  }
-
-  // TODO: Create f4ncgb algo. This needs some unbundling from the context in
-  // f4.hpp.
-}
-
-extern "C" const char*
-f4ncgb_add_monomial(f4ncgb_handle* h,
-                    long numerator,
-                    long denominator,
-                    size_t varcount,
-                    uint32_t* vars) {
-  REQUIRE_HANDLE(h);
-  if(h->state != F4NCGB_STATE_ADD) {
-    return "invalid state, must be in ADD";
-  }
-
   if(varcount) {
-    // TODO: Add vector to f4ncgb algo.
+    h->current_polynomial.emplace_back(
+      numerator, denominator, monomial(vars, vars + varcount));
   } else {
-    // TODO: Add vector to f4ncgb algo.
+    h->current_polynomial.emplace_back(numerator, denominator, monomial());
   }
   return nullptr;
 }
 
 extern "C" const char*
-f4ncgb_set_nblocks(f4ncgb_handle* h, uint32_t nblocks) {
+f4ncgb_end_poly(f4ncgb_handle* h) {
   REQUIRE_HANDLE(h);
   if(h->state != F4NCGB_STATE_INITIAL) {
     return "invalid state, must be in INITIAL";
   }
-  h->nblocks = nblocks;
+  h->polynomials.emplace_back(h->current_polynomial);
+  h->current_polynomial.clear();
+  return nullptr;
+}
+
+extern "C" const char*
+f4ncgb_set_blocks(f4ncgb_handle* h,
+                  uint32_t blockcount,
+                  uint32_t* blocklengths) {
+  REQUIRE_HANDLE(h);
+  if(h->state != F4NCGB_STATE_INITIAL) {
+    return "invalid state, must be in INITIAL";
+  }
+
+  h->ctx.blocks_.resize(blockcount);
+  uint32_t v = 1;
+  for(size_t i = 0; i < blockcount; ++i) {
+    h->ctx.blocks_[i].resize(blocklengths[i]);
+    auto begin = h->ctx.blocks_[i].begin();
+    auto end = h->ctx.blocks_[i].end();
+    std::iota(begin, end, v);
+    v += blocklengths[i];
+  }
+
+  if(h->ctx.num_vars() == 0) {
+    h->ctx.num_vars_ = v;
+  }
+
   return nullptr;
 }
 
@@ -95,7 +133,7 @@ f4ncgb_set_nvars(f4ncgb_handle* h, uint32_t nvars) {
   if(h->state != F4NCGB_STATE_INITIAL) {
     return "invalid state, must be in INITIAL";
   }
-  h->nvars = nvars;
+  h->ctx.num_vars_ = nvars;
   return nullptr;
 }
 
@@ -105,7 +143,7 @@ f4ncgb_set_characteristic(f4ncgb_handle* h, uint32_t characteristic) {
   if(h->state != F4NCGB_STATE_INITIAL) {
     return "invalid state, must be in INITIAL";
   }
-  h->characteristic = characteristic;
+  h->ctx.characteristic_ = characteristic;
   return nullptr;
 }
 
@@ -161,6 +199,26 @@ f4ncgb_set_proof_file(f4ncgb_handle* h, const char* proof_file) {
 
 extern "C" int
 f4ncgb_solve(f4ncgb_handle* h) {
-  // TODO: Issue solve call
-  return 0;
+  if(!h)
+    return 0;
+  if(h->ctx.num_vars() > 0 && h->ctx.num_blocks() == 0) {
+    h->ctx.blocks_.emplace_back();
+    h->ctx.blocks_[0].resize(h->ctx.num_vars() + 1);
+    auto begin = h->ctx.blocks_[0].begin();
+    auto end = h->ctx.blocks_[0].end();
+    std::iota(begin, end, 1);
+  }
+  h->ctx.num_blocks_ = h->ctx.blocks_.size();
+
+  int res = f4ncgb::f4ncgb_main(h->ctx,
+                                h->ctx.num_blocks(),
+                                h->ctx.num_vars(),
+                                h->ctx.characteristic(),
+                                h->maxiter,
+                                h->maxdeg,
+                                h->threads,
+                                h->output_file,
+                                h->proof_file,
+                                false);
+  return res;
 }

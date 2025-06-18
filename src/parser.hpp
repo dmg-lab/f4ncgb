@@ -62,11 +62,9 @@ class parser_context {
   size_t last_col = 0;
   size_t line = 1;
   size_t col = 1;
-  size_t num_blocks_ = 0;
   std::string filename = "";
   std::string ident = "";
   int c = 0;
-  std::vector<std::vector<parser_symbolic_context::id>> blocks;
 
   parse_res impl_msolve_header(char first_char, char second_char);
   parse_res impl_msolve(parse_add_cb add_cb,
@@ -190,8 +188,6 @@ class parser_context {
 
   void init_symbols() { symbols = std::make_unique<parser_symbolic_context>(); }
 
-  size_t characteristic_ = 0;
-  size_t num_vars_ = 0;
 
   static parser_symbolic_context::id read_numeric_var(parser_context& ctx) {
     return ctx.read_positive_int();
@@ -212,16 +208,21 @@ class parser_context {
   parser_context() = default;
   ~parser_context() = default;
 
-  size_t num_blocks() const { return blocks.size(); }
+  size_t num_blocks_ = 0;
+  std::vector<std::vector<parser_symbolic_context::id>> blocks_;
+  size_t characteristic_ = 0;
+  size_t num_vars_ = 0;
+
+  size_t num_blocks() const { return blocks_.size(); }
   const std::vector<parser_symbolic_context::id>& block(size_t id) const {
-    assert(id < blocks.size());
-    return blocks[id];
+    assert(id < blocks_.size());
+    return blocks_[id];
   }
 
   std::vector<size_t> block_sizes() {
-    std::vector<size_t> res(blocks.size());
-    for(size_t i = 0; i < blocks.size(); i++)
-      res[i] = blocks[i].size();
+    std::vector<size_t> res(blocks_.size());
+    for(size_t i = 0; i < blocks_.size(); i++)
+      res[i] = blocks_[i].size();
     return res;
   }
 
@@ -256,7 +257,7 @@ class parser_context {
   }
 
   std::ostream& to_msolve_header(std::ostream& o) {
-    for(auto& b : blocks) {
+    for(auto& b : blocks_) {
       for(auto v : b) {
         var_to_ostream(o, v);
         if(v < num_vars_)
