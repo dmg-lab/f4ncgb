@@ -23,6 +23,8 @@ typedef struct f4ncgb_handle {
   uint32_t maxiter = 10;
   uint32_t maxdeg = UINT_MAX;
   uint32_t threads = 1;
+  uint32_t proof_level = 0;
+  bool tracer = true;
   const char* output_file = "";
   const char* proof_file = "";
 
@@ -212,6 +214,28 @@ f4ncgb_set_proof_file(f4ncgb_handle* h, const char* proof_file) {
     return "invalid state, must be in INITIAL";
   }
   h->proof_file = proof_file;
+  h->proof_level = 1;
+  return nullptr;
+}
+
+extern "C" const char*
+f4ncgb_set_expanded_proof(f4ncgb_handle* h, bool expanded) {
+  REQUIRE_HANDLE(h);
+  if(h->state != F4NCGB_STATE_INITIAL) {
+    return "invalid state, must be in INITIAL";
+  }
+  if(expanded)
+    h->proof_level = 2;
+  return nullptr;
+}
+
+extern "C" const char*
+f4ncgb_set_tacer(f4ncgb_handle* h, bool tracer) {
+  REQUIRE_HANDLE(h);
+  if(h->state != F4NCGB_STATE_INITIAL) {
+    return "invalid state, must be in INITIAL";
+  }
+  h->tracer = tracer;
   return nullptr;
 }
 
@@ -233,10 +257,11 @@ f4ncgb_solve(f4ncgb_handle* h,
 
   if(h->ctx.num_blocks() > F4NCGB_MAX_BLOCKS)
     return F4NCGB_ARGERROR;
-
   if(h->ctx.characteristic() > 2147483647l)// 2^31 -1
     return F4NCGB_ARGERROR;
   if(h->ctx.characteristic() != 0 and !n_is_prime(h->ctx.characteristic()))
+    return F4NCGB_ARGERROR;
+  if(!h->proof_file and h->proof_level > 0)
     return F4NCGB_ARGERROR;
 
   h->state = F4NCGB_STATE_SOLVING;
@@ -248,6 +273,8 @@ f4ncgb_solve(f4ncgb_handle* h,
                                 h->maxiter,
                                 h->maxdeg,
                                 h->threads,
+                                h->proof_level,
+                                h->tracer,
                                 h->output_file,
                                 h->proof_file,
                                 nullptr,

@@ -8,8 +8,6 @@
 #include <boost/multiprecision/gmp.hpp>
 #include <fstream>
 
-extern bool tracer;
-
 namespace f4ncgb {
 int
 coefficient_sign(const boost::multiprecision::backends::gmp_rational& r) {
@@ -41,6 +39,8 @@ f4ncgb_main(parser_context& context,
             size_t maxiter,
             size_t maxdeg,
             size_t threads,
+            size_t proof_level,
+            bool tracer,
             const std::string& output_name,
             const std::string& proof_file,
             std::function<void()>* stats_print_function,
@@ -57,6 +57,8 @@ f4ncgb_main(parser_context& context,
      maxiter,
      maxdeg,
      threads,
+     proof_level,
+     tracer,
      output_name,
      proof_file,
      stats_print_function,
@@ -65,8 +67,16 @@ f4ncgb_main(parser_context& context,
      userdata,
      add_cb,
      end_poly_cb](auto Nblocks) -> int {
-      std::unique_ptr<f4<Nblocks>> algo_ptr = std::make_unique<f4<Nblocks>>(
-        context, nvars, characteristic, maxiter, maxdeg, threads, proof_file);
+      std::unique_ptr<f4<Nblocks>> algo_ptr
+        = std::make_unique<f4<Nblocks>>(context,
+                                        nvars,
+                                        characteristic,
+                                        maxiter,
+                                        maxdeg,
+                                        threads,
+                                        proof_level,
+                                        tracer,
+                                        proof_file);
 
       auto& algo = *algo_ptr;
       {
@@ -122,10 +132,10 @@ f4ncgb_main(parser_context& context,
           }
         }
 
-        std::string proof_str = proof ? "on " : "off";
-        if(proof > 1)
+        std::string proof_str = proof_level > 0 ? "on " : "off";
+        if(proof_level > 1)
           proof_str += "(expanded) ";
-        if(proof > 0)
+        if(proof_level > 0)
           proof_str += "(writing to " + proof_file + ")";
 
         msg("Characteristic:    %lu", characteristic);

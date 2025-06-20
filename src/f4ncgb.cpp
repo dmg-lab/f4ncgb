@@ -36,8 +36,8 @@ static size_t threads = 0;
 
 // / Proof logging
 static bool expanded_proof = false;
-int proof = 0;
-bool tracer = true;
+static size_t proof_level = 0;
+static bool tracer = true;
 /*------------------------------------------------------------------------*/
 // ERROR CODES:
 
@@ -155,12 +155,12 @@ main(int argc, char** argv) {
         characteristic);
 
   if(proof_file != "")
-    proof++;
+    proof_level=1;
 
-  if(proof == 0 and expanded_proof)
+  if(proof_level == 0 and expanded_proof)
     die(78, "Flag for expanded proofs provided but no proof file");
   if(expanded_proof)
-    proof++;
+    proof_level=2;
 
   res = f4ncgb::f4ncgb_main(context,
                             nblocks,
@@ -169,6 +169,8 @@ main(int argc, char** argv) {
                             maxiter,
                             maxdeg,
                             threads,
+                            proof_level,
+                            tracer,
                             output_name,
                             proof_file,
                             &print_statistics_fun,

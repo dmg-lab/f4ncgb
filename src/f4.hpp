@@ -32,7 +32,6 @@
 
 extern template struct f4ncgb::monomial_trie<uint8_t, uint32_t>;
 extern int verbose;
-extern int proof;
 
 using namespace boost::multiprecision;
 
@@ -104,6 +103,8 @@ struct f4 {
   size_t iter = 0;
   size_t maxiter = UINT_MAX;
   size_t maxdeg = UINT_MAX;
+  size_t proof_level = 0;
+  bool tracer = true;
   static constexpr bool block_order = Nblocks > 0;
 
   std::ofstream proof_file;
@@ -114,6 +115,8 @@ struct f4 {
      size_t maxiter_,
      size_t maxdeg_,
      size_t num_threads,
+     size_t proof_level_,
+     bool tracer_,
      const std::string& proof_file_)
     : context(context_)
     , mons()
@@ -122,7 +125,9 @@ struct f4 {
     , suffix_trie(nvars)
     , characteristic(characteristic_)
     , maxiter(maxiter_)
-    , maxdeg(maxdeg_) {
+    , maxdeg(maxdeg_)
+    , proof_level(proof_level_)
+    , tracer(tracer_) {
 
     mons.set_blocks(context.block_sizes());
 
@@ -294,7 +299,7 @@ struct f4 {
     poly_id f = poly.multiply_front_and_back(ai, i, ci);
     poly_id g = poly.multiply_front_and_back(aj, j, cj);
 
-    if(proof > 0) {
+    if(proof_level > 0) {
       assert(poly.get_idx(i) > 0);
       assert(poly.get_idx(j) > 0);
       extended_rows.emplace_back(ai, poly.get_idx(i), ci);
@@ -527,7 +532,7 @@ struct f4 {
     mon_id b = mons.getid(mm.last(mm.size() - match.second - lm.size()));
     poly_id g = lm_to_poly[match.first];
 
-    if(proof > 0) {
+    if(proof_level > 0) {
       assert(poly.get_idx(g) > 0);
       extended_rows.emplace_back(a, poly.get_idx(g), b);
     }
@@ -541,7 +546,7 @@ struct f4 {
   void log_cofactors() {
 
     // compute expanded proofs
-    if(proof > 1 and basis.size() > 1) {
+    if(proof_level > 1 and basis.size() > 1) {
       std::vector<cofactor> expanded;
       for(size_t n = basis.size(); n < cofactors.size(); n++) {
         expanded.clear();
@@ -560,7 +565,7 @@ struct f4 {
         cofactors[n] = std::move(expanded);
       }
       // non-expanded proof
-    } else if(proof == 1) {
+    } else if(proof_level == 1) {
       // mark input
       if(basis.size() == 1)
         for(size_t n = basis.size(); n < cofactors.size(); n++)
@@ -611,7 +616,7 @@ struct f4 {
         res.push_back(poly.add_polynomial(p));
         p.clear();
         cur_i = i;
-        if(proof > 0) {
+        if(proof_level > 0) {
           cofactors.emplace_back(std::move(current_cofactors));
           current_cofactors.clear();
         }
@@ -629,7 +634,7 @@ struct f4 {
     }
     // don't forget to add last element
     res.push_back(poly.add_polynomial(p));
-    if(proof > 0)
+    if(proof_level > 0)
       cofactors.emplace_back(std::move(current_cofactors));
 
     extended_rows.clear();
@@ -668,7 +673,7 @@ struct f4 {
     // reduction
     F4NCGB_PROFILE(auto timer = gstats.time(gstats.reduction));
     auto [idxs, entries]
-      = linear_algebra(mat, characteristic, pool, interreduce);
+      = linear_algebra(mat, characteristic, pool, tracer, interreduce, proof_level);
 
     // compute new elements
     F4NCGB_PROFILE(auto timer2 = gstats.time(gstats.new_elements));
@@ -701,7 +706,7 @@ struct f4 {
     size_t n = columns.size();
 
     // initialize matrix
-    if(proof > 0)
+    if(proof_level > 0)
       sparse_mat_init(mat, m, m + n);
     else
       sparse_mat_init(mat, m, n);
@@ -724,7 +729,7 @@ struct f4 {
 
       auto p = poly[r];
       auto nnz = p.size();
-      if(proof > 0)
+      if(proof_level > 0)
         nnz += 1;// for transformation matrix
       sparse_vec_realloc(row, nnz);
       row->nnz = nnz;
@@ -743,7 +748,7 @@ struct f4 {
       }
 
       // insert transformation matrix - if required
-      if(proof > 0) {
+      if(proof_level > 0) {
         row->indices[k] = n + i;
         fmpz_set(row->entries + k, denom);
       }
@@ -757,7 +762,7 @@ struct f4 {
   void update_basis_and_amb(std::vector<poly_id>& new_elements) {
 
     // log cofactors
-    if(proof > 0) {
+    if(proof_level > 0) {
       F4NCGB_TIME(other);
       log_cofactors();
     }

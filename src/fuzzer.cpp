@@ -17,9 +17,6 @@ using block = std::vector<uint8_t>;
 using monomial = std::tuple<long, long, std::vector<uint8_t>>;
 using polynomial = std::vector<monomial>;
 
-int proof = 0;
-bool tracer = false;
-
 Domain<std::vector<std::vector<uint8_t>>>
 UniqueAcrossVectors(uint8_t max_value = 254,
                     size_t max_vectors = F4NCGB_MAX_BLOCKS - 1) {
