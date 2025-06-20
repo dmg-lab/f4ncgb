@@ -1,7 +1,7 @@
 #ifndef F4NCGB_HPP
 #define F4NCGB_HPP
 
-#include <gmp-x86_64.h>
+#include <gmp.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>

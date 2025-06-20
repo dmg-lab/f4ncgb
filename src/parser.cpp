@@ -536,6 +536,7 @@ parser_context::parse_header() {
 #ifdef __linux__
 void
 dummy_parse_string(std::string input) {
+  (void)input;
   int add_cb_count = 0;
   int boundary_cb_count = 0;
 
