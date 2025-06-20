@@ -29,6 +29,7 @@
 #include <boost/unordered/unordered_flat_set.hpp>
 
 #include "debug.hpp"
+#include "f4ncgb.hpp"
 #include "profiling.hpp"
 #include "signal_statistics.hpp"
 
@@ -1031,7 +1032,11 @@ f4ncgb_main(parser_context& context,
             size_t threads,
             const std::string& output_name,
             const std::string& proof_file,
-            bool print_read_problem = false);
+            bool leak_memory = false,
+            bool print_read_problem = false,
+            void* userdata = nullptr,
+            f4ncgb_add_cb add_cb = nullptr,
+            f4ncgb_end_poly_cb end_poly_cb = nullptr);
 }
 
 std::ostream&

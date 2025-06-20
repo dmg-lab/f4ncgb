@@ -18,10 +18,15 @@ const char * bench = 0;
 /*------------------------------------------------------------------------*/
 // Global variable
 int verbose = 1;
+int msg_printing = 1;
 
 /*------------------------------------------------------------------------*/
 
-void msg(const char *fmt, ...) {
+void
+msg(const char* fmt, ...) {
+  if(!msg_printing)
+    return;
+
   va_list ap;
   fputs("[f4ncgb] ", stderr);
   va_start(ap, fmt);

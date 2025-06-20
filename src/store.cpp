@@ -1,7 +1,8 @@
 #include "store.hpp"
 #include "f4.hpp"
-#include "store.hpp"
+#include "f4ncgb.hpp"
 #include "parser.hpp"
+#include "store.hpp"
 
 #include <boost/multiprecision/detail/default_ops.hpp>
 #include <boost/multiprecision/gmp.hpp>
@@ -34,15 +35,19 @@ coefficient_is_posneg_neutral(
 
 int
 f4ncgb_main(parser_context& context,
-               size_t nblocks,
-               size_t nvars,
-               size_t characteristic,
-               size_t maxiter,
-               size_t maxdeg,
-               size_t threads,
-               const std::string& output_name,
-               const std::string& proof_file,
-               bool print_read_problem) {
+            size_t nblocks,
+            size_t nvars,
+            size_t characteristic,
+            size_t maxiter,
+            size_t maxdeg,
+            size_t threads,
+            const std::string& output_name,
+            const std::string& proof_file,
+            bool leak_memory,
+            bool print_read_problem,
+            void* userdata,
+            f4ncgb_add_cb add_cb,
+            f4ncgb_end_poly_cb end_poly_cb) {
   return boost::mp11::mp_with_index<F4NCGB_MAX_BLOCKS>(
     nblocks,
     [&context,
@@ -53,16 +58,14 @@ f4ncgb_main(parser_context& context,
      threads,
      output_name,
      proof_file,
-     print_read_problem](auto Nblocks) -> int {
-      std::unique_ptr<f4<Nblocks>> algo_ptr
-        = std::make_unique<f4<Nblocks>>(context,
-                                        nvars,
-                                        characteristic,
-                                        maxiter,
-                                        maxdeg,
-                                        threads,
-                                        proof_file);
- 
+     leak_memory,
+     print_read_problem,
+     userdata,
+     add_cb,
+     end_poly_cb](auto Nblocks) -> int {
+      std::unique_ptr<f4<Nblocks>> algo_ptr = std::make_unique<f4<Nblocks>>(
+        context, nvars, characteristic, maxiter, maxdeg, threads, proof_file);
+
       auto& algo = *algo_ptr;
       {
         F4NCGB_TIME(parse);
@@ -77,8 +80,12 @@ f4ncgb_main(parser_context& context,
       }
 
 #ifdef F4NCGB_ENABLE_STORE_DUMP
-      algo.mons.set_binary_dump_path(std::filesystem::path(context.get_filename()).filename().string() + "_mons.bin");
-      algo.poly.set_binary_dump_path(std::filesystem::path(context.get_filename()).filename().string() + "_poly.bin");
+      algo.mons.set_binary_dump_path(
+        std::filesystem::path(context.get_filename()).filename().string()
+        + "_mons.bin");
+      algo.poly.set_binary_dump_path(
+        std::filesystem::path(context.get_filename()).filename().string()
+        + "_poly.bin");
 #endif
 
       if(verbose > 0) {
@@ -136,15 +143,19 @@ f4ncgb_main(parser_context& context,
 
       msg("==== Basis computation finished ====");
 
-      std::ostream* out_file = &std::cout;
-      std::ofstream filestream;
-      if(output_name != "") {
-        filestream.open(output_name, std::ios_base::trunc);
-        if(!filestream)
-          die(18, "Failed to open output file.");
-        out_file = &filestream;
+      if(add_cb && end_poly_cb) {
+        algo.write_basis(userdata, add_cb, end_poly_cb);
+      } else {
+        std::ostream* out_file = &std::cout;
+        std::ofstream filestream;
+        if(output_name != "") {
+          filestream.open(output_name, std::ios_base::trunc);
+          if(!filestream)
+            die(18, "Failed to open output file.");
+          out_file = &filestream;
+        }
+        algo.write_basis(*out_file);
       }
-      algo.write_basis(*out_file);
 
     // This is the main function. We do not need to clean up
     // usually. This optimization is only done when not doing
@@ -153,8 +164,13 @@ f4ncgb_main(parser_context& context,
 
 #if defined(__has_feature) && NDEBUG && !defined(F4NCGB_ENABLE_STORE_DUMP)
 #if !__has_feature(address_sanitizer)
-      algo_ptr.release();
+      if(leak_memory)
+        algo_ptr.release();
+#else
+      (void)leak_memory;
 #endif
+#else
+      (void)leak_memory;
 #endif
       return 0;
     });

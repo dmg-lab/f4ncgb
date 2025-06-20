@@ -195,6 +195,25 @@ struct f4 {
     }
     o << "\n";
   }
+  inline void write_basis(void* userdata,
+                          f4ncgb_add_cb add,
+                          f4ncgb_end_poly_cb end) {
+    std::vector<uint32_t> data;
+    for(size_t n = 1; n < basis.size(); n++) {
+      auto poly_id = basis[n];
+      auto coeff_it = poly.get_coefficients(poly_id).begin();
+      for(auto mon_id : poly[poly_id]) {
+        auto vars = mons[mon_id];
+        data.clear();
+        std::copy(vars.begin(), vars.end(), std::back_inserter(data));
+        auto coeff = *coeff_it++;
+        mpz_ptr gmp_num = &coeff.data()[0]._mp_num;
+        mpz_ptr gmp_den = &coeff.data()[0]._mp_den;
+        add(userdata, gmp_num, gmp_den, vars.size(), data.data());
+      }
+      end(userdata);
+    }
+  }
   //------------------------------------------------------------------------------
   void interreduce_and_add_to_basis(std::vector<poly_id> input) {
 

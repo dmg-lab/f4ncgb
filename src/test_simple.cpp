@@ -281,8 +281,24 @@ BOOST_AUTO_TEST_CASE(c_api_use) {
   s.add(1, 1, { 1, 1, 1 });
   s.end_poly();
 
-  s.set_maxdeg(2);
+  s.set_maxdeg(4);
   s.set_maxiter(2);
 
-  s.solve();
+  f4ncgb_set_msg_printing(false);
+  
+  auto [res, polys] = s.solve();
+
+  // Expected number of polys is 7.
+  BOOST_CHECK(res == F4NCGB_OK);
+  BOOST_CHECK(polys.size() == 5);
+
+  // for(auto& p : polys) {
+  //   for(auto& m : p) {
+  //     for(auto v : std::get<2>(m)) {
+  //       std::cout << v << " ";
+  //     }
+  //     std::cout << "+ ";
+  //   }
+  //   std::cout << "0" << std::endl;
+  // }
 }

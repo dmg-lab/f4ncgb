@@ -156,9 +156,9 @@ main(int argc, char** argv) {
                             threads,
                             output_name,
                             proof_file,
-                            print_problem);
+                            print_problem,
+                            true /* Memory Leaking in the binary is ok */);
 
   F4NCGB_PROFILE(gstats.print(threads));
   return res;
 }
-

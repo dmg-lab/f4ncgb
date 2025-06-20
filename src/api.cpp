@@ -1,9 +1,12 @@
 #include "f4ncgb.hpp"
 #include "parser.hpp"
+#include "signal_statistics.hpp"
 #include <climits>
 #include <config.hpp>
 #include <numeric>
 #include <vector>
+
+#include <ulong_extras.h>
 
 using namespace f4ncgb;
 
@@ -28,6 +31,11 @@ typedef struct f4ncgb_handle {
   polynomial current_polynomial;
   std::vector<polynomial> polynomials;
 } f4ncgb_handle;
+
+extern "C" void
+f4ncgb_set_msg_printing(bool printing) {
+  msg_printing = printing ? 1 : 0;
+}
 
 extern "C" const char*
 f4ncgb_version() {
@@ -110,6 +118,9 @@ f4ncgb_set_blocks(f4ncgb_handle* h,
     return "invalid state, must be in INITIAL";
   }
 
+  if(blockcount > F4NCGB_MAX_BLOCKS)
+    return "more blocks than current compilation allows";
+
   h->ctx.blocks_.resize(blockcount);
   uint32_t v = 1;
   for(size_t i = 0; i < blockcount; ++i) {
@@ -143,6 +154,13 @@ f4ncgb_set_characteristic(f4ncgb_handle* h, uint32_t characteristic) {
   if(h->state != F4NCGB_STATE_INITIAL) {
     return "invalid state, must be in INITIAL";
   }
+
+  if(characteristic > 2147483647l) {// 2^31 -1
+    return "provided characteristic %lu is too large. Only p < 2^31 supported";
+  } else if(characteristic != 0 and !n_is_prime(characteristic)) {
+    return "provided nonzero characteristic is not prime";
+  }
+
   h->ctx.characteristic_ = characteristic;
   return nullptr;
 }
@@ -197,10 +215,13 @@ f4ncgb_set_proof_file(f4ncgb_handle* h, const char* proof_file) {
   return nullptr;
 }
 
-extern "C" int
-f4ncgb_solve(f4ncgb_handle* h) {
+extern "C" f4ncgb_result
+f4ncgb_solve(f4ncgb_handle* h,
+             void* userdata,
+             f4ncgb_add_cb add_cb,
+             f4ncgb_end_poly_cb end_cb) {
   if(!h)
-    return 0;
+    return F4NCGB_ARGERROR;
   if(h->ctx.num_vars() > 0 && h->ctx.num_blocks() == 0) {
     h->ctx.blocks_.emplace_back();
     h->ctx.blocks_[0].resize(h->ctx.num_vars() + 1);
@@ -209,6 +230,14 @@ f4ncgb_solve(f4ncgb_handle* h) {
     std::iota(begin, end, 1);
   }
   h->ctx.num_blocks_ = h->ctx.blocks_.size();
+
+  if(h->ctx.num_blocks() > F4NCGB_MAX_BLOCKS)
+    return F4NCGB_ARGERROR;
+
+  if(h->ctx.characteristic() > 2147483647l)// 2^31 -1
+    return F4NCGB_ARGERROR;
+  if(h->ctx.characteristic() != 0 and !n_is_prime(h->ctx.characteristic()))
+    return F4NCGB_ARGERROR;
 
   int res = f4ncgb::f4ncgb_main(h->ctx,
                                 h->ctx.num_blocks(),
@@ -219,6 +248,16 @@ f4ncgb_solve(f4ncgb_handle* h) {
                                 h->threads,
                                 h->output_file,
                                 h->proof_file,
-                                false);
-  return res;
+                                false, /* No leaking */
+                                false, /* No problem printing */
+                                userdata,
+                                add_cb,
+                                end_cb);
+
+  switch(res) {
+    case 0:
+      return F4NCGB_OK;
+    default:
+      return F4NCGB_ERROR;
+  }
 }

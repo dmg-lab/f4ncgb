@@ -1,6 +1,7 @@
 #ifndef F4NCGB_HPP
 #define F4NCGB_HPP
 
+#include <gmp-x86_64.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -18,6 +19,16 @@ typedef enum f4ncgb_state {
   F4NCGB_STATE_INITIAL,
   F4NCGB_STATE_SOLVING,
 } f4ncgb_state;
+
+typedef enum f4ncgb_result {
+  F4NCGB_OK = 0,
+  F4NCGB_ERROR,
+  F4NCGB_ARGERROR,
+  F4NCGB_UNKNOWN,
+} f4ncgb_result;
+
+void
+f4ncgb_set_msg_printing(bool);
 
 f4ncgb_handle*
 f4ncgb_init();
@@ -66,15 +77,28 @@ f4ncgb_set_output_file(f4ncgb_handle*, const char*);
 const char*
 f4ncgb_set_proof_file(f4ncgb_handle*, const char*);
 
-int
-f4ncgb_solve(f4ncgb_handle*);
+typedef void (*f4ncgb_add_cb)(void* userdata,
+                              mpz_ptr numerator,
+                              mpz_ptr denominator,
+                              size_t varcount,
+                              const uint32_t* vars);
+
+typedef void (*f4ncgb_end_poly_cb)(void* userdata);
+
+f4ncgb_result
+f4ncgb_solve(f4ncgb_handle*,
+             void* userdata,
+             f4ncgb_add_cb add_cb,
+             f4ncgb_end_poly_cb end_cb);
 
 #ifdef __cplusplus
 }
 #endif
 
 #ifdef __cplusplus
+#include <functional>
 #include <memory>
+#include <span>
 #include <vector>
 
 namespace f4ncgb {
@@ -154,7 +178,55 @@ class Solver {
       throw std::runtime_error(msg);
     }
   }
-  int solve() { return f4ncgb_solve(handle_.get()); }
+
+  using add_cb
+    = std::function<void(mpz_ptr, mpz_ptr, std::span<const uint32_t>)>;
+  using end_poly_cb = std::function<void()>;
+
+  f4ncgb_result solve(add_cb add, end_poly_cb end) {
+    struct meta {
+      add_cb a;
+      end_poly_cb e;
+    };
+    meta m{ add, end };
+
+    auto c_add_cb = [](void* userdata,
+                       mpz_ptr numerator,
+                       mpz_ptr denominator,
+                       size_t varcount,
+                       const uint32_t* vars) {
+      meta& m = *static_cast<meta*>(userdata);
+      return m.a(
+        numerator, denominator, std::span<const uint32_t>(vars, varcount));
+    };
+    auto c_end_poly_cb = [](void* userdata) {
+      meta& m = *static_cast<meta*>(userdata);
+      return m.e();
+    };
+
+    return f4ncgb_solve(
+      handle_.get(), static_cast<void*>(&m), c_add_cb, c_end_poly_cb);
+  }
+
+  using monomial = std::vector<uint32_t>;
+  using polynomial = std::vector<std::tuple<mpz_ptr, mpz_ptr, monomial>>;
+
+  std::pair<f4ncgb_result, std::vector<polynomial>> solve() {
+    std::vector<polynomial> polys;
+    bool create = true;
+    f4ncgb_result res = solve(
+      [&polys,
+       &create](mpz_ptr num, mpz_ptr den, std::span<const uint32_t> vars) {
+        if(create) {
+          polys.emplace_back();
+          create = false;
+        }
+        polys.back().emplace_back(
+          num, den, std::vector<uint32_t>(vars.begin(), vars.end()));
+      },
+      [&create]() { create = true; });
+    return std::make_pair(res, std::move(polys));
+  }
 };
 }
 #endif
