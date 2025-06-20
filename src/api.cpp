@@ -88,7 +88,7 @@ f4ncgb_add(f4ncgb_handle* h,
            uint32_t* vars) {
   REQUIRE_HANDLE(h);
   if(h->state != F4NCGB_STATE_READY) {
-    return "invalid state, must be in INITIAL";
+    return "invalid state, must be in READY";
   }
 
   if(varcount) {
@@ -104,7 +104,7 @@ extern "C" const char*
 f4ncgb_end_poly(f4ncgb_handle* h) {
   REQUIRE_HANDLE(h);
   if(h->state != F4NCGB_STATE_READY) {
-    return "invalid state, must be in INITIAL";
+    return "invalid state, must be in READY";
   }
   h->polynomials.emplace_back(h->current_polynomial);
   h->current_polynomial.clear();
@@ -117,7 +117,7 @@ f4ncgb_set_blocks(f4ncgb_handle* h,
                   uint32_t* blocklengths) {
   REQUIRE_HANDLE(h);
   if(h->state != F4NCGB_STATE_READY) {
-    return "invalid state, must be in INITIAL";
+    return "invalid state, must be in READY";
   }
 
   if(blockcount > F4NCGB_MAX_BLOCKS)
@@ -144,7 +144,7 @@ extern "C" const char*
 f4ncgb_set_nvars(f4ncgb_handle* h, uint32_t nvars) {
   REQUIRE_HANDLE(h);
   if(h->state != F4NCGB_STATE_READY) {
-    return "invalid state, must be in INITIAL";
+    return "invalid state, must be in READY";
   }
   h->ctx.num_vars_ = nvars;
   return nullptr;
@@ -154,7 +154,7 @@ extern "C" const char*
 f4ncgb_set_characteristic(f4ncgb_handle* h, uint32_t characteristic) {
   REQUIRE_HANDLE(h);
   if(h->state != F4NCGB_STATE_READY) {
-    return "invalid state, must be in INITIAL";
+    return "invalid state, must be in READY";
   }
 
   if(characteristic > 2147483647l) {// 2^31 -1
@@ -171,7 +171,7 @@ extern "C" const char*
 f4ncgb_set_maxiter(f4ncgb_handle* h, uint32_t maxiter) {
   REQUIRE_HANDLE(h);
   if(h->state != F4NCGB_STATE_READY) {
-    return "invalid state, must be in INITIAL";
+    return "invalid state, must be in READY";
   }
   h->maxiter = maxiter;
   return nullptr;
@@ -181,7 +181,7 @@ extern "C" const char*
 f4ncgb_set_maxdeg(f4ncgb_handle* h, uint32_t maxdeg) {
   REQUIRE_HANDLE(h);
   if(h->state != F4NCGB_STATE_READY) {
-    return "invalid state, must be in INITIAL";
+    return "invalid state, must be in READY";
   }
   h->maxdeg = maxdeg;
   return nullptr;
@@ -191,7 +191,7 @@ extern "C" const char*
 f4ncgb_set_threads(f4ncgb_handle* h, uint32_t threads) {
   REQUIRE_HANDLE(h);
   if(h->state != F4NCGB_STATE_READY) {
-    return "invalid state, must be in INITIAL";
+    return "invalid state, must be in READY";
   }
   h->threads = threads;
   return nullptr;
@@ -201,7 +201,7 @@ extern "C" const char*
 f4ncgb_set_output_file(f4ncgb_handle* h, const char* output_file) {
   REQUIRE_HANDLE(h);
   if(h->state != F4NCGB_STATE_READY) {
-    return "invalid state, must be in INITIAL";
+    return "invalid state, must be in READY";
   }
   h->output_file = output_file;
   return nullptr;
@@ -211,7 +211,7 @@ extern "C" const char*
 f4ncgb_set_proof_file(f4ncgb_handle* h, const char* proof_file) {
   REQUIRE_HANDLE(h);
   if(h->state != F4NCGB_STATE_READY) {
-    return "invalid state, must be in INITIAL";
+    return "invalid state, must be in READY";
   }
   h->proof_file = proof_file;
   h->proof_level = 1;
@@ -221,8 +221,8 @@ f4ncgb_set_proof_file(f4ncgb_handle* h, const char* proof_file) {
 extern "C" const char*
 f4ncgb_set_expanded_proof(f4ncgb_handle* h, bool expanded) {
   REQUIRE_HANDLE(h);
-  if(h->state != F4NCGB_STATE_INITIAL) {
-    return "invalid state, must be in INITIAL";
+  if(h->state != F4NCGB_STATE_READY) {
+    return "invalid state, must be in READY";
   }
   if(expanded)
     h->proof_level = 2;
@@ -232,8 +232,8 @@ f4ncgb_set_expanded_proof(f4ncgb_handle* h, bool expanded) {
 extern "C" const char*
 f4ncgb_set_tacer(f4ncgb_handle* h, bool tracer) {
   REQUIRE_HANDLE(h);
-  if(h->state != F4NCGB_STATE_INITIAL) {
-    return "invalid state, must be in INITIAL";
+  if(h->state != F4NCGB_STATE_READY) {
+    return "invalid state, must be in READY";
   }
   h->tracer = tracer;
   return nullptr;
