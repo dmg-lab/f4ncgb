@@ -27,12 +27,10 @@ All benchmarks are part of the [SymbolicData project](https://symbolicdata.githu
 
 [[_TOC_]]
 
-<a id="org4ed26a3"></a>
+News about current updates and new features may be found in
+[NEWS.md](NEWS.md).
 
 # Compilation
-
-
-<a id="org682c20c"></a>
 
 ## Dependencies
 
@@ -50,9 +48,6 @@ And recommended:
 The fuzzer can be used by cloning [FuzzTest](https://github.com/google/fuzztest) into the project's root
 directory.
 
-
-<a id="org959c02e"></a>
-
 ## Compilation using CMake
 
 Please use [CMake](https://cmake.org/) to compile this project. All dependencies are
@@ -69,9 +64,6 @@ Then, `f4ncgb`, `f4ncgb_test`, and `mod_prime_tester` are produced.
 The release build automatically optimizes using `-march=native`, so
 the resulting binary may not run on a machine that does not support
 the same instructions as the builder.
-
-
-<a id="org0079508"></a>
 
 # Basic usage of `f4ncgb`
 
@@ -98,9 +90,6 @@ These are the provided options (also visible from `--help`:
     shall be traced. Speeds up the computation, but yields the correct
     result only with high probability (default: enabled)
 -   **`--verbosity`, `-v`:** Set the verbosity level
-
-
-<a id="org89f78d9"></a>
 
 ## `msolve` Input Format
 
@@ -132,9 +121,6 @@ a simplified EBNF below.
     letter         := "A"..."Z" | "a"..."z" | ... .
     
     digit          := "0"..."9" .
-
-
-<a id="org9803c52"></a>
 
 ## `poly` Input Format
 
@@ -169,15 +155,10 @@ DIMACS format that SAT-solvers use. We provide a simplified EBNF below.
     
     digit          := "0"..."9" .
 
-
-<a id="org015b48c"></a>
-
 ## `sympoly` Input Format
 
 This is the same as the `poly` format, but a `var` can be a symbol
 (ident).
-
-<a id="org5bf89aa"></a>
 
 # Tests
 
@@ -191,9 +172,6 @@ This should produce the following output:
 
 Internally, the tests also create our store structure multiple times
 and test the memory allocation to fit our requirements.
-
-
-<a id="org7028d8a"></a>
 
 # Additional features
 
@@ -336,9 +314,6 @@ overall are faster than the ones from Clang.
 </tr>
 </tbody>
 </table>
-
-
-<a id="orgccc4565"></a>
 
 ## Store Access Patterns
 
