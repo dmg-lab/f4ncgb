@@ -49,6 +49,19 @@ static bool print_problem = false;
 
 using namespace f4ncgb;
 
+static std::function<void()> print_statistics_fun;
+
+static void
+handle_signal(int signal) {
+  if(signal == SIGUSR1) {
+    if(print_statistics_fun) {
+      msg("SIGUSR1 received.");
+      print_statistics_fun();
+      msg("End of SIGUSR1 output.");
+    }
+  }
+}
+
 /**
     Main Function of f4ncgb.
 
@@ -56,6 +69,8 @@ using namespace f4ncgb;
 */
 int
 main(int argc, char** argv) {
+  signal(SIGUSR1, handle_signal);
+
   // clang-format off
   po::options_description desc("f4ncgb, version " F4NCGB_VERSION "\n"
                                "Copyright(C) 2025 Clemens Hofstadler, Maximilian Heisinger\n"
@@ -156,8 +171,9 @@ main(int argc, char** argv) {
                             threads,
                             output_name,
                             proof_file,
-                            print_problem,
-                            true /* Memory Leaking in the binary is ok */);
+                            &print_statistics_fun,
+                            true, /* Memory Leaking in the binary is ok */
+                            print_problem);
 
   F4NCGB_PROFILE(gstats.print(threads));
   return res;

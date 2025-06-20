@@ -43,6 +43,7 @@ f4ncgb_main(parser_context& context,
             size_t threads,
             const std::string& output_name,
             const std::string& proof_file,
+            std::function<void()>* stats_print_function,
             bool leak_memory,
             bool print_read_problem,
             void* userdata,
@@ -58,6 +59,7 @@ f4ncgb_main(parser_context& context,
      threads,
      output_name,
      proof_file,
+     stats_print_function,
      leak_memory,
      print_read_problem,
      userdata,
@@ -136,7 +138,15 @@ f4ncgb_main(parser_context& context,
         msg(out_name.c_str());
         msg("Proof logging:     %s", proof_str.c_str());
         msg("Tracer:            %s", tracer ? "on" : "off");
+        msg("PID of F4NCGB:     %lu", getpid());
         msg("==== Starting Gröbner Basis Computation ====");
+      }
+
+      if(stats_print_function) {
+        *stats_print_function = [&algo]() {
+          msg("Current basis:");
+          algo.write_basis(std::cerr);
+        };
       }
 
       algo.compute_basis();
@@ -155,6 +165,10 @@ f4ncgb_main(parser_context& context,
           out_file = &filestream;
         }
         algo.write_basis(*out_file);
+      }
+
+      if(stats_print_function) {
+        *stats_print_function = []() {};
       }
 
     // This is the main function. We do not need to clean up

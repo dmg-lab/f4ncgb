@@ -19,7 +19,7 @@ using monomial = std::vector<uint32_t>;
 using polynomial = std::vector<std::tuple<long, long, monomial>>;
 
 typedef struct f4ncgb_handle {
-  f4ncgb_state state = F4NCGB_STATE_INITIAL;
+  f4ncgb_state state = F4NCGB_STATE_READY;
   uint32_t maxiter = 10;
   uint32_t maxdeg = UINT_MAX;
   uint32_t threads = 1;
@@ -85,7 +85,7 @@ f4ncgb_add(f4ncgb_handle* h,
            size_t varcount,
            uint32_t* vars) {
   REQUIRE_HANDLE(h);
-  if(h->state != F4NCGB_STATE_INITIAL) {
+  if(h->state != F4NCGB_STATE_READY) {
     return "invalid state, must be in INITIAL";
   }
 
@@ -101,7 +101,7 @@ f4ncgb_add(f4ncgb_handle* h,
 extern "C" const char*
 f4ncgb_end_poly(f4ncgb_handle* h) {
   REQUIRE_HANDLE(h);
-  if(h->state != F4NCGB_STATE_INITIAL) {
+  if(h->state != F4NCGB_STATE_READY) {
     return "invalid state, must be in INITIAL";
   }
   h->polynomials.emplace_back(h->current_polynomial);
@@ -114,7 +114,7 @@ f4ncgb_set_blocks(f4ncgb_handle* h,
                   uint32_t blockcount,
                   uint32_t* blocklengths) {
   REQUIRE_HANDLE(h);
-  if(h->state != F4NCGB_STATE_INITIAL) {
+  if(h->state != F4NCGB_STATE_READY) {
     return "invalid state, must be in INITIAL";
   }
 
@@ -141,7 +141,7 @@ f4ncgb_set_blocks(f4ncgb_handle* h,
 extern "C" const char*
 f4ncgb_set_nvars(f4ncgb_handle* h, uint32_t nvars) {
   REQUIRE_HANDLE(h);
-  if(h->state != F4NCGB_STATE_INITIAL) {
+  if(h->state != F4NCGB_STATE_READY) {
     return "invalid state, must be in INITIAL";
   }
   h->ctx.num_vars_ = nvars;
@@ -151,7 +151,7 @@ f4ncgb_set_nvars(f4ncgb_handle* h, uint32_t nvars) {
 extern "C" const char*
 f4ncgb_set_characteristic(f4ncgb_handle* h, uint32_t characteristic) {
   REQUIRE_HANDLE(h);
-  if(h->state != F4NCGB_STATE_INITIAL) {
+  if(h->state != F4NCGB_STATE_READY) {
     return "invalid state, must be in INITIAL";
   }
 
@@ -168,7 +168,7 @@ f4ncgb_set_characteristic(f4ncgb_handle* h, uint32_t characteristic) {
 extern "C" const char*
 f4ncgb_set_maxiter(f4ncgb_handle* h, uint32_t maxiter) {
   REQUIRE_HANDLE(h);
-  if(h->state != F4NCGB_STATE_INITIAL) {
+  if(h->state != F4NCGB_STATE_READY) {
     return "invalid state, must be in INITIAL";
   }
   h->maxiter = maxiter;
@@ -178,7 +178,7 @@ f4ncgb_set_maxiter(f4ncgb_handle* h, uint32_t maxiter) {
 extern "C" const char*
 f4ncgb_set_maxdeg(f4ncgb_handle* h, uint32_t maxdeg) {
   REQUIRE_HANDLE(h);
-  if(h->state != F4NCGB_STATE_INITIAL) {
+  if(h->state != F4NCGB_STATE_READY) {
     return "invalid state, must be in INITIAL";
   }
   h->maxdeg = maxdeg;
@@ -188,7 +188,7 @@ f4ncgb_set_maxdeg(f4ncgb_handle* h, uint32_t maxdeg) {
 extern "C" const char*
 f4ncgb_set_threads(f4ncgb_handle* h, uint32_t threads) {
   REQUIRE_HANDLE(h);
-  if(h->state != F4NCGB_STATE_INITIAL) {
+  if(h->state != F4NCGB_STATE_READY) {
     return "invalid state, must be in INITIAL";
   }
   h->threads = threads;
@@ -198,7 +198,7 @@ f4ncgb_set_threads(f4ncgb_handle* h, uint32_t threads) {
 extern "C" const char*
 f4ncgb_set_output_file(f4ncgb_handle* h, const char* output_file) {
   REQUIRE_HANDLE(h);
-  if(h->state != F4NCGB_STATE_INITIAL) {
+  if(h->state != F4NCGB_STATE_READY) {
     return "invalid state, must be in INITIAL";
   }
   h->output_file = output_file;
@@ -208,7 +208,7 @@ f4ncgb_set_output_file(f4ncgb_handle* h, const char* output_file) {
 extern "C" const char*
 f4ncgb_set_proof_file(f4ncgb_handle* h, const char* proof_file) {
   REQUIRE_HANDLE(h);
-  if(h->state != F4NCGB_STATE_INITIAL) {
+  if(h->state != F4NCGB_STATE_READY) {
     return "invalid state, must be in INITIAL";
   }
   h->proof_file = proof_file;
@@ -239,6 +239,8 @@ f4ncgb_solve(f4ncgb_handle* h,
   if(h->ctx.characteristic() != 0 and !n_is_prime(h->ctx.characteristic()))
     return F4NCGB_ARGERROR;
 
+  h->state = F4NCGB_STATE_SOLVING;
+
   int res = f4ncgb::f4ncgb_main(h->ctx,
                                 h->ctx.num_blocks(),
                                 h->ctx.num_vars(),
@@ -248,11 +250,14 @@ f4ncgb_solve(f4ncgb_handle* h,
                                 h->threads,
                                 h->output_file,
                                 h->proof_file,
+                                nullptr,
                                 false, /* No leaking */
                                 false, /* No problem printing */
                                 userdata,
                                 add_cb,
                                 end_cb);
+
+  h->state = F4NCGB_STATE_READY;
 
   switch(res) {
     case 0:

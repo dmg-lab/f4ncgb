@@ -16,7 +16,7 @@ f4ncgb_version();
 typedef struct f4ncgb_handle f4ncgb_handle;
 
 typedef enum f4ncgb_state {
-  F4NCGB_STATE_INITIAL,
+  F4NCGB_STATE_READY,
   F4NCGB_STATE_SOLVING,
 } f4ncgb_state;
 
