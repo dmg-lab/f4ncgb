@@ -8,6 +8,7 @@ endif()
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 option(ENABLE_PROFILING "Enable tracking statistics" ON)
+option(SHARED_LIB "Build the f4ncgb library shared instead of static" OFF)
 option(ENABLE_FUZZER "Enable building the fuzzer, if available" OFF)
 option(ENABLE_FAST_MERSENNE_PRIME_MODULO "Enable fast mersenne prime modulo operation" ON)
 option(ENABLE_MONOMIAL_PRODUCTS_MAP "Track and cache monomial products in map (usually slower)" OFF)
@@ -84,7 +85,15 @@ else()
   message(STATUS "Not using mimalloc, but it gives you approx. 10-15% speedup. Consider installing its development package! See https://github.com/microsoft/mimalloc")
 endif()
 
-add_library(f4ncgb STATIC ${F4NCGB_SRCS})
+if(SHARED_LIB)
+  message(STATUS "libf4ncgb is being built as a shared library")
+  set(F4NCGB_LIBTYPE "SHARED")
+else()
+  message(STATUS "libf4ncgb is being built as a static library")
+  set(F4NCGB_LIBTYPE "STATIC")
+endif()
+
+add_library(f4ncgb ${F4NCGB_LIBTYPE} ${F4NCGB_SRCS})
 set_target_properties(f4ncgb PROPERTIES PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/f4ncgb.hpp)
 
 add_executable(f4ncgb_test ${F4NCGB_TEST_SRCS})
@@ -92,6 +101,10 @@ add_executable(f4ncgb_bin ${F4NCGB_TARGETS})
 target_link_libraries(f4ncgb_test PUBLIC f4ncgb)
 target_link_libraries(f4ncgb_bin PUBLIC f4ncgb)
 set_target_properties(f4ncgb_bin PROPERTIES OUTPUT_NAME "f4ncgb")
+
+if(SHARED_LIB)
+  set_property(TARGET f4ncgb_bin PROPERTY INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
+endif()
 
 # needed for pthread flag
 target_link_libraries(f4ncgb_bin PUBLIC ${CMAKE_THREAD_LIBS_INIT} )
