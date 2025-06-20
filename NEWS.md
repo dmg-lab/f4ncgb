@@ -15,3 +15,18 @@ v0.3
 
   - Both `proof_level` and `tracer` are no longer global symbols,
     instead they are given as parameters to a solve call.
+
+v0.2.1
+======
+
+## New Features
+
+  - Add an install target for installing the future API header, the
+    binary, and the library.
+
+v0.2
+====
+
+## Fixes
+
+  - Fix a test case that was broken because of a file rename.
