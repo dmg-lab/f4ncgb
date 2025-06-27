@@ -83,7 +83,6 @@ f4ncgb_set_output_file(f4ncgb_handle*, const char*);
 const char*
 f4ncgb_set_proof_file(f4ncgb_handle*, const char*);
 
-
 typedef void (*f4ncgb_add_cb)(void* userdata,
                               mpz_ptr numerator,
                               mpz_ptr denominator,
@@ -172,18 +171,18 @@ class Solver {
       throw std::runtime_error(msg);
     }
   }
- void set_tracer(bool tracer) {
+  void set_tracer(bool tracer) {
     const char* msg = f4ncgb_set_tracer(handle_.get(), tracer);
     if(msg) {
       throw std::runtime_error(msg);
     }
   }
- void set_expanded_proof(bool expanded) {
-   const char* msg = f4ncgb_set_expanded_proof(handle_.get(), expanded);
+  void set_expanded_proof(bool expanded) {
+    const char* msg = f4ncgb_set_expanded_proof(handle_.get(), expanded);
     if(msg) {
       throw std::runtime_error(msg);
     }
-  }  
+  }
   void set_output_file(const std::string& output_file) {
     const char* msg
       = f4ncgb_set_output_file(handle_.get(), output_file.c_str());

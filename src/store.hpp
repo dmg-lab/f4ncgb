@@ -699,7 +699,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
 
     size_t la, lb;
 
-    if(block_order) {
+    if constexpr(block_order) {
       auto a_it = (*this)[a];
       auto b_it = (*this)[b];
 

@@ -230,7 +230,7 @@ f4ncgb_set_expanded_proof(f4ncgb_handle* h, bool expanded) {
 }
 
 extern "C" const char*
-f4ncgb_set_tacer(f4ncgb_handle* h, bool tracer) {
+f4ncgb_set_tracer(f4ncgb_handle* h, bool tracer) {
   REQUIRE_HANDLE(h);
   if(h->state != F4NCGB_STATE_READY) {
     return "invalid state, must be in READY";
