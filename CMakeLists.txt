@@ -113,7 +113,7 @@ if (NOT ENABLE_TEST)
 endif()
 
 # needed for pthread flag
-target_link_libraries(f4ncgb_bin PUBLIC ${CMAKE_THREAD_LIBS_INIT} )
+target_link_libraries(f4ncgb PUBLIC ${CMAKE_THREAD_LIBS_INIT} )
 
 set_property(TARGET f4ncgb PROPERTY CXX_STANDARD 20)
 set_property(TARGET f4ncgb_test PROPERTY CXX_STANDARD 20)
