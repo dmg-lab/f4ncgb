@@ -1,10 +1,10 @@
 #ifndef F4NCGB_HPP
 #define F4NCGB_HPP
 
-#include <gmp.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <gmp.h>
 
 #ifdef __cplusplus
 extern "C" {
