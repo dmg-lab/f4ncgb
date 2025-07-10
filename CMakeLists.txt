@@ -16,6 +16,8 @@ option(ENABLE_COMPACT_MONOMIAL_MAP "Use a more compact map for lookups in the mo
 option(ENABLE_STORE_TRACE "Enable a (very expensive) trace of each access (operator[]) into a store." OFF)
 option(ENABLE_STORE_DUMP "Enable a (very expensive) dump when deconstructing a store." OFF)
 option(ENABLE_NATIVE "Enable -march=native to target the host CPU (creates non-portable binaries)" ON)
+option(ENABLE_TEST "Build f4ncgb_test program" ON)
+option(ENABLE_SIGNAL "Enable signal handling for printing statistics" ON)
 
 set(MAX_BLOCKS 16 CACHE STRING "Maximum number of blocks to compile for. Must be integral. Changes compilation time (duplicates implementation for each block).")
 
@@ -106,6 +108,10 @@ if(SHARED_LIB)
   set_property(TARGET f4ncgb_bin PROPERTY INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
 endif()
 
+if (NOT ENABLE_TEST)
+   set_target_properties(f4ncgb_test PROPERTIES EXCLUDE_FROM_ALL 1)
+endif()
+
 # needed for pthread flag
 target_link_libraries(f4ncgb_bin PUBLIC ${CMAKE_THREAD_LIBS_INIT} )
 
@@ -153,6 +159,13 @@ if(ENABLE_STORE_DUMP)
   target_compile_definitions(f4ncgb PUBLIC F4NCGB_ENABLE_STORE_DUMP)
 else()
   message(STATUS "Store dumping is disabled")
+endif()
+
+if(ENABLE_SIGNAL)
+   message(STATUS "Signal handling is enabled")
+   target_compile_definitions(f4ncgb_bin PUBLIC F4NCGB_ENABLE_SIGNAL)
+else()
+   message(STATUS "Signal handling is disabled")
 endif()
 
 if(CMAKE_BUILD_TYPE MATCHES "Sanitize")

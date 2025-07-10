@@ -51,6 +51,7 @@ using namespace f4ncgb;
 
 static std::function<void()> print_statistics_fun;
 
+#ifdef F4NCGB_ENABLE_SIGNAL
 static void
 handle_signal(int signal) {
   if(signal == SIGUSR1) {
@@ -61,6 +62,7 @@ handle_signal(int signal) {
     }
   }
 }
+#endif
 
 /**
     Main Function of f4ncgb.
@@ -69,7 +71,9 @@ handle_signal(int signal) {
 */
 int
 main(int argc, char** argv) {
+#ifdef F4NCGB_ENABLE_SIGNAL
   signal(SIGUSR1, handle_signal);
+#endif
 
   // clang-format off
   po::options_description desc("f4ncgb, version " F4NCGB_VERSION "\n"
