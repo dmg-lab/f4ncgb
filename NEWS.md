@@ -10,6 +10,11 @@ v0.3
   - Add support for shared library builds.
   - Add support for dumping the stores at destruction (enable with
     CMake-option `-DENABLE_STORE_DUMP=ON`).
+  - Add CMake-options `ENABLE_TEST` and `ENABLE_SIGNAL` for toggling
+    the generation of the test binary and inclusion of signal-handler
+    code in the f4ncgb binary. (thanks to Benjamin Lorenz)
+  - Fix compilation issues on MacOS and with pthreads (thanks to
+    Benjamin Lorenz)
     
 ## Changes
 
