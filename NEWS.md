@@ -1,3 +1,11 @@
+v0.3.1
+======
+
+## Fixes
+
+  - Fix an allocation issue on some memory-constrained systems by iteratively
+    decreasing the requested memory space.
+
 v0.3
 ====
 
@@ -15,7 +23,7 @@ v0.3
     code in the f4ncgb binary. (thanks to Benjamin Lorenz)
   - Fix compilation issues on MacOS and with pthreads (thanks to
     Benjamin Lorenz)
-    
+
 ## Changes
 
   - Both `proof_level` and `tracer` are no longer global symbols,
