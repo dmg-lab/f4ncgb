@@ -9,6 +9,7 @@
 #include <iterator>
 #include <limits>
 #include <memory>
+#include <new>
 #include <span>
 #include <utility>
 #include <vector>
@@ -308,19 +309,27 @@ class store {
   using index_type = I;
   using value_type = V;
 
+  size_t pool_capacity_ = 2097152 * capacity() / 2097152;
+
   store()
     : pool_(reinterpret_cast<std::byte*>(
         boost::alignment::aligned_alloc(2097152 /* 2^21, 2MB */,
                                         2097152 * (capacity() / 2097152)))) {
-    if(pool_.get() == nullptr) {
+
+    size_t divisor = 1;
+    while(!pool_.get()) {
       pool_.reset(reinterpret_cast<std::byte*>(
-        std::malloc(2097152 * (capacity() / 2097152))));
-    }
-    if(pool_.get() == nullptr) {
-      exit(5);
+        std::malloc((2097152 / divisor) * (capacity() / 2097152))));
+      pool_capacity_ = (2097152 / divisor) * (capacity() / 2097152);
+
+      divisor *= 2;
+
+      if(divisor > 32) {
+        throw std::bad_alloc();
+      }
     }
 #ifdef __linux__
-    madvise(pool_.get(), 2097152 * (capacity() / 2097152), MADV_HUGEPAGE);
+    madvise(pool_.get(), pool_capacity_, MADV_HUGEPAGE);
 #endif
   }
   ~store() {
@@ -804,7 +813,7 @@ class polynomial_store
       absolute_max);
   }
 
-  size_t cpool_capacity_ = capacity() / 2097152;
+  size_t cpool_capacity_ = 2097152 * capacity() / 2097152;
 
   inline polynomial_store(monomial_store_& store)
     : base::store()
@@ -813,20 +822,21 @@ class polynomial_store
         boost::alignment::aligned_alloc(2097152 /* 2^21, 2MB */,
                                         2097152 * (capacity() / 2097152)))) {
     cpool_capacity_ = 2097152 * (capacity() / 2097152);
-    if(cpool_.get() == nullptr) {
+    size_t divisor = 1;
+
+    while(!cpool_.get()) {
       cpool_.reset(reinterpret_cast<std::byte*>(
-        std::malloc(2097152 * (capacity() / 2097152))));
-      if(cpool_.get() == nullptr) {
-        cpool_.reset(reinterpret_cast<std::byte*>(
-          std::malloc((2097152 / 2) * (capacity() / 2097152))));
-        cpool_capacity_ = (2097152 / 2) * (capacity() / 2097152);
-        if(cpool_.get() == nullptr) {
-          exit(6);
-        }
+        std::malloc((2097152 / divisor) * (capacity() / 2097152))));
+      cpool_capacity_ = (2097152 / divisor) * (capacity() / 2097152);
+
+      divisor *= 2;
+
+      if(divisor > 32) {
+        throw std::bad_alloc();
       }
     }
 #ifdef __linux__
-    madvise(cpool_.get(), 2097152 * (capacity() / 2097152), MADV_HUGEPAGE);
+    madvise(cpool_.get(), cpool_capacity_, MADV_HUGEPAGE);
 #endif
   }
 
