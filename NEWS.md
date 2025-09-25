@@ -1,3 +1,10 @@
+v0.3.2
+======
+
+## Fixes
+  - Bugfix: stop computation when 1 is in the Gröbner basis
+
+
 v0.3.1
 ======
 
