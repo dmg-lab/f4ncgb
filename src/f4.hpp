@@ -105,6 +105,7 @@ struct f4 {
   size_t maxdeg = UINT_MAX;
   size_t proof_level = 0;
   bool tracer = true;
+  bool constant_flag = false;
   static constexpr bool block_order = Nblocks > 0;
 
   std::ofstream proof_file;
@@ -264,7 +265,7 @@ struct f4 {
 
     // main loop
     iter = 0;
-    while((!amb.empty() or !crit_pairs.empty()) and iter < maxiter) {
+    while((!amb.empty() or !crit_pairs.empty()) and iter < maxiter and !constant_flag) {
       {
         F4NCGB_TIME(crit_pair);
         stage_crit_pairs();
@@ -672,8 +673,8 @@ struct f4 {
 
     // reduction
     F4NCGB_PROFILE(auto timer = gstats.time(gstats.reduction));
-    auto [idxs, entries]
-      = linear_algebra(mat, characteristic, pool, tracer, interreduce, proof_level);
+    auto [idxs, entries] = linear_algebra(
+      mat, characteristic, pool, tracer, interreduce, proof_level);
 
     // compute new elements
     F4NCGB_PROFILE(auto timer2 = gstats.time(gstats.new_elements));
@@ -788,7 +789,14 @@ struct f4 {
       // update basis
       poly.set_idx(p_id, n++);
       basis.push_back(p_id);
+
+      // special flag for constant polynomial
+      if(poly.get_lm_id(p_id) == 0) {
+        constant_flag = true;
+        return;
+      }
     }
+    
   }
 };
 }
