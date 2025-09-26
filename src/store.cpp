@@ -31,6 +31,65 @@ coefficient_is_posneg_neutral(
   return (numerator(rr) == -1l || numerator(rr) == 1l) && denominator(rr) == 1l;
 }
 
+struct f4_base {
+  virtual ~f4_base() = default;
+  virtual parse_res read_input(parser_context& context) = 0;
+  virtual void compute_basis() = 0;
+  virtual void write_basis(std::ostream& os) = 0;
+  virtual void write_basis(void* userdata,
+                           f4ncgb_add_cb add_cb,
+                           f4ncgb_end_poly_cb end_poly_cb)
+    = 0;
+  virtual void print_read_problem(parser_context& context) = 0;
+#ifdef F4NCGB_ENABLE_STORE_DUMP
+  virtual void set_dump_paths(std::string path) = 0;
+#endif
+};
+
+template<std::size_t Nblocks, typename V>
+struct f4_wrapper : f4_base {
+  f4<Nblocks, V> algo;
+
+  f4_wrapper(parser_context& context,
+             size_t nvars,
+             size_t characteristic,
+             size_t maxiter,
+             size_t maxdeg,
+             size_t threads,
+             size_t proof_level,
+             bool tracer,
+             const std::string& proof_file)
+    : algo(context,
+           nvars,
+           characteristic,
+           maxiter,
+           maxdeg,
+           threads,
+           proof_level,
+           tracer,
+           proof_file) {}
+
+  parse_res read_input(parser_context& context) override {
+    return algo.read_input(context);
+  }
+  void compute_basis() override { algo.compute_basis(); }
+  void write_basis(std::ostream& os) override { algo.write_basis(os); }
+  void write_basis(void* userdata,
+                   f4ncgb_add_cb add_cb,
+                   f4ncgb_end_poly_cb end_poly_cb) override {
+    algo.write_basis(userdata, add_cb, end_poly_cb);
+  }
+  void print_read_problem(parser_context& context) override {
+    context.to_msolve(std::cout, algo.poly);
+  }
+#ifdef F4NCGB_ENABLE_STORE_DUMP
+  void set_dump_paths(std::string path) override {
+    algo.mons.set_binary_dump_path(std::filesystem::path(path + "_mons.bin"));
+    algo.poly.set_binary_dump_path(std::filesystem::path(path + "_poly.bin"));
+  }
+#endif
+};
+
 int
 f4ncgb_main(parser_context& context,
             size_t nblocks,
@@ -67,18 +126,35 @@ f4ncgb_main(parser_context& context,
      userdata,
      add_cb,
      end_poly_cb](auto Nblocks) -> int {
-      std::unique_ptr<f4<Nblocks>> algo_ptr
-        = std::make_unique<f4<Nblocks>>(context,
-                                        nvars,
-                                        characteristic,
-                                        maxiter,
-                                        maxdeg,
-                                        threads,
-                                        proof_level,
-                                        tracer,
-                                        proof_file);
+      std::unique_ptr<f4_base> algo_ptr;
+      if(nvars < std::numeric_limits<uint8_t>::max()) {
+        algo_ptr
+          = std::make_unique<f4_wrapper<Nblocks, uint8_t>>(context,
+                                                           nvars,
+                                                           characteristic,
+                                                           maxiter,
+                                                           maxdeg,
+                                                           threads,
+                                                           proof_level,
+                                                           tracer,
+                                                           proof_file);
+      } else if(nvars < std::numeric_limits<uint16_t>::max()) {
+        algo_ptr
+          = std::make_unique<f4_wrapper<Nblocks, uint16_t>>(context,
+                                                            nvars,
+                                                            characteristic,
+                                                            maxiter,
+                                                            maxdeg,
+                                                            threads,
+                                                            proof_level,
+                                                            tracer,
+                                                            proof_file);
+      } else {
+        die(31, "Too many variables. At most 2^16-1 supported.");
+      }
 
       auto& algo = *algo_ptr;
+
       {
         F4NCGB_TIME(parse);
         if(auto err = algo.read_input(context)) {
@@ -88,16 +164,11 @@ f4ncgb_main(parser_context& context,
       }
 
       if(print_read_problem) {
-        context.to_msolve(std::cout, algo.poly);
+        algo.print_read_problem(context);
       }
 
 #ifdef F4NCGB_ENABLE_STORE_DUMP
-      algo.mons.set_binary_dump_path(
-        std::filesystem::path(context.get_filename()).filename().string()
-        + "_mons.bin");
-      algo.poly.set_binary_dump_path(
-        std::filesystem::path(context.get_filename()).filename().string()
-        + "_poly.bin");
+      algo.set_dump_paths(context.get_filename()).filename().string());
 #endif
 
       if(verbose > 0) {

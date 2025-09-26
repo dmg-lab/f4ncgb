@@ -30,8 +30,6 @@
 
 #include "monomial_trie.hpp"
 
-extern template struct f4ncgb::monomial_trie<uint8_t, uint32_t>;
-extern int verbose;
 
 using namespace boost::multiprecision;
 
@@ -265,7 +263,8 @@ struct f4 {
 
     // main loop
     iter = 0;
-    while((!amb.empty() or !crit_pairs.empty()) and iter < maxiter and !constant_flag) {
+    while((!amb.empty() or !crit_pairs.empty()) and iter < maxiter
+          and !constant_flag) {
       {
         F4NCGB_TIME(crit_pair);
         stage_crit_pairs();
@@ -796,7 +795,6 @@ struct f4 {
         return;
       }
     }
-    
   }
 };
 }
