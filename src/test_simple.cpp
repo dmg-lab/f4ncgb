@@ -261,7 +261,7 @@ BOOST_AUTO_TEST_CASE(parse_braid3) {
 BOOST_AUTO_TEST_CASE(c_api_use) {
   Solver s;
   BOOST_CHECK(s.state() == F4NCGB_STATE_READY);
-  s.set_blocks({ 10'000UL });
+  s.set_blocks({ 3 });
 
   s.add(1, 1, { 3, 2, 3 });
   s.add(-1, 1, { 2, 1, 2 });

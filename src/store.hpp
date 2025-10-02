@@ -1034,16 +1034,7 @@ coefficient_is_posneg_neutral(
 class parser_context;
 int
 f4ncgb_main(parser_context& context,
-            size_t nblocks,
-            size_t nvars,
-            size_t characteristic,
-            size_t maxiter,
-            size_t maxdeg,
-            size_t threads,
-            size_t proof_level,
-            bool tracer,
             const std::string& output_name,
-            const std::string& proof_file,
             std::function<void()>* stats_print_function = nullptr,
             bool leak_memory = false,
             bool print_read_problem = false,

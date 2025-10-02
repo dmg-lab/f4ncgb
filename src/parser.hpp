@@ -188,7 +188,6 @@ class parser_context {
 
   void init_symbols() { symbols = std::make_unique<parser_symbolic_context>(); }
 
-
   static parser_symbolic_context::id read_numeric_var(parser_context& ctx) {
     return ctx.read_positive_int();
   }
@@ -208,10 +207,25 @@ class parser_context {
   parser_context() = default;
   ~parser_context() = default;
 
+  size_t maxdeg_ = UINT_MAX;
+  size_t maxiter_ = 10;
   size_t num_blocks_ = 0;
-  std::vector<std::vector<parser_symbolic_context::id>> blocks_;
   size_t characteristic_ = 0;
   size_t num_vars_ = 0;
+  size_t threads_ = 1;
+  size_t proof_level_ = 0;
+  bool tracer_ = true;
+  bool reduce_ = false;
+  std::string proof_file_ = "";
+  std::vector<std::vector<parser_symbolic_context::id>> blocks_;
+
+  size_t maxdeg() const { return maxdeg_; }
+  size_t maxiter() const { return maxiter_; }
+  size_t threads() const { return threads_; }
+  size_t proof_level() const { return proof_level_; }
+  bool tracer() const { return tracer_; }
+  const std::string& proof_file() const { return proof_file_; }
+  bool reduce() const { return reduce_; }
 
   size_t num_blocks() const { return blocks_.size(); }
   const std::vector<parser_symbolic_context::id>& block(size_t id) const {

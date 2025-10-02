@@ -97,6 +97,12 @@ f4ncgb_solve(f4ncgb_handle*,
              f4ncgb_add_cb add_cb,
              f4ncgb_end_poly_cb end_cb);
 
+f4ncgb_result
+f4ncgb_reduce(f4ncgb_handle*,
+             void* userdata,
+             f4ncgb_add_cb add_cb,
+             f4ncgb_end_poly_cb end_cb);
+
 #ifdef __cplusplus
 }
 #endif
@@ -223,6 +229,31 @@ class Solver {
     };
 
     return f4ncgb_solve(
+      handle_.get(), static_cast<void*>(&m), c_add_cb, c_end_poly_cb);
+  }
+
+  f4ncgb_result reduce(add_cb add, end_poly_cb end) {
+    struct meta {
+      add_cb a;
+      end_poly_cb e;
+    };
+    meta m{ add, end };
+
+    auto c_add_cb = [](void* userdata,
+                       mpz_ptr numerator,
+                       mpz_ptr denominator,
+                       size_t varcount,
+                       const uint32_t* vars) {
+      meta& m = *static_cast<meta*>(userdata);
+      return m.a(
+        numerator, denominator, std::span<const uint32_t>(vars, varcount));
+    };
+    auto c_end_poly_cb = [](void* userdata) {
+      meta& m = *static_cast<meta*>(userdata);
+      return m.e();
+    };
+
+    return f4ncgb_reduce(
       handle_.get(), static_cast<void*>(&m), c_add_cb, c_end_poly_cb);
   }
 

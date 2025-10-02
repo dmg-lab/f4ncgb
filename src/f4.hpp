@@ -30,7 +30,6 @@
 
 #include "monomial_trie.hpp"
 
-
 using namespace boost::multiprecision;
 
 namespace f4ncgb {
@@ -108,33 +107,25 @@ struct f4 {
 
   std::ofstream proof_file;
 
-  f4(parser_context& context_,
-     size_t nvars,
-     size_t characteristic_,
-     size_t maxiter_,
-     size_t maxdeg_,
-     size_t num_threads,
-     size_t proof_level_,
-     bool tracer_,
-     const std::string& proof_file_)
+  f4(parser_context& context_)
     : context(context_)
     , mons()
     , poly(mons)
-    , prefix_trie(nvars)
-    , suffix_trie(nvars)
-    , characteristic(characteristic_)
-    , maxiter(maxiter_)
-    , maxdeg(maxdeg_)
-    , proof_level(proof_level_)
-    , tracer(tracer_) {
+    , prefix_trie(context.num_vars())
+    , suffix_trie(context.num_vars())
+    , characteristic(context.characteristic())
+    , maxiter(context.maxiter())
+    , maxdeg(context.maxdeg())
+    , proof_level(context.proof_level())
+    , tracer(context.tracer()) {
 
     mons.set_blocks(context.block_sizes());
 
-    if(num_threads > 1)
-      pool = std::make_unique<BS::thread_pool<BS::none>>(num_threads);
+    if(context.threads() > 1)
+      pool = std::make_unique<BS::thread_pool<BS::none>>(context.threads());
 
-    if(proof_file_ != "") {
-      proof_file.open(proof_file_, std::ios_base::trunc);
+    if(context.proof_file() != "") {
+      proof_file.open(context.proof_file(), std::ios_base::trunc);
       if(!proof_file)
         die(19, "Failed to open proof file.");
     }
@@ -286,6 +277,9 @@ struct f4 {
             basis.size() - 1);
     }
   }
+  //------------------------------------------------------------------------------
+  void reduced_form() { std::cout << "in reduced form" << std::endl; }
+
   //------------------------------------------------------------------------------
   inline crit_pair to_crit_pair(const ambiguity_& a) {
     poly_id i = lm_to_poly[a.i()];

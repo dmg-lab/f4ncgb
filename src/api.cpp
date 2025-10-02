@@ -22,9 +22,6 @@ typedef struct f4ncgb_handle {
   f4ncgb_state state = F4NCGB_STATE_READY;
   uint32_t maxiter = 10;
   uint32_t maxdeg = UINT_MAX;
-  uint32_t threads = 1;
-  uint32_t proof_level = 0;
-  bool tracer = true;
   const char* output_file = "";
   const char* proof_file = "";
 
@@ -174,6 +171,7 @@ f4ncgb_set_maxiter(f4ncgb_handle* h, uint32_t maxiter) {
     return "invalid state, must be in READY";
   }
   h->maxiter = maxiter;
+  h->ctx.maxiter_ = maxiter;
   return nullptr;
 }
 
@@ -184,6 +182,7 @@ f4ncgb_set_maxdeg(f4ncgb_handle* h, uint32_t maxdeg) {
     return "invalid state, must be in READY";
   }
   h->maxdeg = maxdeg;
+  h->ctx.maxdeg_ = maxdeg;
   return nullptr;
 }
 
@@ -193,7 +192,7 @@ f4ncgb_set_threads(f4ncgb_handle* h, uint32_t threads) {
   if(h->state != F4NCGB_STATE_READY) {
     return "invalid state, must be in READY";
   }
-  h->threads = threads;
+  h->ctx.threads_ = threads;
   return nullptr;
 }
 
@@ -214,7 +213,8 @@ f4ncgb_set_proof_file(f4ncgb_handle* h, const char* proof_file) {
     return "invalid state, must be in READY";
   }
   h->proof_file = proof_file;
-  h->proof_level = 1;
+  h->ctx.proof_file_ = proof_file;
+  h->ctx.proof_level_ = std::max(size_t(1), h->ctx.proof_level());
   return nullptr;
 }
 
@@ -225,7 +225,7 @@ f4ncgb_set_expanded_proof(f4ncgb_handle* h, bool expanded) {
     return "invalid state, must be in READY";
   }
   if(expanded)
-    h->proof_level = 2;
+    h->ctx.proof_level_ = 2;
   return nullptr;
 }
 
@@ -235,17 +235,16 @@ f4ncgb_set_tracer(f4ncgb_handle* h, bool tracer) {
   if(h->state != F4NCGB_STATE_READY) {
     return "invalid state, must be in READY";
   }
-  h->tracer = tracer;
+  h->ctx.tracer_ = tracer;
   return nullptr;
 }
 
-extern "C" f4ncgb_result
-f4ncgb_solve(f4ncgb_handle* h,
-             void* userdata,
-             f4ncgb_add_cb add_cb,
-             f4ncgb_end_poly_cb end_cb) {
-  if(!h)
-    return F4NCGB_ARGERROR;
+f4ncgb_result
+f4ncgb_solve_intern_(f4ncgb_handle* h,
+                     void* userdata,
+                     f4ncgb_add_cb add_cb,
+                     f4ncgb_end_poly_cb end_cb,
+                     bool reduce) {
   if(h->ctx.num_vars() > 0 && h->ctx.num_blocks() == 0) {
     h->ctx.blocks_.emplace_back();
     h->ctx.blocks_[0].resize(h->ctx.num_vars() + 1);
@@ -261,22 +260,15 @@ f4ncgb_solve(f4ncgb_handle* h,
     return F4NCGB_ARGERROR;
   if(h->ctx.characteristic() != 0 and !n_is_prime(h->ctx.characteristic()))
     return F4NCGB_ARGERROR;
-  if(!h->proof_file and h->proof_level > 0)
+  if(!h->proof_file and h->ctx.proof_level() > 0)
     return F4NCGB_ARGERROR;
+
+  h->ctx.reduce_ = reduce;
 
   h->state = F4NCGB_STATE_SOLVING;
 
   int res = f4ncgb::f4ncgb_main(h->ctx,
-                                h->ctx.num_blocks(),
-                                h->ctx.num_vars(),
-                                h->ctx.characteristic(),
-                                h->maxiter,
-                                h->maxdeg,
-                                h->threads,
-                                h->proof_level,
-                                h->tracer,
                                 h->output_file,
-                                h->proof_file,
                                 nullptr,
                                 false, /* No leaking */
                                 false, /* No problem printing */
@@ -292,4 +284,20 @@ f4ncgb_solve(f4ncgb_handle* h,
     default:
       return F4NCGB_ERROR;
   }
+}
+
+extern "C" f4ncgb_result
+f4ncgb_solve(f4ncgb_handle* h,
+             void* userdata,
+             f4ncgb_add_cb add_cb,
+             f4ncgb_end_poly_cb end_cb) {
+  return f4ncgb_solve_intern_(h, userdata, add_cb, end_cb, false);
+}
+
+extern "C" f4ncgb_result
+f4ncgb_reduce(f4ncgb_handle* h,
+              void* userdata,
+              f4ncgb_add_cb add_cb,
+              f4ncgb_end_poly_cb end_cb) {
+  return f4ncgb_solve_intern_(h, userdata, add_cb, end_cb, true);
 }
