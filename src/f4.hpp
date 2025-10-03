@@ -190,42 +190,46 @@ struct f4 {
     }
     o << "\n";
   }
+  //------------------------------------------------------------------------------
   inline void write_basis(void* userdata,
                           f4ncgb_add_cb add,
                           f4ncgb_end_poly_cb end) {
     std::vector<uint32_t> data;
     for(size_t n = 1; n < basis.size(); n++) {
       auto poly_id = basis[n];
-      auto coeff_it = poly.get_coefficients(poly_id).begin();
-      for(auto mon_id : poly[poly_id]) {
-        auto vars = mons[mon_id];
-        data.clear();
-        std::copy(vars.begin(), vars.end(), std::back_inserter(data));
-        auto coeff = *coeff_it++;
-        mpz_ptr gmp_num = &coeff.data()[0]._mp_num;
-        mpz_ptr gmp_den = &coeff.data()[0]._mp_den;
-        add(userdata, gmp_num, gmp_den, vars.size(), data.data());
+      // special case: zero polynomial
+      if(poly_id == 0) {
+        gmp_rational zero = mpq_rational(0).backend();
+        mpz_ptr gmp_num = &zero.data()[0]._mp_num;
+        mpz_ptr gmp_den = &zero.data()[0]._mp_den;
+        add(userdata, gmp_num, gmp_den, 0, 0);
+      } else {
+        auto coeff_it = poly.get_coefficients(poly_id).begin();
+        for(auto mon_id : poly[poly_id]) {
+          auto vars = mons[mon_id];
+          data.clear();
+          std::copy(vars.begin(), vars.end(), std::back_inserter(data));
+          auto coeff = *coeff_it++;
+          mpz_ptr gmp_num = &coeff.data()[0]._mp_num;
+          mpz_ptr gmp_den = &coeff.data()[0]._mp_den;
+          add(userdata, gmp_num, gmp_den, vars.size(), data.data());
+        }
       }
       end(userdata);
     }
   }
   //------------------------------------------------------------------------------
-  void interreduce_and_add_to_basis(std::vector<poly_id> input) {
+  void interreduce_and_add_to_basis(std::vector<poly_id>& polies) {
 
     if(verbose > 1)
       msg("Linearly interreducing input of size %d.", input.size());
 
     size_t i = 0;
-    for(const auto& p : input) {
+    for(const auto& p : polies) {
       extended_rows.emplace_back(0, i, 0);
       extended_rows.emplace_back(0, i++, 0);
       crit_pair c(p, p);
       crit_pairs.insert(c);
-    }
-
-    {
-      F4NCGB_TIME(crit_pair);
-      stage_crit_pairs();
     }
 
     // to leave 0th position open; just like in basis
@@ -245,8 +249,7 @@ struct f4 {
     // so that index 0 remains free
     basis.push_back(0);
     input.clear();
-    input.resize(
-      static_cast<size_t>(std::distance(poly.begin() + 1, poly.end())));
+    input.resize(poly.size() - 1);
     std::copy(poly.begin() + 1, poly.end(), input.begin());
 
     // add input to critical pairs
@@ -278,7 +281,45 @@ struct f4 {
     }
   }
   //------------------------------------------------------------------------------
-  void reduced_form() { std::cout << "in reduced form" << std::endl; }
+  void reduced_form() {
+    basis.push_back(0);
+    input.clear();
+    if(poly.size() < 2)
+      die(8, "At least one reducer required.");
+    input.resize(poly.size() - 1);
+    std::copy(poly.begin() + 1, poly.end(), input.begin());
+
+    // separate last element, this the one to be reduced
+    poly_id p = input.back();
+    input.pop_back();
+
+    // interreduce input and set up data structures
+    interreduce_and_add_to_basis(input);
+
+    poly_id normal_form = 0;
+
+    // when GB does not contain 1, perform reduction
+    std::vector<poly_id> new_elements;
+    if(!constant_flag) {
+      crit_pair c(p, p);
+      crit_pairs.insert(c);
+      new_elements = reduction(true, true);
+    }
+
+    // find the element with new leading monomial, this is the NF
+    // if none exists, NF is zero
+    for(poly_id q : new_elements) {
+      auto& reducers = prefix_trie.divisors(poly.get_lm(q));
+      if(reducers.empty()) {
+        normal_form = q;
+        break;
+      }
+    }
+
+    basis.clear();
+    basis.push_back(0);
+    basis.push_back(normal_form);
+  }
 
   //------------------------------------------------------------------------------
   inline crit_pair to_crit_pair(const ambiguity_& a) {
@@ -470,24 +511,34 @@ struct f4 {
   }
 
   //------------------------------------------------------------------------------
-  std::vector<poly_id> symbolic_preprocessing() {
+  boost::unordered_set<mon_id> todo;
+  boost::unordered_set<mon_id> done;
+  std::vector<poly_id> rows;
+
+  std::vector<poly_id> symbolic_preprocessing(bool reduce = false) {
     F4NCGB_TIME(sym_pre);
-    boost::unordered_set<mon_id> todo;
-    boost::unordered_set<mon_id> done;
-    std::vector<poly_id> rows;
+    todo.clear();
+    done.clear();
+    rows.clear();
 
     for(const auto& [f, g] : crit_pairs) {
       // add monomials to corresponding sets
       auto mon_it = poly[f];
-      done.insert(*mon_it.begin());
-      todo.insert(++mon_it.begin(), mon_it.end());
-
-      mon_it = poly[g];
-      done.insert(*mon_it.begin());
-      todo.insert(++mon_it.begin(), mon_it.end());
-
       rows.push_back(f);
-      rows.push_back(g);
+
+      // the version for reduced_form
+      if(reduce)
+        todo.insert(mon_it.begin(), mon_it.end());
+      // the GB version
+      else {
+        done.insert(*mon_it.begin());
+        todo.insert(++mon_it.begin(), mon_it.end());
+
+        mon_it = poly[g];
+        rows.push_back(g);
+        done.insert(*mon_it.begin());
+        todo.insert(++mon_it.begin(), mon_it.end());
+      }
     }
 
     while(!todo.empty()) {
@@ -638,9 +689,10 @@ struct f4 {
   //------------------------------------------------------------------------------
   boost::unordered_set<mon_id> col_set;
   std::vector<mon_id> columns;
-  const std::vector<poly_id>& reduction(bool interreduce = false) {
+  const std::vector<poly_id>& reduction(bool interreduce = false,
+                                        bool reduce = false) {
     // symbolic preprocessing
-    auto rows = symbolic_preprocessing();
+    auto rows = symbolic_preprocessing(reduce);
     crit_pairs.clear();
 
     col_set.clear();

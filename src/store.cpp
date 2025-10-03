@@ -113,15 +113,21 @@ struct f4_wrapper : f4_base {
       proof_str += "(writing to " + context.proof_file() + ")";
 
     msg("Characteristic:    %lu", context.characteristic());
-    msg("Max. Iterations:   %lu", context.maxiter());
-    msg("Max. amb. degree:  %lu", context.maxdeg());
+    if(!context.reduce()) {
+      msg("Max. Iterations:   %lu", context.maxiter());
+      msg("Max. amb. degree:  %lu", context.maxdeg());
+    }
     msg(mon_order.str().c_str());
     msg("Nr. threads:       %lu", context.threads());
     msg(out_name.c_str());
-    msg("Proof logging:     %s", proof_str.c_str());
+    if(!context.reduce())
+      msg("Proof logging:     %s", proof_str.c_str());
     msg("Tracer:            %s", context.tracer() ? "on" : "off");
     msg("PID of F4NCGB:     %lu", getpid());
-    msg("==== Starting Gröbner Basis Computation ====");
+    if(context.reduce())
+      msg("==== Starting Normal Form Computation ====");
+    else
+      msg("==== Starting Gröbner Basis Computation ====");
   }
 
 #ifdef F4NCGB_ENABLE_STORE_DUMP
@@ -196,8 +202,12 @@ f4ncgb_main(parser_context& context,
       else
         algo.compute_basis();
 
-      if(verbose > 0)
-        msg("==== Basis computation finished ====");
+      if(verbose > 0) {
+        if(context.reduce())
+          msg("==== Normal form computation finished ====");
+        else
+          msg("==== Basis computation finished ====");
+      }
 
       if(add_cb && end_poly_cb) {
         algo.write_basis(userdata, add_cb, end_poly_cb);

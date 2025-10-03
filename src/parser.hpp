@@ -341,6 +341,13 @@ class parser_context {
     else {
       o << ",\n";
     }
+
+    // special case to print zero polynomial
+    if(poly_id == 0) {
+      o << "0";
+      return o;
+    }
+
     auto coeff_it = p.get_coefficients(poly_id).begin();
     bool first = true;
     for(auto mon_id : p[poly_id]) {

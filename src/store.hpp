@@ -461,6 +461,7 @@ class store {
 
   pos_iterator begin() const { return pos_iterator(*this, 0); }
   pos_iterator end() const { return pos_iterator(*this, size_ + 1); }
+  size_t size() const {return (size_t)std::distance(begin(), end()); }
 
 #ifdef F4NCGB_ENABLE_STORE_DUMP
   void set_binary_dump_path(const std::string& p) { dump_output_path_ = p; }
