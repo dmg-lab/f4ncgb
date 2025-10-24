@@ -1,6 +1,10 @@
 v0.3.2
 ======
 
+## New Features
+
+  - Rudimentary version of reduced_form.
+
 ## Fixes
   - Bugfix: stop computation when 1 is in the Gröbner basis
 
