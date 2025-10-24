@@ -21,8 +21,6 @@
 using namespace boost::multiprecision;
 
 extern int verbose;
-extern int proof;
-extern bool tracer;
 
 namespace f4ncgb {
 
@@ -110,7 +108,8 @@ crt_reconstruction(fmpz*& entries,
                    std::vector<std::pair<size_t, size_t>>& idxs,
                    std::vector<sparse_mat_struct<uint32_t>*>& rrefs,
                    std::vector<ulong>& primes,
-                   size_t n_piv) {
+                   size_t n_piv,
+                   size_t proof_level) {
   if(rrefs.size() == 0)
     return;
 
@@ -121,7 +120,7 @@ crt_reconstruction(fmpz*& entries,
     for(auto& rref : rrefs) {
       auto row = sparse_mat_row(rref, i);
       // include row only if polynomial part is nonzero
-      if(proof == 0 or row->nnz > 0)
+      if(proof_level == 0 or row->nnz > 0)
         nnz_pos_row.insert(row->indices, row->indices + row->nnz);
     }
   }
@@ -473,7 +472,9 @@ pivots
 gauss_elim(uint32_mat_t mat,
            nmod_t mod,
            std::unique_ptr<BS::thread_pool<BS::none>>& pool,
-           bool* trace) {
+           bool* trace,
+           bool use_trace,
+           size_t proof_level) {
   uint64_t p = mod.n;
   int64_t p2 = static_cast<int64_t>(p * p);
 
@@ -500,7 +501,15 @@ gauss_elim(uint32_mat_t mat,
     }
 
     // reduce row with all already known pivots
-    auto task = [r, &mat, &atomic_pivots, &trace, p, p2, &mod]() {
+    auto task = [r,
+                 &mat,
+                 &atomic_pivots,
+                 &trace,
+                 p,
+                 p2,
+                 &mod,
+                 &use_trace,
+                 &proof_level]() {
       F4NCGB_TIME(elim_task_cpu);
       auto row = sparse_mat_row(mat, r);
       int64_t rr;
@@ -547,12 +556,13 @@ gauss_elim(uint32_mat_t mat,
 
         // we have a zero row
         if(buffer_ids_local.empty()
-           or (proof > 0 and buffer_ids_local[0] >= mat->ncol - mat->nrow)) {
+           or (proof_level > 0
+               and buffer_ids_local[0] >= mat->ncol - mat->nrow)) {
           sparse_vec_clear(row);
           for(auto id : buffer_ids_local)
             buffer_local[id] = 0;
-          // only set them if tracer is actived
-          trace[r] = tracer;
+          // only set them if we use tracer
+          trace[r] = use_trace;
           return;
         }
         copy_from_buffer_and_clear(buffer_local, buffer_ids_local, row);
@@ -580,7 +590,9 @@ gauss_elim(uint32_mat_t mat,
 std::pair<std::vector<std::pair<size_t, size_t>>, std::vector<gmp_rational>>
 multimodular_gauss_elim(sfmpz_mat_t mat,
                         std::unique_ptr<BS::thread_pool<BS::none>>& pool,
-                        bool interreduce) {
+                        bool tracer,
+                        bool interreduce,
+                        size_t proof_level) {
   std::vector<std::unique_ptr<sparse_mat_struct<uint32_t>>> rrefs;
   pivots best_piv;
   std::vector<pivots> pivs;
@@ -632,9 +644,11 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
       F4NCGB_TIME(rref);
       auto gauss_elim_wrapper = [&]() -> pivots {
         if(mod.n == PRIMES[0]) {
-          return gauss_elim<true>(nmod_mat.get(), mod, pool, trace);
+          return gauss_elim<true>(
+            nmod_mat.get(), mod, pool, trace, tracer, proof_level);
         } else {
-          return gauss_elim<false>(nmod_mat.get(), mod, pool, trace);
+          return gauss_elim<false>(
+            nmod_mat.get(), mod, pool, trace, tracer, proof_level);
         }
       };
       pivots piv(gauss_elim_wrapper());
@@ -678,7 +692,8 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
 
     {
       F4NCGB_TIME(crt);
-      crt_reconstruction(crt_entries, idxs, good_rrefs, good_primes, n_piv);
+      crt_reconstruction(
+        crt_entries, idxs, good_rrefs, good_primes, n_piv, proof_level);
     }
 
     bool success;
@@ -716,7 +731,9 @@ std::pair<std::vector<std::pair<size_t, size_t>>, std::vector<gmp_rational>>
 nmod_gauss_elim(sfmpz_mat_t mat,
                 size_t p,
                 std::unique_ptr<BS::thread_pool<BS::none>>& pool,
-                bool interreduce) {
+                bool tracer,
+                bool interreduce,
+                size_t proof_level) {
   // not needed but use it to avoid code duplication
   bool* trace = new bool[mat->nrow];
   std::fill(trace, trace + mat->nrow, false);
@@ -731,9 +748,9 @@ nmod_gauss_elim(sfmpz_mat_t mat,
   F4NCGB_TIME(rref);
   auto gauss_elim_wrapper = [&]() -> pivots {
     if(mod.n == PRIMES[0]) {
-      return gauss_elim<true>(nmod_mat, mod, pool, trace);
+      return gauss_elim<true>(nmod_mat, mod, pool, trace, tracer, proof_level);
     } else {
-      return gauss_elim<false>(nmod_mat, mod, pool, trace);
+      return gauss_elim<false>(nmod_mat, mod, pool, trace, tracer, proof_level);
     }
   };
   pivots piv(gauss_elim_wrapper());
@@ -771,7 +788,9 @@ std::pair<std::vector<std::pair<size_t, size_t>>, std::vector<gmp_rational>>
 linear_algebra(sfmpz_mat_t mat,
                size_t characteristic,
                std::unique_ptr<BS::thread_pool<BS::none>>& pool,
-               bool interreduce) {
+               bool tracer,
+               bool interreduce,
+               size_t proof_level) {
   // sort rows by first index and nnz
   std::sort(mat->rows, mat->rows + mat->nrow, [](auto& r1, auto& r2) {
     auto id1 = r1.indices[0];
@@ -782,8 +801,9 @@ linear_algebra(sfmpz_mat_t mat,
   });
 
   if(characteristic == 0)
-    return multimodular_gauss_elim(mat, pool, interreduce);
+    return multimodular_gauss_elim(mat, pool, tracer, interreduce, proof_level);
   else
-    return nmod_gauss_elim(mat, characteristic, pool, interreduce);
+    return nmod_gauss_elim(
+      mat, characteristic, pool, tracer, interreduce, proof_level);
 }
 }

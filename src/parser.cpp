@@ -263,10 +263,10 @@ parser_context::impl_msolve_header(char first_char, char second_char) {
       "Unexpected msolve parse state after first variable, have c: '{}'", c));
   }
 
-  blocks.emplace_back();
-  blocks[0].emplace_back(1);
+  blocks_.emplace_back();
+  blocks_[0].emplace_back(1);
 
-  auto* current_block = &blocks[0];
+  auto* current_block = &blocks_[0];
 
   while(true) {
     c = swallow_whitespace_no_newline();
@@ -283,8 +283,8 @@ parser_context::impl_msolve_header(char first_char, char second_char) {
       swallow_whitespace_no_newline();
       if(c == '\n') {
         getc();
-        blocks.emplace_back();
-        current_block = &blocks[blocks.size() - 1];
+        blocks_.emplace_back();
+        current_block = &blocks_[blocks_.size() - 1];
         // Swallow as much as needed until there is something again.
         swallow_whitespace_and_newline();
       }
@@ -344,7 +344,7 @@ parser_context::impl_poly_gen(parse_add_cb add_cb,
     if(v == 0) {
       ++block;
     } else {
-      blocks[block].push_back(v);
+      blocks_[block].push_back(v);
     }
     swallow_whitespace_and_newline();
   }
@@ -521,7 +521,7 @@ parser_context::parse_header() {
   num_blocks_ = read_positive_int();
   if(num_blocks_ > 100)
     return "too many blocks";
-  blocks.resize(num_blocks_);
+  blocks_.resize(num_blocks_);
   EXPECT(' ');
   c = getc();
   EXPECT_DIGIT();
@@ -536,6 +536,7 @@ parser_context::parse_header() {
 #ifdef __linux__
 void
 dummy_parse_string(std::string input) {
+  (void)input;
   int add_cb_count = 0;
   int boundary_cb_count = 0;
 

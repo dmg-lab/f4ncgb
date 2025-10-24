@@ -1,0 +1,52 @@
+v0.3.2
+======
+
+## Fixes
+  - Bugfix: stop computation when 1 is in the Gröbner basis
+
+
+v0.3.1
+======
+
+## Fixes
+
+  - Fix an allocation issue on some memory-constrained systems by iteratively
+    decreasing the requested memory space.
+
+v0.3
+====
+
+## New Features
+
+  - Introduce an API (C-based) in `f4ncgb.hpp` that can start basis
+    calculations and return the computed basis.
+  - Add a handler for SIGUSR1 that prints the basis that has already
+    been computed up to this point.
+  - Add support for shared library builds.
+  - Add support for dumping the stores at destruction (enable with
+    CMake-option `-DENABLE_STORE_DUMP=ON`).
+  - Add CMake-options `ENABLE_TEST` and `ENABLE_SIGNAL` for toggling
+    the generation of the test binary and inclusion of signal-handler
+    code in the f4ncgb binary. (thanks to Benjamin Lorenz)
+  - Fix compilation issues on MacOS and with pthreads (thanks to
+    Benjamin Lorenz)
+
+## Changes
+
+  - Both `proof_level` and `tracer` are no longer global symbols,
+    instead they are given as parameters to a solve call.
+
+v0.2.1
+======
+
+## New Features
+
+  - Add an install target for installing the future API header, the
+    binary, and the library.
+
+v0.2
+====
+
+## Fixes
+
+  - Fix a test case that was broken because of a file rename.

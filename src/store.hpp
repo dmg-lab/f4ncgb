@@ -5,9 +5,11 @@
 #include <cstdint>
 #include <cstdlib>
 #include <format>
+#include <fstream>
 #include <iterator>
 #include <limits>
 #include <memory>
+#include <new>
 #include <span>
 #include <utility>
 #include <vector>
@@ -28,6 +30,7 @@
 #include <boost/unordered/unordered_flat_set.hpp>
 
 #include "debug.hpp"
+#include "f4ncgb.hpp"
 #include "profiling.hpp"
 #include "signal_statistics.hpp"
 
@@ -175,6 +178,17 @@ class store {
     }
   };
 
+#ifdef F4NCGB_ENABLE_STORE_DUMP
+  std::string dump_output_path_;
+  void dump_to_binary() {
+    msg("Dumping %d bytes to %s", size_, dump_output_path_.c_str());
+    std::ofstream of(dump_output_path_, std::ios::binary | std::ios::out);
+    for(size_t i = 0; i < size_; ++i) {
+      of << static_cast<uint8_t>(pool_[i]);
+    }
+  }
+#endif
+
   friend B;
 
   static_assert(
@@ -295,22 +309,36 @@ class store {
   using index_type = I;
   using value_type = V;
 
+  size_t pool_capacity_ = 2097152 * capacity() / 2097152;
+
   store()
     : pool_(reinterpret_cast<std::byte*>(
         boost::alignment::aligned_alloc(2097152 /* 2^21, 2MB */,
-                           2097152 * (capacity() / 2097152)))) {
-    if(pool_.get() == nullptr) {
+                                        2097152 * (capacity() / 2097152)))) {
+
+    size_t divisor = 1;
+    while(!pool_.get()) {
       pool_.reset(reinterpret_cast<std::byte*>(
-        std::malloc(2097152 * (capacity() / 2097152))));
-    }
-    if(pool_.get() == nullptr) {
-      exit(5);
+        std::malloc((2097152 / divisor) * (capacity() / 2097152))));
+      pool_capacity_ = (2097152 / divisor) * (capacity() / 2097152);
+
+      divisor *= 2;
+
+      if(divisor > 32) {
+        throw std::bad_alloc();
+      }
     }
 #ifdef __linux__
-    madvise(pool_.get(), 2097152 * (capacity() / 2097152), MADV_HUGEPAGE);
+    madvise(pool_.get(), pool_capacity_, MADV_HUGEPAGE);
 #endif
   }
   ~store() {
+#ifdef F4NCGB_ENABLE_STORE_DUMP
+    if(dump_output_path_ != "") {
+      dump_to_binary();
+    }
+#endif
+
     for(I i = 0; i < inserted_count_; ++i) {
       // Do not call the destructor of the 0 element, as this is special. Only
       // call higher ones.
@@ -433,6 +461,11 @@ class store {
 
   pos_iterator begin() const { return pos_iterator(*this, 0); }
   pos_iterator end() const { return pos_iterator(*this, size_ + 1); }
+  size_t size() const {return (size_t)std::distance(begin(), end()); }
+
+#ifdef F4NCGB_ENABLE_STORE_DUMP
+  void set_binary_dump_path(const std::string& p) { dump_output_path_ = p; }
+#endif
 };
 
 //================================================================
@@ -676,7 +709,7 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
 
     size_t la, lb;
 
-    if(block_order) {
+    if constexpr(block_order) {
       auto a_it = (*this)[a];
       auto b_it = (*this)[b];
 
@@ -781,29 +814,30 @@ class polynomial_store
       absolute_max);
   }
 
-  size_t cpool_capacity_ = capacity() / 2097152;
+  size_t cpool_capacity_ = 2097152 * capacity() / 2097152;
 
   inline polynomial_store(monomial_store_& store)
     : base::store()
     , store_(store)
     , cpool_(reinterpret_cast<std::byte*>(
         boost::alignment::aligned_alloc(2097152 /* 2^21, 2MB */,
-                           2097152 * (capacity() / 2097152)))) {
+                                        2097152 * (capacity() / 2097152)))) {
     cpool_capacity_ = 2097152 * (capacity() / 2097152);
-    if(cpool_.get() == nullptr) {
+    size_t divisor = 1;
+
+    while(!cpool_.get()) {
       cpool_.reset(reinterpret_cast<std::byte*>(
-        std::malloc(2097152 * (capacity() / 2097152))));
-      if(cpool_.get() == nullptr) {
-        cpool_.reset(reinterpret_cast<std::byte*>(
-          std::malloc((2097152 / 2) * (capacity() / 2097152))));
-        cpool_capacity_ = (2097152 / 2) * (capacity() / 2097152);
-        if(cpool_.get() == nullptr) {
-          exit(6);
-        }
+        std::malloc((2097152 / divisor) * (capacity() / 2097152))));
+      cpool_capacity_ = (2097152 / divisor) * (capacity() / 2097152);
+
+      divisor *= 2;
+
+      if(divisor > 32) {
+        throw std::bad_alloc();
       }
     }
 #ifdef __linux__
-    madvise(cpool_.get(), 2097152 * (capacity() / 2097152), MADV_HUGEPAGE);
+    madvise(cpool_.get(), cpool_capacity_, MADV_HUGEPAGE);
 #endif
   }
 
@@ -1001,15 +1035,13 @@ coefficient_is_posneg_neutral(
 class parser_context;
 int
 f4ncgb_main(parser_context& context,
-            size_t nblocks,
-            size_t nvars,
-            size_t characteristic,
-            size_t maxiter,
-            size_t maxdeg,
-            size_t threads,
             const std::string& output_name,
-            const std::string& proof_file,
-            bool print_read_problem = false);
+            std::function<void()>* stats_print_function = nullptr,
+            bool leak_memory = false,
+            bool print_read_problem = false,
+            void* userdata = nullptr,
+            f4ncgb_add_cb add_cb = nullptr,
+            f4ncgb_end_poly_cb end_poly_cb = nullptr);
 }
 
 std::ostream&

@@ -1,8 +1,9 @@
 #include <boost/test/unit_test.hpp>
 
-#include "store.hpp"
+#include "f4ncgb.hpp"
 #include "monomial_trie.hpp"
 #include "parser.hpp"
+#include "store.hpp"
 
 using namespace f4ncgb;
 
@@ -198,7 +199,6 @@ BOOST_AUTO_TEST_CASE(simple_with_extended_metadata) {
   BOOST_TEST(v[3] == 3);
 }
 
-
 BOOST_AUTO_TEST_CASE(parse_small_ms_into_polynomial) {
   auto dir_optional = get_test_input_files_location();
   BOOST_REQUIRE(dir_optional.has_value());
@@ -239,7 +239,7 @@ BOOST_AUTO_TEST_CASE(parse_braid3) {
   BOOST_REQUIRE(dir_optional.has_value());
   std::filesystem::path dir = *dir_optional;
 
-  std::filesystem::path input = dir / "braid3.ms";
+  std::filesystem::path input = dir / "braid3-11.ms";
 
   using I = impl<>;
   I::monomial_store ms;
@@ -256,4 +256,49 @@ BOOST_AUTO_TEST_CASE(parse_braid3) {
   BOOST_CHECK(ctx.characteristic() == 0);
   BOOST_CHECK(ctx.num_vars() == 3);
   BOOST_CHECK(ctx.num_blocks() == 1);
+}
+
+BOOST_AUTO_TEST_CASE(c_api_use) {
+  Solver s;
+  BOOST_CHECK(s.state() == F4NCGB_STATE_READY);
+  s.set_blocks({ 3 });
+
+  s.add(1, 1, { 3, 2, 3 });
+  s.add(-1, 1, { 2, 1, 2 });
+  s.end_poly();
+
+  s.add(1, 1, { 3, 1, 2 });
+  s.add(-1, 1, { 1, 2, 1 });
+  s.end_poly();
+
+  s.add(1, 1, { 3, 1, 3 });
+  s.add(-1, 1, { 2, 3, 1 });
+  s.end_poly();
+
+  s.add(1, 1, { 3, 3, 3 });
+  s.add(1, 1, { 2, 2, 2 });
+  s.add(1, 1, { 1, 2, 3 });
+  s.add(1, 1, { 1, 1, 1 });
+  s.end_poly();
+
+  s.set_maxdeg(4);
+  s.set_maxiter(2);
+
+  f4ncgb_set_msg_printing(false);
+  
+  auto [res, polys] = s.solve();
+
+  // Expected number of polys is 7.
+  BOOST_CHECK(res == F4NCGB_OK);
+  BOOST_CHECK(polys.size() == 5);
+
+  // for(auto& p : polys) {
+  //   for(auto& m : p) {
+  //     for(auto v : std::get<2>(m)) {
+  //       std::cout << v << " ";
+  //     }
+  //     std::cout << "+ ";
+  //   }
+  //   std::cout << "0" << std::endl;
+  // }
 }

@@ -6,10 +6,10 @@
 #include <string.h>
 
 #include "f4ncgb.hpp"
-#include "store.hpp"
 #include "parser.hpp"
 #include "profiling.hpp"
 #include "signal_statistics.hpp"
+#include "store.hpp"
 #include <flint/ulong_extras.h>
 
 #include <boost/program_options.hpp>
@@ -36,8 +36,9 @@ static size_t threads = 0;
 
 // / Proof logging
 static bool expanded_proof = false;
-int proof = 0;
-bool tracer = true;
+static size_t proof_level = 0;
+static bool tracer = true;
+static bool reduce = false;
 /*------------------------------------------------------------------------*/
 // ERROR CODES:
 
@@ -49,6 +50,21 @@ static bool print_problem = false;
 
 using namespace f4ncgb;
 
+static std::function<void()> print_statistics_fun;
+
+#ifdef F4NCGB_ENABLE_SIGNAL
+static void
+handle_signal(int signal) {
+  if(signal == SIGUSR1) {
+    if(print_statistics_fun) {
+      msg("SIGUSR1 received.");
+      print_statistics_fun();
+      msg("End of SIGUSR1 output.");
+    }
+  }
+}
+#endif
+
 /**
     Main Function of f4ncgb.
 
@@ -56,10 +72,15 @@ using namespace f4ncgb;
 */
 int
 main(int argc, char** argv) {
+#ifdef F4NCGB_ENABLE_SIGNAL
+  signal(SIGUSR1, handle_signal);
+#endif
+
   // clang-format off
   po::options_description desc("f4ncgb, version " F4NCGB_VERSION "\n"
                                "Copyright(C) 2025 Clemens Hofstadler, Maximilian Heisinger\n"
                                "JKU Linz, Austria\n"
+                               "Repository: https://gitlab.sai.jku.at/f4ncgb/f4ncgb\n"
                                "USAGE");
   desc.add_options()
     ("version", "produce version message")
@@ -71,6 +92,7 @@ main(int argc, char** argv) {
     ("output,o", po::value<std::string>(&output_name)->default_value(""), "Set the output file.")
     ("print-problem", po::value<bool>(&print_problem)->default_value(false), "Re-print the problem after parsing.")
     ("proof,p",  po::value<std::string>(&proof_file)->default_value(""), "Proof logging.")
+    ("reduce,r",  po::value<bool>(&reduce)->default_value(false), "Only compute reduced form of last polynomial w.r.t. the previous ones.")
     ("threads,T", po::value<size_t>(&threads)->default_value(1), "Number of threads to be used.")
     ("tracer,t", po::value<bool>(&tracer)->default_value(true), "Whether computations with the first prime shall be traced. Speeds up the computation, but yields the correct result only with high probability.")
     ("verbosity,v", po::value<int>(&verbose)->default_value(1), "Set the verbosity level.")
@@ -121,12 +143,8 @@ main(int argc, char** argv) {
     die(17, "Error in parsing input file.");
   }
 
-  size_t nvars = context.num_vars();
-  size_t nblocks = 0;
-  if(context.num_blocks() > 1)
-    nblocks = context.num_blocks();
-  if(nblocks > F4NCGB_MAX_BLOCKS)
-    die(4, "More blocks than current compilation allows\n");
+  if(context.num_blocks() > F4NCGB_MAX_BLOCKS)
+    die(4, "More blocks than current compilation allows.");
 
   size_t characteristic = context.characteristic();
   if(characteristic > 2147483647l)// 2^31 -1
@@ -139,23 +157,26 @@ main(int argc, char** argv) {
         characteristic);
 
   if(proof_file != "")
-    proof++;
+    proof_level = 1;
 
-  if(proof == 0 and expanded_proof)
+  if(proof_level == 0 and expanded_proof)
     die(78, "Flag for expanded proofs provided but no proof file");
   if(expanded_proof)
-    proof++;
+    proof_level = 2;
+
+  context.maxiter_ = maxiter;
+  context.maxdeg_ = maxdeg;
+  context.proof_level_ = proof_level;
+  context.tracer_ = tracer;
+  context.threads_ = threads;
+  context.proof_file_ = proof_file;
+  context.reduce_ = reduce;
 
   res = f4ncgb::f4ncgb_main(context,
-                                  nblocks,
-                                  nvars,
-                                  characteristic,
-                                  maxiter,
-                                  maxdeg,
-                                  threads,
-                                  output_name,
-                                  proof_file,
-                                  print_problem);
+                            output_name,
+                            &print_statistics_fun,
+                            true, /* Memory Leaking in the binary is ok */
+                            print_problem);
 
   F4NCGB_PROFILE(gstats.print(threads));
   return res;

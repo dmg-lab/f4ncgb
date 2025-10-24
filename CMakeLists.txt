@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(f4ncgb VERSION 0.1)
+project(f4ncgb VERSION 0.3.1)
 
 if(POLICY CMP0167)
   cmake_policy(SET CMP0167 NEW)
@@ -8,16 +8,21 @@ endif()
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 option(ENABLE_PROFILING "Enable tracking statistics" ON)
+option(SHARED_LIB "Build the f4ncgb library shared instead of static" OFF)
 option(ENABLE_FUZZER "Enable building the fuzzer, if available" OFF)
 option(ENABLE_FAST_MERSENNE_PRIME_MODULO "Enable fast mersenne prime modulo operation" ON)
 option(ENABLE_MONOMIAL_PRODUCTS_MAP "Track and cache monomial products in map (usually slower)" OFF)
 option(ENABLE_COMPACT_MONOMIAL_MAP "Use a more compact map for lookups in the monomial store (usually slower)" OFF)
 option(ENABLE_STORE_TRACE "Enable a (very expensive) trace of each access (operator[]) into a store." OFF)
+option(ENABLE_STORE_DUMP "Enable a (very expensive) dump when deconstructing a store." OFF)
 option(ENABLE_NATIVE "Enable -march=native to target the host CPU (creates non-portable binaries)" ON)
+option(ENABLE_TEST "Build f4ncgb_test program" ON)
+option(ENABLE_SIGNAL "Enable signal handling for printing statistics" ON)
 
 set(MAX_BLOCKS 16 CACHE STRING "Maximum number of blocks to compile for. Must be integral. Changes compilation time (duplicates implementation for each block).")
 
 set(F4NCGB_SRCS
+  src/api.cpp
   src/store.cpp
   src/signal_statistics.cpp
   src/parser.cpp
@@ -82,8 +87,16 @@ else()
   message(STATUS "Not using mimalloc, but it gives you approx. 10-15% speedup. Consider installing its development package! See https://github.com/microsoft/mimalloc")
 endif()
 
-add_library(f4ncgb STATIC ${F4NCGB_SRCS})
+if(SHARED_LIB)
+  message(STATUS "libf4ncgb is being built as a shared library")
+  set(F4NCGB_LIBTYPE "SHARED")
+else()
+  message(STATUS "libf4ncgb is being built as a static library")
+  set(F4NCGB_LIBTYPE "STATIC")
+endif()
 
+add_library(f4ncgb ${F4NCGB_LIBTYPE} ${F4NCGB_SRCS})
+set_target_properties(f4ncgb PROPERTIES PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/f4ncgb.hpp)
 
 add_executable(f4ncgb_test ${F4NCGB_TEST_SRCS})
 add_executable(f4ncgb_bin ${F4NCGB_TARGETS})
@@ -91,8 +104,16 @@ target_link_libraries(f4ncgb_test PUBLIC f4ncgb)
 target_link_libraries(f4ncgb_bin PUBLIC f4ncgb)
 set_target_properties(f4ncgb_bin PROPERTIES OUTPUT_NAME "f4ncgb")
 
+if(SHARED_LIB)
+  set_property(TARGET f4ncgb_bin PROPERTY INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
+endif()
+
+if (NOT ENABLE_TEST)
+   set_target_properties(f4ncgb_test PROPERTIES EXCLUDE_FROM_ALL 1)
+endif()
+
 # needed for pthread flag
-target_link_libraries(f4ncgb_bin PUBLIC ${CMAKE_THREAD_LIBS_INIT} )
+target_link_libraries(f4ncgb PUBLIC ${CMAKE_THREAD_LIBS_INIT} )
 
 set_property(TARGET f4ncgb PROPERTY CXX_STANDARD 20)
 set_property(TARGET f4ncgb_test PROPERTY CXX_STANDARD 20)
@@ -131,6 +152,20 @@ if(ENABLE_STORE_TRACE)
   target_compile_definitions(f4ncgb PUBLIC F4NCGB_ENABLE_STORE_TRACE)
 else()
   message(STATUS "Store tracing is disabled")
+endif()
+
+if(ENABLE_STORE_DUMP)
+  message(STATUS "Store dumping is enabled")
+  target_compile_definitions(f4ncgb PUBLIC F4NCGB_ENABLE_STORE_DUMP)
+else()
+  message(STATUS "Store dumping is disabled")
+endif()
+
+if(ENABLE_SIGNAL)
+   message(STATUS "Signal handling is enabled")
+   target_compile_definitions(f4ncgb_bin PUBLIC F4NCGB_ENABLE_SIGNAL)
+else()
+   message(STATUS "Signal handling is disabled")
 endif()
 
 if(CMAKE_BUILD_TYPE MATCHES "Sanitize")
@@ -223,3 +258,9 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/fuzztest/CMakeLists.txt" AND ENABLE_FUZZE
 else()
   message(STATUS "Fuzzer disabled")
 endif()
+
+include(GNUInstallDirs)
+
+install(TARGETS f4ncgb_bin)
+install(TARGETS f4ncgb
+  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/f4ncgb)

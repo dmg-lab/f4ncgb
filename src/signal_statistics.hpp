@@ -14,6 +14,7 @@ extern void(*original_SIGTERM_handler)(int);
 /*------------------------------------------------------------------------*/
 // / Level of output verbosity, ranges from 0 to 4
 extern int verbose;
+extern int msg_printing;
 
 /**
     Prints an error message to stderr and exits the program

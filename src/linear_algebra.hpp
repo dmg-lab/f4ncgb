@@ -23,25 +23,35 @@ pivots
 reverse_solve(uint32_mat_t mat, nmod_t mod);
 
 pivots
-gauss_elim(uint32_mat_t mat, nmod_t mod, size_t num_threads, bool* trace);
+gauss_elim(uint32_mat_t mat,
+           nmod_t mod,
+           size_t num_threads,
+           bool* trace,
+           bool use_trace);
 
 std::pair<std::vector<std::pair<size_t, size_t>>,
           std::vector<boost::multiprecision::gmp_rational>>
 multimodular_gauss_elim(sfmpz_mat_t mat,
                         std::unique_ptr<BS::thread_pool<BS::none>>& pool,
-                        bool interreduce = false);
+                        bool tracer = true,
+                        bool interreduce = false,
+                        size_t proof_level = 0);
 
 std::pair<std::vector<std::pair<size_t, size_t>>,
           std::vector<boost::multiprecision::gmp_rational>>
 nmod_gauss_elim(sfmpz_mat_t mat,
                 size_t p,
                 std::unique_ptr<BS::thread_pool<BS::none>>& pool,
-                bool interreduce);
+                bool tracer = true,
+                bool interreduce = false,
+                size_t proof_level = 0);
 
 std::pair<std::vector<std::pair<size_t, size_t>>,
           std::vector<boost::multiprecision::gmp_rational>>
 linear_algebra(sfmpz_mat_t mat,
                size_t characteristic,
                std::unique_ptr<BS::thread_pool<BS::none>>& pool,
-               bool interreduce = false);
+               bool tracer = true,
+               bool interreduce = false,
+               size_t proof_level = 0);
 }
