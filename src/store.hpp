@@ -910,12 +910,6 @@ class polynomial_store
     return (*this)[id][idx];
   }
 
-  inline std::span<const V> get_monomial(I id, I idx) const {
-    if(id == 0)
-      return std::span<V>();
-    assert(idx < this->get_metadata(id).length);
-    return store_.get((*this)[id][idx]);
-  }
 
   inline void sort_polynomial(std::vector<std::pair<coefficient, I>>& p) {
     std::stable_sort(p.begin(), p.end(), [this](const auto& a, const auto& b) {
@@ -929,8 +923,6 @@ class polynomial_store
     // is probably better
     return get_monomial_id(id, 0);
   }
-
-  inline std::span<const V> get_lm(I id) const { return get_monomial(id, 0); }
 
   inline void set_idx(I id, uint16_t idx) {
     assert(idx != 0);

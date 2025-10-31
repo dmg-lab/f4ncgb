@@ -397,7 +397,7 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
   std::vector<int64_t> buffer(mat->ncol, 0);
   buffer_ids.reserve(32);
 
-  // sort new pivot rows up -- assume: maat is in ref
+  // sort new pivot rows up -- assume: mat is in ref
   // sort rows by first index and nnz
   std::sort(mat->rows, mat->rows + mat->nrow, [](auto& r1, auto& r2) {
     // move new pivot rows up

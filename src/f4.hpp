@@ -309,7 +309,8 @@ struct f4 {
     // find the element with new leading monomial, this is the NF
     // if none exists, NF is zero
     for(poly_id q : new_elements) {
-      auto& reducers = prefix_trie.divisors(poly.get_lm(q));
+      mon_id m = poly.get_lm_id(q);
+      auto& reducers = prefix_trie.divisors(mons[m]);
       if(reducers.empty()) {
         normal_form = q;
         break;

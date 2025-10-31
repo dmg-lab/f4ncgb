@@ -9,7 +9,7 @@
 
 namespace f4ncgb {
 
-template<internal::value_concept V = uint8_t, typename I = uint32_t>
+template<internal::value_concept V, typename I>
 struct monomial_trie {
   std::vector<uint64_t> nodes;
   size_t child_size;
