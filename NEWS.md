@@ -1,6 +1,8 @@
+v0.3.3
+======
+
 ## Fixes
   - Fix bug in reduced_form
-
 
 v0.3.2
 ======
