@@ -350,21 +350,24 @@ Here are examples of the access patterns for the input
 
 If you have used `f4ncgb` for a paper, we would kindly ask you to cite it as:
 
-    f4ncgb: High Performance Gröbner Basis Computations in Free Algebras.
-    Maximilian Heisinger and Clemens Hofstadler.
-    arXiv preprint arXiv:2505.19304, 2021.
+    Maximilian Heisinger and Clemens Hofstadler.    
+    f4ncgb: High Performance Gröbner Basis Computations in Free Algebras. 
+    In: Computer Algebra in Scientific Computing. CASC 2025. 
+    Lecture Notes in Computer Science, vol 16235. Springer, 2025.
 
 Or, if you are using BibTeX:
 
-    @misc{f4ncgb,
-          title={{f4ncgb: High Performance Gr\"obner Basis Computations in Free Algebras}}, 
-          author={Maximilian Heisinger and Clemens Hofstadler},
-          year={2025},
-          eprint={2505.19304},
-          archivePrefix={arXiv},
-          primaryClass={cs.MS},
-          url={https://arxiv.org/abs/2505.19304}, 
-    }
+    @InProceedings{f4ncgb,
+    author="Heisinger, Maximilian and Hofstadler, Clemens",
+    editor="Boulier, Fran{\c{c}}ois and Mou, Chenqi and Sadykov, Timur M. and Vorozhtsov, Evgenii V.",
+    title="f4ncgb: High Performance Gr{\"o}bner Basis Computations in Free Algebras",
+    booktitle="Computer Algebra in Scientific Computing (CASC) 2025",
+    year="2025",
+    publisher="Springer Nature Switzerland",
+    address="Cham",
+    pages="79--97",
+}
 
-The paper can be found [here](https://arxiv.org/abs/2505.19304).
+
+The paper can be found [here](https://doi.org/10.1007/978-3-032-09645-6_5).
 
