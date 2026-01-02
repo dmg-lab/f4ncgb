@@ -650,8 +650,10 @@ struct f4 {
 
     poly.reset();
 
-    if(idxs.size() == 0)
+    if(idxs.size() == 0) {
+      extended_rows.clear();
       return res;
+    }
 
     size_t n = columns.size();
     size_t k = 0;
