@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(f4ncgb VERSION 0.3.3)
+project(f4ncgb VERSION 0.3.4)
 
 if(POLICY CMP0167)
   cmake_policy(SET CMP0167 NEW)
