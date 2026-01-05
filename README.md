@@ -365,8 +365,8 @@ Or, if you are using BibTeX:
     year="2025",
     publisher="Springer Nature Switzerland",
     address="Cham",
-    pages="79--97",
-}
+    pages="79--97"}
+
 
 
 The paper can be found [here](https://doi.org/10.1007/978-3-032-09645-6_5).
