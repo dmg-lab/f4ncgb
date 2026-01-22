@@ -679,7 +679,7 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
     }
     // Initialize crt_entries in reconstruction
     // and clear here
-    fmpz* crt_entries;
+    fmpz* crt_entries = nullptr;
     idxs.clear();
     rat_entries.clear();
 
