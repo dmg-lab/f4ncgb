@@ -2,6 +2,7 @@
 #include "f4.hpp"
 #include "f4ncgb.hpp"
 #include "parser.hpp"
+#include "profiling.hpp"
 #include "store.hpp"
 
 #include <boost/multiprecision/detail/default_ops.hpp>
@@ -49,6 +50,9 @@ struct f4_base {
 #ifdef F4NCGB_ENABLE_STORE_DUMP
   virtual void set_dump_paths(std::string path) = 0;
 #endif
+
+  virtual size_t prefix_trie_bytes() const = 0;
+  virtual size_t suffix_trie_bytes() const = 0;
 };
 
 template<std::size_t Nblocks, typename V>
@@ -136,6 +140,13 @@ struct f4_wrapper : f4_base {
     algo.poly.set_binary_dump_path(std::filesystem::path(path + "_poly.bin"));
   }
 #endif
+
+  virtual size_t prefix_trie_bytes() const {
+    return algo.prefix_trie.size_in_bytes();
+  }
+  virtual size_t suffix_trie_bytes() const {
+    return algo.suffix_trie.size_in_bytes();
+  }
 };
 
 int
@@ -208,6 +219,10 @@ f4ncgb_main(parser_context& context,
         else
           msg("==== Basis computation finished ====");
       }
+
+      // Extract prefix and suffix trie sizes for statistics.
+      gstats.prefix_trie_bytes = algo.prefix_trie_bytes();
+      gstats.suffix_trie_bytes = algo.suffix_trie_bytes();
 
       if(add_cb && end_poly_cb) {
         algo.write_basis(userdata, add_cb, end_poly_cb);

@@ -21,6 +21,8 @@ struct statistics {
 
   size_t store_find_calls = 0, store_find_hits = 0;
 
+  size_t prefix_trie_bytes = 0, suffix_trie_bytes = 0;
+
   // Times
   double init = 0, other = 0, new_elements = 0;
   double amb = 0, crit_pair = 0, sym_pre = 0, reduction = 0;

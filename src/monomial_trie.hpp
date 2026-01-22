@@ -14,6 +14,8 @@ struct monomial_trie {
   std::vector<uint64_t> nodes;
   size_t child_size;
 
+  size_t size_in_bytes() const { return sizeof(uint64_t) * nodes.capacity(); }
+
   using match = std::pair<I, size_t>;
 
   monomial_trie(size_t n)
