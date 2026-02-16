@@ -192,16 +192,35 @@ parser_context::impl_msolve(parse_add_cb add_cb,
       ADD(0);
     } else if(c == '\n' || c == '\r') {
       // Very last polynomial.
-      if(c == '\r') {
-        c = getc();
-      }
       ADD(0);
-      break;
+      return parse_msolve_end();
     } else {
       // Also very last polynomial with some weird ending.
       ADD(0);
-      break;
+      return parse_msolve_end();
     }
+  }
+
+  return std::nullopt;
+}
+
+parse_res
+parser_context::parse_msolve_end() {
+  while(c == '\r' || c == '\n') {
+    if(c == '\r') {
+      c = getc();
+      READ('\n');
+    } else if(c == '\n') {
+      c = getc();
+    }
+  }
+
+  if(c != EOF) {
+    return std::string("Some characters left in input (did not end with EOF, "
+                       "ended with '")
+           + static_cast<char>(c) + "' in line " + std::to_string(line)
+           + "). Check for trailing bytes or wrong format. Note: Check for "
+             "',' as poly separator.";
   }
 
   return std::nullopt;

@@ -201,6 +201,8 @@ class parser_context {
     return ctx.str_to_id(ident);
   }
 
+  parse_res parse_msolve_end();
+
   public:
   parser_context(FILE* in)
     : f(in) {}
