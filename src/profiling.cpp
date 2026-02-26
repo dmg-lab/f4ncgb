@@ -49,10 +49,10 @@ statistics::print(size_t threads) {
   msg("");
   msg("maximum resident set size:  %22.2f MB",
       maximum_resident_set_size() / static_cast<double>((1 << 20)));
-  msg("prefix trie size:           %22.2f MB",
-      static_cast<double>(gstats.prefix_trie_bytes) / 1024.0 / 1024.0);
-  msg("suffix trie size:           %22.2f MB",
-      static_cast<double>(gstats.suffix_trie_bytes) / 1024.0 / 1024.0);
+  // msg("prefix trie size:           %22.2f MB",
+  //     static_cast<double>(gstats.prefix_trie_bytes) / 1024.0 / 1024.0);
+  // msg("suffix trie size:           %22.2f MB",
+  //     static_cast<double>(gstats.suffix_trie_bytes) / 1024.0 / 1024.0);
 #ifdef F4NCGB_USE_MONOMIAL_PRODUCTS_MAP
   msg("monomial hashmap products:   %22d", gstats.hashmap_calls);
   msg("monomial hashmap prodhits: %22.2f %%",

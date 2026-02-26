@@ -19,7 +19,7 @@ option(ENABLE_NATIVE "Enable -march=native to target the host CPU (creates non-p
 option(ENABLE_TEST "Build f4ncgb_test program" ON)
 option(ENABLE_SIGNAL "Enable signal handling for printing statistics" ON)
 
-set(MAX_BLOCKS 16 CACHE STRING "Maximum number of blocks to compile for. Must be integral. Changes compilation time (duplicates implementation for each block).")
+set(MAX_BLOCKS 2 CACHE STRING "Maximum number of blocks to compile for. Must be integral. Changes compilation time (duplicates implementation for each block).")
 
 set(F4NCGB_SRCS
   src/api.cpp

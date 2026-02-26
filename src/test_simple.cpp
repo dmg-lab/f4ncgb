@@ -1,5 +1,6 @@
 #include <boost/test/unit_test.hpp>
 
+#include "coeff.hpp"
 #include "f4ncgb.hpp"
 #include "monomial_trie.hpp"
 #include "parser.hpp"
@@ -26,7 +27,7 @@ template<internal::metadata_concept MM = internal::metadata<uint8_t>,
          internal::metadata_concept PM = internal::metadata<uint8_t>,
          internal::value_concept V = uint8_t,
          typename I = uint32_t,
-         typename C = boost::multiprecision::gmp_rational>
+         typename C = coeff>
 struct impl {
   using var = V;
   using idx = I;
@@ -106,10 +107,10 @@ BOOST_AUTO_TEST_CASE(simple_polynomials) {
   BOOST_TEST(p1 == 1);
   BOOST_TEST(p2 != p1);
 
-  BOOST_TEST(p.get_coefficients(p1)[0].compare(I::coefficient(1l)) == 0);
-  BOOST_TEST(p.get_coefficients(p1)[1].compare(I::coefficient(2l)) == 0);
-  BOOST_TEST(p.get_coefficients(p2)[0].compare(I::coefficient(3l)) == 0);
-  BOOST_TEST(p.get_coefficients(p2)[1].compare(I::coefficient(4l)) == 0);
+  BOOST_TEST(p.get_coefficients(p1)[0] == I::coefficient(1l));
+  BOOST_TEST(p.get_coefficients(p1)[1] == I::coefficient(2l));
+  BOOST_TEST(p.get_coefficients(p2)[0] == I::coefficient(3l));
+  BOOST_TEST(p.get_coefficients(p2)[1] == I::coefficient(4l));
 
   I::idx p3 = p.multiply_front(s.getid({ 1, 2 }), p1);
   I::idx p4 = p.multiply_back(p2, s.getid({ 1, 2 }));
@@ -285,7 +286,7 @@ BOOST_AUTO_TEST_CASE(c_api_use) {
   s.set_maxiter(2);
 
   f4ncgb_set_msg_printing(false);
-  
+
   auto [res, polys] = s.solve();
 
   // Expected number of polys is 7.

@@ -6,31 +6,9 @@
 #include "store.hpp"
 
 #include <boost/multiprecision/detail/default_ops.hpp>
-#include <boost/multiprecision/gmp.hpp>
 #include <fstream>
 
 namespace f4ncgb {
-int
-coefficient_sign(const boost::multiprecision::backends::gmp_rational& r) {
-  using namespace boost::multiprecision;
-  mpq_rational rr(r);
-  return boost::multiprecision::sign(rr);
-}
-
-boost::multiprecision::mpq_rational
-coefficient_abs(const boost::multiprecision::backends::gmp_rational& r) {
-  using namespace boost::multiprecision;
-  mpq_rational rr(r);
-  return boost::multiprecision::abs(rr);
-}
-
-bool
-coefficient_is_posneg_neutral(
-  const boost::multiprecision::backends::gmp_rational& r) {
-  using namespace boost::multiprecision;
-  mpq_rational rr(r);
-  return (numerator(rr) == -1l || numerator(rr) == 1l) && denominator(rr) == 1l;
-}
 
 struct f4_base {
   virtual ~f4_base() = default;
@@ -118,7 +96,7 @@ struct f4_wrapper : f4_base {
 
     msg("Characteristic:    %lu", context.characteristic());
     if(!context.reduce()) {
-      msg("Max. Iterations:   %lu", context.maxiter());
+      msg("Max. Ite+rations:   %lu", context.maxiter());
       msg("Max. amb. degree:  %lu", context.maxdeg());
     }
     msg(mon_order.str().c_str());
@@ -221,8 +199,8 @@ f4ncgb_main(parser_context& context,
       }
 
       // Extract prefix and suffix trie sizes for statistics.
-      gstats.prefix_trie_bytes = algo.prefix_trie_bytes();
-      gstats.suffix_trie_bytes = algo.suffix_trie_bytes();
+      // gstats.prefix_trie_bytes = algo.prefix_trie_bytes();
+      // gstats.suffix_trie_bytes = algo.suffix_trie_bytes();
 
       if(add_cb && end_poly_cb) {
         algo.write_basis(userdata, add_cb, end_poly_cb);
@@ -260,12 +238,4 @@ f4ncgb_main(parser_context& context,
       return 0;
     });
 }
-}
-
-std::ostream&
-operator<<(std::ostream& o,
-           const boost::multiprecision::backends::gmp_rational& r) {
-  using namespace boost::multiprecision;
-  mpq_rational rr(r);
-  return o << rr;
 }

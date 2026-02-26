@@ -23,19 +23,18 @@
 #include <boost/align/aligned_alloc.hpp>
 
 #include <boost/container/small_vector.hpp>
-#include <boost/multiprecision/gmp.hpp>
 
 #include <boost/container_hash/hash.hpp>
 #include <boost/unordered/unordered_flat_map.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
 
+#include "coeff.hpp"
 #include "debug.hpp"
 #include "f4ncgb.hpp"
 #include "profiling.hpp"
 #include "signal_statistics.hpp"
 
 #include "ambiguity.hpp"
-#include "gmp.h"
 
 #ifdef F4NCGB_ENABLE_STORE_TRACE
 #include "store_tracer.hpp"
@@ -461,7 +460,7 @@ class store {
 
   pos_iterator begin() const { return pos_iterator(*this, 0); }
   pos_iterator end() const { return pos_iterator(*this, size_ + 1); }
-  size_t size() const {return (size_t)std::distance(begin(), end()); }
+  size_t size() const { return (size_t)std::distance(begin(), end()); }
 
 #ifdef F4NCGB_ENABLE_STORE_DUMP
   void set_binary_dump_path(const std::string& p) { dump_output_path_ = p; }
@@ -757,7 +756,7 @@ template<metadata_concept PM = internal::metadata<uint8_t>,
          metadata_concept MM = internal::metadata<uint8_t>,
          value_concept V = uint8_t,
          typename I = uint32_t,
-         typename C = boost::multiprecision::gmp_rational,
+         typename C = coeff,
          uint16_t Nblocks = 0>
 class polynomial_store
   : public store<polynomial_store<PM, MM, V, I, C, Nblocks>,
@@ -781,7 +780,6 @@ class polynomial_store
 
   using polynomial_vec = std::vector<std::pair<C, I>>;
   using polynomial_nested_vec = std::vector<std::pair<C, std::vector<V>>>;
-  using coefficient = C;
 
   friend base;
 
@@ -899,8 +897,7 @@ class polynomial_store
     return (*this)[id][idx];
   }
 
-
-  inline void sort_polynomial(std::vector<std::pair<coefficient, I>>& p) {
+  inline void sort_polynomial(std::vector<std::pair<C, I>>& p) {
     std::stable_sort(p.begin(), p.end(), [this](const auto& a, const auto& b) {
       return this->store_.template cmp<block_order>(b.second, a.second);
     });
@@ -970,7 +967,7 @@ class polynomial_store
     auto c = this->get_coefficients(i);
     size_t j = 0;
     for(auto m : (*this)[i]) {
-      o << boost::multiprecision::mpq_rational(c[j++]);
+      o << c[j++];
       o << "*";
       store_.print_monomial(m, o);
     }
@@ -1003,16 +1000,6 @@ class polynomial_store
 #pragma GCC diagnostic pop
 #endif
 
-int
-coefficient_sign(const boost::multiprecision::backends::gmp_rational& r);
-
-boost::multiprecision::mpq_rational
-coefficient_abs(const boost::multiprecision::backends::gmp_rational& r);
-
-bool
-coefficient_is_posneg_neutral(
-  const boost::multiprecision::backends::gmp_rational& r);
-
 class parser_context;
 int
 f4ncgb_main(parser_context& context,
@@ -1024,7 +1011,3 @@ f4ncgb_main(parser_context& context,
             f4ncgb_add_cb add_cb = nullptr,
             f4ncgb_end_poly_cb end_poly_cb = nullptr);
 }
-
-std::ostream&
-operator<<(std::ostream& o,
-           const boost::multiprecision::backends::gmp_rational& r);

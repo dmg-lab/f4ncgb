@@ -1,5 +1,6 @@
 #pragma once
 
+#include "coeff.hpp"
 #include "store.hpp"
 
 #include <filesystem>
@@ -286,50 +287,50 @@ class parser_context {
   }
 
   template<class PS>
-  std::ostream& to_msolve_mon(
-    std::ostream& o,
-    const PS& p,
-    PS::monomial_store_::index_type mon_id,
-    bool first,
-    std::span<const typename PS::coefficient>::iterator* coeff_it_ptr
-    = nullptr) {
-    using monomial_store = PS::monomial_store_;
+  std::ostream& to_msolve_mon(std::ostream& o,
+                              const PS& p,
+                              typename PS::monomial_store_::index_type mon_id,
+                              bool first,
+                              std::span<const coeff>::iterator* coeff_it_ptr
+                              = nullptr) {
+    using monomial_store = typename PS::monomial_store_;
     const monomial_store& m = p.get_monomial_store();
+
+    bool print_asterisk = false;
+
     if(coeff_it_ptr) {
-      if(!first) {
-        if(coefficient_sign(**coeff_it_ptr) < 0) {
-          o << " - ";
-        } else {
-          o << " + ";
-        }
-      } else if(coefficient_sign(**coeff_it_ptr) < 0) {
+      const coeff& c = **coeff_it_ptr;
+
+      // Print the sign
+      if(!first)
+        o << (c.sign() < 0 ? " - " : " + ");
+      else if(c.sign() < 0)
         o << "-";
+
+      // Print coefficient if it's not ±1 or monomial is empty
+      if(!c.is_unit() || m[mon_id].empty()) {
+        o << c.abs();
+        print_asterisk = true;
       }
+
+      ++(*coeff_it_ptr);
     }
 
-    bool was_neutral = false;
-    bool output_asterisk = false;
-    if(coeff_it_ptr && coefficient_is_posneg_neutral(**coeff_it_ptr)) {
-      ++(*coeff_it_ptr);
-      was_neutral = true;
-    } else {
-      output_asterisk = true;
-      if(coeff_it_ptr) {
-        o << coefficient_abs(**coeff_it_ptr);
-        ++(*coeff_it_ptr);
-      }
-    }
+    // Print the monomial with '*' as needed
     for(auto mon : m[mon_id]) {
-      if(output_asterisk)
+      if(print_asterisk)
         o << "*";
-      output_asterisk = true;
+      print_asterisk = true;
       var_to_ostream(o, mon);
     }
-    if(m[mon_id].size() == 0 && was_neutral) {
-      if(output_asterisk)
+
+    // Special case: empty monomial and coefficient ±1
+    if(m[mon_id].empty() && coeff_it_ptr && (**(coeff_it_ptr - 1)).is_unit()) {
+      if(print_asterisk)
         o << "*";
       o << "1";
     }
+
     return o;
   }
 
@@ -407,32 +408,46 @@ parse(parser_context& ctx, AddCB add_cb, BoundaryCB boundary_cb) {
 template<class PS>
 parse_res
 parse_rest_into_polynomial_store(parser_context& ctx, PS& s) {
+
   using monomial_store = PS::monomial_store_;
   using monomial_ref = PS::value_type;
-  using coefficient = PS::coefficient;
   using var = PS::monomial;
   std::vector<var> tmp_monomial;
-  std::vector<std::pair<coefficient, monomial_ref>> tmp_polynomial;
+  std::vector<std::pair<coeff, monomial_ref>> tmp_polynomial;
+  std::vector<long> tmp_denom;
 
-  auto add_cb = [&s, &tmp_monomial, &tmp_polynomial](uint32_t id) {
+  auto add_cb = [&s, &tmp_monomial, &tmp_polynomial, &tmp_denom](uint32_t id) {
     if(id) {
       tmp_monomial.push_back(id);
     } else {
+
+      coeff common_denom = 1;
+      for(long d : tmp_denom)
+        common_denom.lcm_inplace(d);
+
+      size_t i = 0;
+      for(auto& [c, m] : tmp_polynomial) {
+        c *= common_denom;
+        c /= tmp_denom[i++];
+      }
+
       s.sort_polynomial(tmp_polynomial);
       s.add_polynomial(tmp_polynomial);
       tmp_polynomial.clear();
+      tmp_denom.clear();
     }
     return std::nullopt;
   };
 
-  auto boundary_cb = [&s, &tmp_monomial, &tmp_polynomial](
+  auto boundary_cb = [&s, &tmp_monomial, &tmp_polynomial, &tmp_denom](
                        long numerator, long denominator, bool is_rational) {
     (void)is_rational;
 
+    tmp_denom.push_back(denominator);
+
     monomial_store& m = s.get_monomial_store();
     auto monomial_id = m.getid(tmp_monomial);
-    tmp_polynomial.push_back(
-      std::make_pair(coefficient(numerator, denominator), monomial_id));
+    tmp_polynomial.push_back(std::make_pair(coeff(numerator), monomial_id));
 
     tmp_monomial.clear();
     return std::nullopt;

@@ -7,9 +7,9 @@
 #include <utility>
 #include <vector>
 
-#include <boost/multiprecision/gmp.hpp>
 #include <boost/unordered_set.hpp>
 
+#include "coeff.hpp"
 #include "fast_div.hpp"
 #include "gmp.h"
 #include "primes.hpp"
@@ -163,47 +163,64 @@ crt_reconstruction(fmpz*& entries,
   }
 
   fmpz_multi_CRT_clear(crt_base);
-  for(size_t i = 0; i < primes.size(); i++)
-    fmpz_clear(moduli + i);
-  for(size_t i = 0; i < rrefs.size(); i++)
-    fmpz_clear(inputs + i);
-  delete[] moduli;
-  delete[] inputs;
+  fmpz_cleanup(moduli, primes.size());
+  fmpz_cleanup(inputs, rrefs.size());
 }
 
 inline bool
-verify_result(std::vector<gmp_rational>& entries,
+verify_result(fmpz* nums,
+              fmpz* denoms,
+              size_t len,
               mpz_int height,
               size_t n,
               mpz_int P) {
+  fmpz_t d;
+  fmpz_init_set_ui(d, 1);
+  for(size_t i = 0; i < len; i++)
+    fmpz_lcm(d, d, denoms + i);
 
-  // Denominator d of rref
-  mpz_t d;
-  mpz_init_set_ui(d, 1);
-  for(auto& r : entries)
-    mpz_lcm(d, d, mpq_denref(r.data()));
+  // height_rref = max | (d / denom_i) * num_i |
+  fmpz_t tmp;
+  fmpz_t height_rref;
+  fmpz_init(tmp);
+  fmpz_init_set_ui(height_rref, 0);
 
-  // Height of d*rref
-  mpz_t tmp;
-  mpz_t height_rref;
-  mpz_init(tmp);
-  mpz_init_set_ui(height_rref, 0);
-  for(auto& r : entries) {
-    mpz_divexact(tmp, d, mpq_denref(r.data()));
-    mpz_mul(tmp, tmp, mpq_numref(r.data()));
-    if(mpz_cmpabs(tmp, height_rref) > 0)
-      mpz_abs(height_rref, tmp);
+  for(size_t i = 0; i < len; i++) {
+    fmpz_divexact(tmp, d, denoms + i);
+    fmpz_mul(tmp, tmp, nums + i);
+    fmpz_abs(tmp, tmp);
+    if(fmpz_cmp(tmp, height_rref) > 0)
+      fmpz_set(height_rref, tmp);
   }
 
-  // Bound
-  mpz_int lhs = height_rref * height * n;
+  // Now compute lhs = height_rref * height * n
+  fmpz_t lhs_fmpz;
+  fmpz_init(lhs_fmpz);
 
-  mpz_clear(d);
-  mpz_clear(tmp);
-  mpz_clear(height_rref);
+  fmpz_t height_f;
+  fmpz_init(height_f);
+  fmpz_set_mpz(height_f, height.backend().data());
 
-  return lhs < P;
+  fmpz_mul(lhs_fmpz, height_rref, height_f);
+  fmpz_mul_ui(lhs_fmpz, lhs_fmpz, n);
+
+  fmpz_t P_f;
+  fmpz_init(P_f);
+  fmpz_set_mpz(P_f, P.backend().data());
+
+  bool result = (fmpz_cmp(lhs_fmpz, P_f) < 0);
+
+  // cleanup
+  fmpz_clear(d);
+  fmpz_clear(tmp);
+  fmpz_clear(height_rref);
+  fmpz_clear(lhs_fmpz);
+  fmpz_clear(height_f);
+  fmpz_clear(P_f);
+
+  return result;
 }
+
 struct ratrec_data {
   mpz_t mod;
   mpz_t N;
@@ -256,7 +273,7 @@ struct ratrec_data {
 };
 
 inline bool
-ratrecon(gmp_rational& res, mpz_t u, ratrec_data* data) {
+ratrecon(fmpz_t num, fmpz_t den, mpz_t u, ratrec_data* data) {
 
   bool success = false;
 
@@ -294,8 +311,8 @@ ratrecon(gmp_rational& res, mpz_t u, ratrec_data* data) {
   mpz_gcd(data->q, data->n, data->d);
   if(mpz_cmp(data->d, data->N) <= 0 && mpz_cmp_ui(data->q, 1) == 0) {
     success = true;
-    mpz_set(mpq_numref(res.data()), data->n);
-    mpz_set(mpq_denref(res.data()), data->d);
+    fmpz_set_mpz(num, data->n);
+    fmpz_set_mpz(den, data->d);
 
   } else if(verbose > 2)
     msg("Rational reconstruction does not exist");
@@ -304,7 +321,8 @@ ratrecon(gmp_rational& res, mpz_t u, ratrec_data* data) {
 }
 
 static inline bool
-rational_reconstruction(std::vector<gmp_rational>& entries,
+rational_reconstruction(fmpz*& nums,
+                        fmpz*& denoms,
                         fmpz* crt_entries,
                         mpz_int& prod,
                         size_t N) {
@@ -314,24 +332,67 @@ rational_reconstruction(std::vector<gmp_rational>& entries,
   mpz_fdiv_q_2exp(data.N, data.mod, 1);
   mpz_sqrt(data.N, data.N);
 
-  entries.reserve(N);
+  nums = new fmpz[N];
+  denoms = new fmpz[N];
+  for(size_t i = 0; i < N; i++) {
+    fmpz_init(nums + i);
+    fmpz_init(denoms + i);
+  }
 
   bool res = true;
   mpz_t u;
   mpz_init(u);
   for(size_t i = 0; i < N; i++) {
-    gmp_rational r;
     fmpz_get_mpz(u, crt_entries + i);
-    bool success = ratrecon(r, u, &data);
-    if(success)
-      entries.push_back(r);
-    else {
+    bool success = ratrecon(nums + i, denoms + i, u, &data);
+    if(!success) {
       res = false;
       break;
     }
   }
   mpz_clear(u);
   return res;
+}
+
+void
+clear_denoms(std::vector<std::pair<size_t, size_t>>& idxs,
+             fmpz* nums,
+             fmpz* denoms) {
+
+  fmpz_t L;
+  fmpz_t tmp;
+  fmpz_init(L);
+  fmpz_init(tmp);
+
+  size_t k = 0;
+  size_t cur_row = idxs[0].first;
+  size_t row_start = 0;
+
+  while(row_start < idxs.size()) {
+
+    cur_row = idxs[row_start].first;
+    fmpz_set_ui(L, 1);
+
+    // find row range and compute denom-lcm
+    size_t row_end = row_start;
+    while(row_end < idxs.size() && idxs[row_end].first == cur_row) {
+      fmpz_lcm(L, L, denoms + row_end);
+      row_end++;
+    }
+
+    // scale nums if necessary
+    if(!fmpz_is_one(L)) {
+      for(size_t i = row_start; i < row_end; i++) {
+        fmpz_divexact(tmp, L, denoms + i);
+        fmpz_mul(nums + i, nums + i, tmp);
+      }
+    }
+
+    row_start = row_end;
+  }
+
+  fmpz_clear(L);
+  fmpz_clear(tmp);
 }
 
 template<typename T>
@@ -587,7 +648,7 @@ gauss_elim(uint32_mat_t mat,
   }
 }
 
-std::pair<std::vector<std::pair<size_t, size_t>>, std::vector<gmp_rational>>
+std::pair<std::vector<std::pair<size_t, size_t>>, fmpz*>
 multimodular_gauss_elim(sfmpz_mat_t mat,
                         std::unique_ptr<BS::thread_pool<BS::none>>& pool,
                         bool tracer,
@@ -601,8 +662,9 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
   std::vector<pivots> good_pivs;
   std::vector<ulong> good_primes;
 
-  std::vector<gmp_rational> rat_entries;
   std::vector<std::pair<size_t, size_t>> idxs;
+  fmpz* nums = nullptr;
+  fmpz* denoms = nullptr;
 
   bool* trace = new bool[mat->nrow];
   std::fill(trace, trace + mat->nrow, false);
@@ -681,7 +743,6 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
     // and clear here
     fmpz* crt_entries = nullptr;
     idxs.clear();
-    rat_entries.clear();
 
     // the first n_piv rows will be reconstructed
     size_t n_piv;
@@ -700,23 +761,23 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
     {
       F4NCGB_PROFILE(auto timer = gstats.time(gstats.ratrec));
       success
-        = rational_reconstruction(rat_entries, crt_entries, prod, idxs.size());
+        = rational_reconstruction(nums, denoms, crt_entries, prod, idxs.size());
     }
 
-    for(size_t i = 0; i < idxs.size(); i++)
-      fmpz_clear(crt_entries + i);
-    delete[] crt_entries;
+    fmpz_cleanup(crt_entries, idxs.size());
 
     if(!success) {
       if(verbose > 2)
         msg("Reconstruction unsuccessful. Increasing bound.");
       M = prod * p * p;
-      // reset trace
+      // reset trace and cleanup
       std::fill(trace, trace + mat->nrow, false);
+      fmpz_cleanup(nums, idxs.size());
+      fmpz_cleanup(denoms, idxs.size());
       continue;
     }
 
-    if(verify_result(rat_entries, h, mat->ncol, prod))
+    if(verify_result(nums, denoms, idxs.size(), h, mat->ncol, prod))
       break;
   }
   for(const auto& rref : rrefs)
@@ -724,10 +785,13 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
 
   delete[] trace;
 
-  return std::make_pair(idxs, rat_entries);
+  clear_denoms(idxs, nums, denoms);
+  fmpz_cleanup(denoms, idxs.size());
+
+  return std::make_pair(idxs, nums);
 }
 
-std::pair<std::vector<std::pair<size_t, size_t>>, std::vector<gmp_rational>>
+std::pair<std::vector<std::pair<size_t, size_t>>, fmpz*>
 nmod_gauss_elim(sfmpz_mat_t mat,
                 size_t p,
                 std::unique_ptr<BS::thread_pool<BS::none>>& pool,
@@ -763,18 +827,17 @@ nmod_gauss_elim(sfmpz_mat_t mat,
     n_piv = piv.size();
 
   // compute nonzero indices & entries
-  std::vector<std::pair<size_t, size_t>> idxs;
-  std::vector<gmp_rational> entries;
   size_t nnz = sparse_mat_nnz(nmod_mat);
+  std::vector<std::pair<size_t, size_t>> idxs;
   idxs.reserve(nnz);
-  entries.reserve(nnz);
+  fmpz* entries = new fmpz[nnz];
+
+  size_t k = 0;
   for(size_t i = 0; i < n_piv; i++) {
     auto row = sparse_mat_row(nmod_mat, i);
     for(size_t j = 0; j < row->nnz; j++) {
       idxs.emplace_back(i, row->indices[j]);
-      gmp_rational r;
-      mpq_set_ui(r.data(), row->entries[j], 1UL);
-      entries.push_back(r);
+      fmpz_set_ui(entries + k++, row->entries[j]);
     }
   }
 
@@ -784,7 +847,7 @@ nmod_gauss_elim(sfmpz_mat_t mat,
   return std::make_pair(idxs, entries);
 }
 
-std::pair<std::vector<std::pair<size_t, size_t>>, std::vector<gmp_rational>>
+std::pair<std::vector<std::pair<size_t, size_t>>, fmpz*>
 linear_algebra(sfmpz_mat_t mat,
                size_t characteristic,
                std::unique_ptr<BS::thread_pool<BS::none>>& pool,

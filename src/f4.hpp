@@ -18,6 +18,7 @@
 #include <boost/unordered/unordered_set.hpp>
 
 #include "ambiguity.hpp"
+#include "coeff.hpp"
 #include "f4ncgb.hpp"
 #include "gmp.h"
 #include "linear_algebra.hpp"
@@ -47,11 +48,10 @@ struct metadata_polynomial {
 template<size_t Nblocks,
          internal::value_concept V = uint8_t,
          typename I = uint32_t,
-         typename C = boost::multiprecision::gmp_rational>
+         typename C = coeff>
 struct f4 {
   using MM = metadata_monomial;
   using PM = metadata_polynomial;
-  using coefficient = C;
   using monomial_store = internal::monomial_store<MM, V, I, Nblocks>;
   using polynomial_store = internal::polynomial_store<PM, MM, V, I, C, Nblocks>;
 
@@ -143,10 +143,10 @@ struct f4 {
   };
 
   struct cofactor {
-    C c;
+    coeff c;
     triplet t;
 
-    cofactor(C c_, mon_id a_, int i_, mon_id b_)
+    cofactor(coeff c_, mon_id a_, int i_, mon_id b_)
       : c(c_)
       , t(a_, i_, b_) {}
 
@@ -159,7 +159,7 @@ struct f4 {
                     polynomial_store& poly,
                     bool first = false) {
       if(!first)
-        o << (mpq_sgn(c.data()) > 0 ? " + " : " ");
+        o << (c.sign() > 0 ? " + " : " ");
       o << c;
       if(t.a != 0)
         context.to_msolve_mon(o, poly, t.a, false);
@@ -199,20 +199,20 @@ struct f4 {
       auto poly_id = basis[n];
       // special case: zero polynomial
       if(poly_id == 0) {
-        gmp_rational zero = mpq_rational(0).backend();
-        mpz_ptr gmp_num = &zero.data()[0]._mp_num;
-        mpz_ptr gmp_den = &zero.data()[0]._mp_den;
-        add(userdata, gmp_num, gmp_den, 0, 0);
+        coeff zero;
+        // TODO
+        // add(userdata, gmp_num, gmp_den, 0, 0);
       } else {
         auto coeff_it = poly.get_coefficients(poly_id).begin();
         for(auto mon_id : poly[poly_id]) {
           auto vars = mons[mon_id];
           data.clear();
           std::copy(vars.begin(), vars.end(), std::back_inserter(data));
-          auto coeff = *coeff_it++;
-          mpz_ptr gmp_num = &coeff.data()[0]._mp_num;
-          mpz_ptr gmp_den = &coeff.data()[0]._mp_den;
-          add(userdata, gmp_num, gmp_den, vars.size(), data.data());
+          auto c = *coeff_it++;
+          // TODO
+          // mpz_ptr gmp_num = &c.data()[0]._mp_num;
+          // mpz_ptr gmp_den = &c.data()[0]._mp_den;
+          // add(userdata, gmp_num, gmp_den, vars.size(), data.data());
         }
       }
       end(userdata);
@@ -602,7 +602,8 @@ struct f4 {
           mon_id b = cofactor.b();
           for(auto& cofactor_i : cofactors[(size_t)cofactor.i()]) {
             C cc;
-            mpq_mul(cc.data(), c.data(), cofactor_i.c.data());
+            // TODO
+            // mpz_mul(cc.data(), c.data(), cofactor_i.c.data());
             mon_id aa = mons.get_product_id(a, cofactor_i.a());
             mon_id bb = mons.get_product_id(cofactor_i.b(), b);
             expanded.emplace_back(cc, aa, cofactor_i.i(), bb);
@@ -637,11 +638,11 @@ struct f4 {
   }
   //------------------------------------------------------------------------------
   std::vector<poly_id> res;
-  std::vector<std::pair<C, mon_id>> p;
+  std::vector<std::pair<coeff, mon_id>> p;
   std::vector<cofactor> current_cofactors;
   const std::vector<poly_id>& compute_new_polynomials(
     std::vector<std::pair<size_t, size_t>>& idxs,
-    std::vector<C>& coeffs,
+    fmpz* entries,
     std::vector<mon_id>& columns) {
 
     res.clear();
@@ -669,16 +670,17 @@ struct f4 {
           current_cofactors.clear();
         }
       }
+
+      coeff c(entries[k++]);
+      assert(!is_zero(c));
       if(j < n) {
-        assert(mpq_rational(coeffs[k]) != 0);
-        p.emplace_back(coeffs[k], columns[j]);
+        p.emplace_back(c, columns[j]);
       } else {
-        current_cofactors.emplace_back(coeffs[k],
+        current_cofactors.emplace_back(c,
                                        extended_rows[j - n].a,
                                        extended_rows[j - n].i,
                                        extended_rows[j - n].b);
       }
-      k++;
     }
     // don't forget to add last element
     res.push_back(poly.add_polynomial(p));
@@ -729,17 +731,19 @@ struct f4 {
     auto& new_elements = compute_new_polynomials(idxs, entries, columns);
 
     sparse_mat_clear(mat);
+    fmpz_cleanup(entries, idxs.size());
 
     return new_elements;
   }
   //------------------------------------------------------------------------------
-  inline void get_common_denom(fmpz_t denom, fmpz_t tmp, std::span<C>& coeffs) {
-    fmpz_set_ui(denom, 1);
-    for(auto& c : coeffs) {
-      fmpz_set_mpz(tmp, mpq_denref(c.data()));
-      fmpz_lcm(denom, denom, tmp);
-    }
-  }
+  // inline void get_common_denom(fmpz_t denom, fmpz_t tmp, std::span<C>&
+  // coeffs) {
+  //   fmpz_set_ui(denom, 1);
+  //   for(auto& c : coeffs) {
+  //     fmpz_set_mpz(tmp, mpz_ref(c.data()));
+  //     fmpz_lcm(denom, denom, tmp);
+  //   }
+  // }
   //------------------------------------------------------------------------------
   boost::unordered_map<mon_id, size_t> col_to_id;
   void set_up_matrix(sfmpz_mat_t mat,
@@ -773,8 +777,6 @@ struct f4 {
     for(auto r : rows) {
       auto row = sparse_mat_row(mat, i);
       std::span<C> coeffs = poly.get_coefficients(r);
-      // compute common denominator so that we can normalize row
-      get_common_denom(denom, tmp, coeffs);
 
       auto p = poly[r];
       auto nnz = p.size();
@@ -786,12 +788,7 @@ struct f4 {
       // insert poly
       size_t k = 0;
       for(auto it = p.begin(); it != p.end(); it++) {
-        auto cc = coeffs[k].data();
-        fmpz_set_mpz(tmp, mpq_denref(cc));
-        assert(fmpz_divisible(denom, tmp));
-        fmpz_divexact(tmp, denom, tmp);
-        fmpz_set_mpz(row->entries + k, mpq_numref(cc));
-        fmpz_mul(row->entries + k, row->entries + k, tmp);
+        fmpz_set(row->entries + k, coeffs[k].value);
         row->indices[k] = col_to_id[*it];
         k++;
       }
@@ -799,7 +796,7 @@ struct f4 {
       // insert transformation matrix - if required
       if(proof_level > 0) {
         row->indices[k] = n + i;
-        fmpz_set(row->entries + k, denom);
+        fmpz_set_ui(row->entries + k, 1UL);
       }
       i++;
     }

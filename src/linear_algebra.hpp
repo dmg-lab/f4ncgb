@@ -4,8 +4,9 @@
 #include <vector>
 
 #include "gmp.h"
-#include <boost/multiprecision/gmp.hpp>
 #include <flint/nmod.h>
+#include <flint/fmpz.h>
+
 
 #include "sparse_rref/sparse_mat.h"
 #include "sparse_rref/sparse_vec.h"
@@ -29,16 +30,14 @@ gauss_elim(uint32_mat_t mat,
            bool* trace,
            bool use_trace);
 
-std::pair<std::vector<std::pair<size_t, size_t>>,
-          std::vector<boost::multiprecision::gmp_rational>>
+std::pair<std::vector<std::pair<size_t, size_t>>, fmpz*>
 multimodular_gauss_elim(sfmpz_mat_t mat,
                         std::unique_ptr<BS::thread_pool<BS::none>>& pool,
                         bool tracer = true,
                         bool interreduce = false,
                         size_t proof_level = 0);
 
-std::pair<std::vector<std::pair<size_t, size_t>>,
-          std::vector<boost::multiprecision::gmp_rational>>
+std::pair<std::vector<std::pair<size_t, size_t>>, fmpz*>
 nmod_gauss_elim(sfmpz_mat_t mat,
                 size_t p,
                 std::unique_ptr<BS::thread_pool<BS::none>>& pool,
@@ -46,8 +45,7 @@ nmod_gauss_elim(sfmpz_mat_t mat,
                 bool interreduce = false,
                 size_t proof_level = 0);
 
-std::pair<std::vector<std::pair<size_t, size_t>>,
-          std::vector<boost::multiprecision::gmp_rational>>
+std::pair<std::vector<std::pair<size_t, size_t>>, fmpz*>
 linear_algebra(sfmpz_mat_t mat,
                size_t characteristic,
                std::unique_ptr<BS::thread_pool<BS::none>>& pool,
