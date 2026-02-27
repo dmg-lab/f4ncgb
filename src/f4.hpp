@@ -672,7 +672,7 @@ struct f4 {
       }
 
       coeff c(entries[k++]);
-      assert(!is_zero(c));
+      assert(!c.is_zero());
       if(j < n) {
         p.emplace_back(c, columns[j]);
       } else {
