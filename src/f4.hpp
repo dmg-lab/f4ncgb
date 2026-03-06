@@ -219,6 +219,7 @@ struct f4 {
     }
   }
   //------------------------------------------------------------------------------
+  std::vector<poly_id> new_elements;
   void interreduce_and_add_to_basis(std::vector<poly_id>& polies) {
 
     if(verbose > 1)
@@ -235,11 +236,13 @@ struct f4 {
     // to leave 0th position open; just like in basis
     cofactors.emplace_back();
 
-    std::vector<poly_id> new_elements = reduction(true);
+    // store result in new_elements
+    reduction(true);
+
     if(verbose > 1)
       msg("Adding %d input elements to basis.", new_elements.size());
 
-    update_basis_and_amb(new_elements);
+    update_basis_and_amb();
   }
   //------------------------------------------------------------------------------
 
@@ -266,12 +269,14 @@ struct f4 {
 
       if(verbose > 1)
         msg("Reducing %d critical pairs.", crit_pairs.size());
-      std::vector<poly_id> new_elements = reduction();
+
+      // store results in new_elements
+      reduction();
 
       if(verbose > 1)
         msg("Adding %d new elements to basis.", new_elements.size());
 
-      update_basis_and_amb(new_elements);
+      update_basis_and_amb();
 
       iter++;
       if(verbose > 0)
@@ -299,11 +304,10 @@ struct f4 {
     poly_id normal_form = 0;
 
     // when GB does not contain 1, perform reduction
-    std::vector<poly_id> new_elements;
     if(!constant_flag) {
       crit_pair c(p, p);
       crit_pairs.insert(c);
-      new_elements = reduction(true, true);
+      reduction(true, true);
     }
 
     // find the element with new leading monomial, this is the NF
@@ -743,13 +747,12 @@ struct f4 {
 
   //------------------------------------------------------------------------------
   boost::unordered_set<mon_id> col_set;
-  const std::vector<poly_id>& reduction(bool interreduce = false,
-                                        bool reduce = false) {
+  void reduction(bool interreduce = false, bool reduce = false) {
     // symbolic preprocessing
     symbolic_preprocessing(reduce);
     crit_pairs.clear();
-
     col_set.clear();
+
     // make columns
     // columns are sorted in DESCENDING order
     for(const auto r : rows) {
@@ -780,14 +783,12 @@ struct f4 {
 
     // compute new elements
     F4NCGB_PROFILE(auto timer2 = gstats.time(gstats.new_elements));
-    auto& new_elements = compute_new_polynomials(idxs, entries, columns);
+    new_elements = compute_new_polynomials(idxs, entries, columns);
 
     fmpz_cleanup(entries, idxs.size());
-
-    return new_elements;
   }
   //------------------------------------------------------------------------------
-  void update_basis_and_amb(std::vector<poly_id>& new_elements) {
+  void update_basis_and_amb() {
 
     // log cofactors
     if(proof_level > 0) {
