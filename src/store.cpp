@@ -96,7 +96,7 @@ struct f4_wrapper : f4_base {
 
     msg("Characteristic:    %lu", context.characteristic());
     if(!context.reduce()) {
-      msg("Max. Ite+rations:   %lu", context.maxiter());
+      msg("Max. Iterations:   %lu", context.maxiter());
       msg("Max. amb. degree:  %lu", context.maxdeg());
     }
     msg(mon_order.str().c_str());
