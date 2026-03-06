@@ -12,9 +12,8 @@
 #include <boost/unordered_set.hpp>
 
 #include "coeff.hpp"
-#include "gmp.h"
-#include "primes.hpp"
 #include "fast_div.hpp"
+#include "primes.hpp"
 #include "profiling.hpp"
 #include "signal_statistics.hpp"
 #include "sparse_rref/sparse_mat.h"
@@ -59,14 +58,12 @@ set_up_matrix(uint32_mat_t mat,
     if(trace[i])
       continue;
 
-    auto row = sparse_mat_row(mat, i);
-
     const auto& coeffs = entries[i];
     const auto& cols = idxs[i];
 
     const size_t max_nnz = coeffs.size() + (proof_level > 0 ? 1 : 0);
 
-    sparse_vec_realloc(row, max_nnz);
+    auto row = sparse_mat_row_init(mat, i, max_nnz);
 
     size_t nnz = 0;
 
@@ -78,11 +75,10 @@ set_up_matrix(uint32_mat_t mat,
         row->entries[nnz] = c;
         nnz++;
       }
+      // ---- detect zero leading entry ----
+      if(nnz == 0)
+        return false;
     }
-
-    // ---- detect zero leading entry ----
-    if(nnz == 0)
-      return false;
 
     // ---- transformation block ----
     if(proof_level > 0) {
@@ -417,7 +413,6 @@ static void inline copy_from_buffer_and_clear(std::vector<int64_t>& buffer,
                                               uint32_vec_t vec) {
   size_t nnz = buffer_ids.size();
 
-  sparse_vec_clear(vec);
   sparse_vec_realloc(vec, nnz);
   vec->nnz = nnz;
 

@@ -22,7 +22,7 @@ s_free(T* s) {
 template<typename T>
 inline T*
 s_realloc(T* s, const size_t size) {
-  assert(size > 0);
+  assert(size > 0);  
   return (T*)std::realloc(s, size * sizeof(T));
 }
 
@@ -36,25 +36,6 @@ binarysearch(T* begin, T* end, T val) {
     return ptr;
   else
     return end;
-}
-
-// scalar
-static inline bool
-scalar_is_zero(const fmpz_t a) {
-  return fmpz_is_zero(a);
-}
-static inline bool
-scalar_is_zero(const uint32_t* a) {
-  return (*a) == 0;
-}
-
-static inline void
-scalar_set(fmpz_t a, const fmpz_t b) {
-  fmpz_set(a, b);
-}
-static inline void
-scalar_set(uint32_t* a, const uint32_t* b) {
-  *a = *b;
 }
 
 template<typename T>
@@ -79,20 +60,13 @@ template<typename T>
 void
 sparse_vec_realloc(sparse_vec_t<T> vec, ulong alloc) {
 
-  assert(alloc >= vec->alloc);
-
-  if(alloc == vec->alloc)
+  if(alloc <= vec->alloc && alloc > vec->alloc / 2)
     return;
-  ulong old_alloc = vec->alloc;
+
   vec->alloc = alloc;
   // enlarge: init later
   vec->indices = s_realloc(vec->indices, vec->alloc);
   vec->entries = s_realloc(vec->entries, vec->alloc);
-
-  if constexpr(std::is_same_v<T, fmpz>) {
-    for(ulong i = old_alloc; i < vec->alloc; i++)
-      fmpz_init((fmpz*)(vec->entries) + i);
-  }
 }
 
 #define sparse_vec_entry_pointer(vec, index) ((vec)->entries + (index))
@@ -104,7 +78,7 @@ sparse_vec_init(sparse_vec_t<T> vec, ulong alloc = 1) {
   vec->is_new_piv = false;
   vec->nnz = 0;
   vec->alloc = alloc;
-  vec->indices = s_malloc<ulong>(vec->alloc);
+  vec->indices = s_malloc<ulong>(alloc);
   vec->entries = s_malloc<T>(alloc);
 }
 
@@ -113,12 +87,8 @@ template<typename T>
 inline void
 sparse_vec_clear(sparse_vec_t<T> vec) {
   s_free(vec->indices);
-  vec->indices = NULL;
-  if constexpr(std::is_same_v<T, fmpz>) {
-    for(size_t i = 0; i < vec->alloc; i++)
-      fmpz_clear(vec->entries + i);
-  }
   s_free(vec->entries);
+  vec->indices = NULL;
   vec->entries = NULL;
   vec->nnz = 0;
   vec->alloc = 0;
@@ -138,26 +108,6 @@ sparse_vec_entry(sparse_vec_t<T> vec, ulong index, const bool isbinary = true) {
   if(ptr == vec->indices + vec->nnz)
     return NULL;
   return sparse_vec_entry_pointer(vec, ptr - vec->indices);
-}
-
-template<typename T>
-void
-sparse_vec_canonicalize(sparse_vec_t<T> vec) {
-  ulong new_nnz = 0;
-  ulong i = 0;
-  for(; i < vec->nnz; i++) {
-    if(!scalar_is_zero(sparse_vec_entry_pointer(vec, i)))
-      break;
-  }
-  for(; i < vec->nnz; i++) {
-    if(scalar_is_zero(sparse_vec_entry_pointer(vec, i)))
-      continue;
-    vec->indices[new_nnz] = vec->indices[i];
-    scalar_set(sparse_vec_entry_pointer(vec, new_nnz),
-               sparse_vec_entry_pointer(vec, i));
-    new_nnz++;
-  }
-  vec->nnz = new_nnz;
 }
 
 // debug only, not used to the large vector
