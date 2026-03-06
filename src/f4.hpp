@@ -515,7 +515,7 @@ struct f4 {
   std::vector<poly_id> rows;
   std::vector<mon_id> columns;
 
-  std::vector<poly_id> symbolic_preprocessing(bool reduce = false) {
+  void symbolic_preprocessing(bool reduce = false) {
     F4NCGB_TIME(sym_pre);
     todo.clear();
     done.clear();
@@ -556,7 +556,6 @@ struct f4 {
           todo.insert(mm);
       }
     }
-    return rows;
   }
 
   //------------------------------------------------------------------------------
@@ -703,15 +702,16 @@ struct f4 {
     std::vector<size_t> perm(m);
     std::iota(perm.begin(), perm.end(), 0);
 
-    auto cmp = [this](size_t a, size_t b) {
-      size_t ca = col_to_id[this->poly.get_lm_id(rows[a])];
-      size_t cb = col_to_id[this->poly.get_lm_id(rows[b])];
-      if(ca != cb)
-        return ca > cb;
-      return this->poly.get_length(rows[a]) < this->poly.get_length(rows[b]);
+    std::vector<size_t> lm_col(m);
+    for(size_t k = 0; k < m; k++)
+      lm_col[k] = col_to_id[poly.get_lm_id(rows[k])];
+    auto cmp = [&](size_t a, size_t b) {
+      if(lm_col[a] != lm_col[b])
+        return lm_col[a] > lm_col[b];
+      return poly.get_length(rows[a]) < poly.get_length(rows[b]);
     };
-
     std::sort(perm.begin(), perm.end(), cmp);
+
     auto apply_perm = [&](auto& vec) {
       using T = typename std::decay_t<decltype(vec)>::value_type;
       std::vector<T> tmp;
@@ -730,11 +730,9 @@ struct f4 {
     idxs_in.clear();
     entries_in.reserve(m);
     idxs_in.resize(m);
-
     i = 0;
     for(auto r : rows) {
       entries_in.push_back(poly.get_coefficients(r));
-
       auto p = poly[r];
       for(auto it = p.begin(); it != p.end(); it++) {
         idxs_in[i].push_back(col_to_id[*it]);
@@ -744,22 +742,28 @@ struct f4 {
   }
 
   //------------------------------------------------------------------------------
+  boost::unordered_set<mon_id> col_set;
   const std::vector<poly_id>& reduction(bool interreduce = false,
                                         bool reduce = false) {
     // symbolic preprocessing
-    auto rows = symbolic_preprocessing(reduce);
+    symbolic_preprocessing(reduce);
     crit_pairs.clear();
 
-    columns.clear();
+    col_set.clear();
+    // make columns
+    // columns are sorted in DESCENDING order
     for(const auto r : rows) {
       auto p = poly[r];
-      columns.insert(columns.end(), p.begin(), p.end());
+      col_set.insert(p.begin(), p.end());
     }
+    columns.clear();
+    columns.resize(
+      static_cast<size_t>(std::distance(col_set.begin(), col_set.end())));
+    std::move(col_set.begin(), col_set.end(), columns.begin());
     auto cmp = [this](const mon_id a, const mon_id b) {
       return this->mons.template cmp<block_order>(b, a);
     };
     std::sort(columns.begin(), columns.end(), cmp);
-    columns.erase(std::unique(columns.begin(), columns.end()), columns.end());
 
     // prepare entries
     prepare_matrix();
@@ -782,15 +786,6 @@ struct f4 {
 
     return new_elements;
   }
-  //------------------------------------------------------------------------------
-  // inline void get_common_denom(fmpz_t denom, fmpz_t tmp, std::span<C>&
-  // coeffs) {
-  //   fmpz_set_ui(denom, 1);
-  //   for(auto& c : coeffs) {
-  //     fmpz_set_mpz(tmp, mpz_ref(c.data()));
-  //     fmpz_lcm(denom, denom, tmp);
-  //   }
-  // }
   //------------------------------------------------------------------------------
   void update_basis_and_amb(std::vector<poly_id>& new_elements) {
 
