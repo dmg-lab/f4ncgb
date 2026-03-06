@@ -460,7 +460,7 @@ class store {
 
   pos_iterator begin() const { return pos_iterator(*this, 0); }
   pos_iterator end() const { return pos_iterator(*this, size_ + 1); }
-  size_t size() const { return (size_t)std::distance(begin(), end()); }
+  size_t size() const { return inserted_count_; }
 
 #ifdef F4NCGB_ENABLE_STORE_DUMP
   void set_binary_dump_path(const std::string& p) { dump_output_path_ = p; }
@@ -880,15 +880,16 @@ class polynomial_store
     return const_cast<self*>(this)->get_coefficients(id);
   }
 
-  inline std::vector<I> get_monomial_ids(I id) {
-    if(id == 0)
-      return std::vector<I>(0);
-    std::vector<I> res;
-    res.reserve(this->get_length(id));
-    for(size_t i = 0; i < this->get_length(id); i++)
-      res.push_back((*this)[id][i]);
-    return res;
-  }
+  // not needed
+  // inline std::vector<I> get_monomial_ids(I id) {
+  //   if(id == 0)
+  //     return std::vector<I>(0);
+  //   std::vector<I> res;
+  //   res.reserve(this->get_length(id));
+  //   for(size_t i = 0; i < this->get_length(id); i++)
+  //     res.push_back((*this)[id][i]);
+  //   return res;
+  // }
 
   inline I get_monomial_id(I id, I idx) const {
     if(id == 0)

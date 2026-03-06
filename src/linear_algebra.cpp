@@ -3,18 +3,21 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <ranges>
 #include <set>
+#include <span>
 #include <utility>
 #include <vector>
 
 #include <boost/unordered_set.hpp>
 
 #include "coeff.hpp"
-#include "fast_div.hpp"
 #include "gmp.h"
 #include "primes.hpp"
+#include "fast_div.hpp"
 #include "profiling.hpp"
 #include "signal_statistics.hpp"
+#include "sparse_rref/sparse_mat.h"
 
 #include "linear_algebra.hpp"
 
@@ -24,51 +27,73 @@ extern int verbose;
 
 namespace f4ncgb {
 
-static inline bool
-vec_mod(uint32_vec_t vec,
-        const sfmpz_vec_t src,
-        nmod_t mod,
-        std::vector<size_t>& indices,
-        std::vector<uint32_t>& entries) {
-  assert(vec->nnz <= src->nnz);
+bool
+set_up_matrix(uint32_mat_t mat,
+              nmod_t mod,
+              const std::vector<std::vector<size_t>>& idxs,
+              const std::vector<std::span<coeff>>& entries,
+              bool* trace,
+              size_t proof_level) {
+  const size_t m = idxs.size();
 
-  indices.clear();
-  entries.clear();
-
-  for(size_t i = 0; i < src->nnz; i++) {
-    uint32_t val = fmpz_get_nmod(src->entries + i, mod);
-    if(val != 0) {
-      indices.push_back(src->indices[i]);
-      entries.push_back(val);
-    }
+  // ---- compute number of columns ----
+  size_t n = 0;
+  for(const auto& inner : idxs) {
+    size_t local_max = *std::max_element(inner.begin(), inner.end());
+    n = std::max(n, local_max);
   }
+  n += 1;
 
-  auto nnz = indices.size();
-  if(nnz == 0 or indices[0] != src->indices[0])
-    return false;
+  // ---- initialize matrix ----
+  if(proof_level > 0)
+    sparse_mat_init(mat, m, n + m);
+  else
+    sparse_mat_init(mat, m, n);
 
-  sparse_vec_realloc(vec, nnz);
-  vec->nnz = nnz;
-  std::move(indices.begin(), indices.end(), vec->indices);
-  std::move(entries.begin(), entries.end(), vec->entries);
+  if(verbose > 2)
+    msg("Setting up matrix of size (%d, %d)", mat->nrow, mat->ncol);
 
+  // ---- fill rows ----
+  for(size_t i = 0; i < m; i++) {
+
+    if(trace[i])
+      continue;
+
+    auto row = sparse_mat_row(mat, i);
+
+    const auto& coeffs = entries[i];
+    const auto& cols = idxs[i];
+
+    const size_t max_nnz = coeffs.size() + (proof_level > 0 ? 1 : 0);
+
+    sparse_vec_realloc(row, max_nnz);
+
+    size_t nnz = 0;
+
+    // --- insert reduced entries ---
+    for(size_t k = 0; k < coeffs.size(); k++) {
+      uint32_t c = fmpz_get_nmod(coeffs[k].value, mod);
+      if(c != 0) {
+        row->indices[nnz] = cols[k];
+        row->entries[nnz] = c;
+        nnz++;
+      }
+    }
+
+    // ---- detect zero leading entry ----
+    if(nnz == 0)
+      return false;
+
+    // ---- transformation block ----
+    if(proof_level > 0) {
+      row->indices[nnz] = n + i;
+      row->entries[nnz] = 1;
+      nnz++;
+    }
+
+    row->nnz = nnz;
+  }
   return true;
-}
-
-static inline bool
-mat_mod(uint32_mat_t mat, const sfmpz_mat_t src, nmod_t mod, bool* trace) {
-  bool res = true;
-  std::vector<size_t> indices;
-  std::vector<uint32_t> entries;
-  for(size_t i = 0; i < src->nrow; i++) {
-    if(!trace[i]) {
-      res = vec_mod(
-        sparse_mat_row(mat, i), sparse_mat_row(src, i), mod, indices, entries);
-      if(!res)
-        break;
-    }
-  }
-  return res;
 }
 
 inline int
@@ -85,20 +110,16 @@ cmp_pivots(pivots x, pivots y) {
   return -1;
 }
 
-static inline gmp_int
-height(sfmpz_mat_t mat) {
-  gmp_int h;
-  mpz_t tmp;
-  mpz_init(tmp);
-  for(size_t i = 0; i < mat->nrow; i++) {
-    auto row = sparse_mat_row(mat, i);
-    for(size_t j = 0; j < row->nnz; j++) {
-      fmpz_get_mpz(tmp, row->entries + j);
-      if(mpz_cmpabs(tmp, h.data()))
-        mpz_abs(h.data(), tmp);
+static inline coeff
+height(const std::vector<std::span<coeff>>& entries) {
+  coeff h(0L);
+
+  for(const auto& row : entries) {
+    for(const auto& c : row) {
+      if(fmpz_cmpabs(c.value, h.value) > 0)
+        fmpz_abs(h.value, c.value);
     }
   }
-  mpz_clear(tmp);
 
   return h;
 }
@@ -171,9 +192,9 @@ inline bool
 verify_result(fmpz* nums,
               fmpz* denoms,
               size_t len,
-              mpz_int height,
+              coeff height,
               size_t n,
-              mpz_int P) {
+              coeff P) {
   fmpz_t d;
   fmpz_init_set_ui(d, 1);
   for(size_t i = 0; i < len; i++)
@@ -197,26 +218,16 @@ verify_result(fmpz* nums,
   fmpz_t lhs_fmpz;
   fmpz_init(lhs_fmpz);
 
-  fmpz_t height_f;
-  fmpz_init(height_f);
-  fmpz_set_mpz(height_f, height.backend().data());
-
-  fmpz_mul(lhs_fmpz, height_rref, height_f);
+  fmpz_mul(lhs_fmpz, height_rref, height.value);
   fmpz_mul_ui(lhs_fmpz, lhs_fmpz, n);
 
-  fmpz_t P_f;
-  fmpz_init(P_f);
-  fmpz_set_mpz(P_f, P.backend().data());
-
-  bool result = (fmpz_cmp(lhs_fmpz, P_f) < 0);
+  bool result = (fmpz_cmp(lhs_fmpz, P.value) < 0);
 
   // cleanup
   fmpz_clear(d);
   fmpz_clear(tmp);
   fmpz_clear(height_rref);
   fmpz_clear(lhs_fmpz);
-  fmpz_clear(height_f);
-  fmpz_clear(P_f);
 
   return result;
 }
@@ -324,10 +335,11 @@ static inline bool
 rational_reconstruction(fmpz*& nums,
                         fmpz*& denoms,
                         fmpz* crt_entries,
-                        mpz_int& prod,
+                        coeff& prod,
                         size_t N) {
+
   ratrec_data data;
-  mpz_set(data.mod, prod.backend().data());
+  fmpz_get_mpz(data.mod, prod.value);
   // N = floor(sqrt(m/2))
   mpz_fdiv_q_2exp(data.N, data.mod, 1);
   mpz_sqrt(data.N, data.N);
@@ -364,7 +376,6 @@ clear_denoms(std::vector<std::pair<size_t, size_t>>& idxs,
   fmpz_init(L);
   fmpz_init(tmp);
 
-  size_t k = 0;
   size_t cur_row = idxs[0].first;
   size_t row_start = 0;
 
@@ -649,7 +660,8 @@ gauss_elim(uint32_mat_t mat,
 }
 
 std::pair<std::vector<std::pair<size_t, size_t>>, fmpz*>
-multimodular_gauss_elim(sfmpz_mat_t mat,
+multimodular_gauss_elim(std::vector<std::vector<size_t>>& idxs_in,
+                        std::vector<std::span<coeff>>& entries_in,
                         std::unique_ptr<BS::thread_pool<BS::none>>& pool,
                         bool tracer,
                         bool interreduce,
@@ -666,14 +678,17 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
   fmpz* nums = nullptr;
   fmpz* denoms = nullptr;
 
-  bool* trace = new bool[mat->nrow];
-  std::fill(trace, trace + mat->nrow, false);
+  size_t nrow = idxs_in.size();
+  size_t ncol = 0;
+
+  bool* trace = new bool[nrow];
+  std::fill(trace, trace + nrow, false);
 
   size_t i = 0;
 
-  mpz_int h = mpz_int(height(mat));
-  mpz_int prod = 1;
-  mpz_int M = mat->ncol * 10000000 * (h + 100) * h + 1;
+  coeff h = height(entries_in);
+  coeff prod(1L);
+  coeff M = 20000000 * nrow * (h + 100) * h + 1;
 
   uint32_t p = PRIMES[0];
   nmod_t mod;
@@ -681,19 +696,18 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
 
   while(true) {
     while(prod < M) {
-      if(i >= MAX_PRIMES) {
+      if(i >= MAX_PRIMES)
         die(-1, "Multimodular Gaussian elimination is not converging");
-      }
       p = PRIMES[i++];
+      nmod_init(&mod, p);
 
       if(verbose > 2)
         msg("Computing mod %lu", p);
 
       std::unique_ptr<sparse_mat_struct<uint32_t>> nmod_mat
         = std::make_unique<sparse_mat_struct<uint32_t>>();
-      sparse_mat_init(nmod_mat.get(), mat->nrow, mat->ncol);
-      nmod_init(&mod, p);
-      res = mat_mod(nmod_mat.get(), mat, mod, trace);
+      res = set_up_matrix(
+        nmod_mat.get(), mod, idxs_in, entries_in, trace, proof_level);
 
       // a pivot was set to zero -- we don't want that
       if(!res) {
@@ -702,6 +716,8 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
         sparse_mat_clear(nmod_mat.get());
         continue;
       }
+
+      ncol = nmod_mat.get()->ncol;
 
       F4NCGB_TIME(rref);
       auto gauss_elim_wrapper = [&]() -> pivots {
@@ -745,11 +761,7 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
     idxs.clear();
 
     // the first n_piv rows will be reconstructed
-    size_t n_piv;
-    if(interreduce)
-      n_piv = mat->nrow;
-    else
-      n_piv = best_piv.size();
+    size_t n_piv = interreduce ? nrow : best_piv.size();
 
     {
       F4NCGB_TIME(crt);
@@ -771,20 +783,19 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
         msg("Reconstruction unsuccessful. Increasing bound.");
       M = prod * p * p;
       // reset trace and cleanup
-      std::fill(trace, trace + mat->nrow, false);
+      std::fill(trace, trace + nrow, false);
       fmpz_cleanup(nums, idxs.size());
       fmpz_cleanup(denoms, idxs.size());
       continue;
     }
 
-    if(verify_result(nums, denoms, idxs.size(), h, mat->ncol, prod))
+    if(verify_result(nums, denoms, idxs.size(), h, ncol, prod))
       break;
   }
+
   for(const auto& rref : rrefs)
     sparse_mat_clear(rref.get());
-
   delete[] trace;
-
   clear_denoms(idxs, nums, denoms);
   fmpz_cleanup(denoms, idxs.size());
 
@@ -792,22 +803,22 @@ multimodular_gauss_elim(sfmpz_mat_t mat,
 }
 
 std::pair<std::vector<std::pair<size_t, size_t>>, fmpz*>
-nmod_gauss_elim(sfmpz_mat_t mat,
+nmod_gauss_elim(std::vector<std::vector<size_t>>& idxs_in,
+                std::vector<std::span<coeff>>& entries_in,
                 size_t p,
                 std::unique_ptr<BS::thread_pool<BS::none>>& pool,
                 bool tracer,
                 bool interreduce,
                 size_t proof_level) {
   // not needed but use it to avoid code duplication
-  bool* trace = new bool[mat->nrow];
-  std::fill(trace, trace + mat->nrow, false);
+  bool* trace = new bool[idxs_in.size()];
+  std::fill(trace, trace + idxs_in.size(), false);
 
   nmod_t mod;
   nmod_init(&mod, p);
 
   uint32_mat_t nmod_mat;
-  sparse_mat_init(nmod_mat, mat->nrow, mat->ncol);
-  mat_mod(nmod_mat, mat, mod, trace);
+  set_up_matrix(nmod_mat, mod, idxs_in, entries_in, trace, proof_level);
 
   F4NCGB_TIME(rref);
   auto gauss_elim_wrapper = [&]() -> pivots {
@@ -820,11 +831,7 @@ nmod_gauss_elim(sfmpz_mat_t mat,
   pivots piv(gauss_elim_wrapper());
 
   // compute rows with new leading terms
-  size_t n_piv;
-  if(interreduce)
-    n_piv = mat->nrow;
-  else
-    n_piv = piv.size();
+  size_t n_piv = interreduce ? nmod_mat->nrow : piv.size();
 
   // compute nonzero indices & entries
   size_t nnz = sparse_mat_nnz(nmod_mat);
@@ -847,26 +854,60 @@ nmod_gauss_elim(sfmpz_mat_t mat,
   return std::make_pair(idxs, entries);
 }
 
+void
+sort_rows(std::vector<std::vector<size_t>>& idxs,
+          std::vector<std::span<coeff>>& entries) {
+  const size_t nrows = idxs.size();
+
+  std::vector<size_t> perm(nrows);
+  for(size_t i = 0; i < nrows; i++)
+    perm[i] = i;
+
+  // comparator
+  auto cmp = [&](size_t a, size_t b) {
+    size_t a_first = idxs[a][0];
+    size_t b_first = idxs[b][0];
+    if(a_first != b_first)
+      return a_first > b_first;
+    return entries[a].size() > entries[b].size();
+  };
+
+  // sort permutation
+  std::sort(perm.begin(), perm.end(), cmp);
+
+  // reorder idxs and entries
+  std::vector<std::vector<size_t>> idxs_sorted(nrows);
+  std::vector<std::span<coeff>> entries_sorted(nrows);
+
+  for(size_t i = 0; i < nrows; i++) {
+    idxs_sorted[i] = std::move(idxs[perm[i]]);
+    entries_sorted[i] = entries[perm[i]];
+  }
+
+  idxs = std::move(idxs_sorted);
+  entries = std::move(entries_sorted);
+}
+
 std::pair<std::vector<std::pair<size_t, size_t>>, fmpz*>
-linear_algebra(sfmpz_mat_t mat,
+linear_algebra(std::vector<std::vector<size_t>>& idxs_in,
+               std::vector<std::span<coeff>>& entries_in,
                size_t characteristic,
                std::unique_ptr<BS::thread_pool<BS::none>>& pool,
                bool tracer,
                bool interreduce,
                size_t proof_level) {
-  // sort rows by first index and nnz
-  std::sort(mat->rows, mat->rows + mat->nrow, [](auto& r1, auto& r2) {
-    auto id1 = r1.indices[0];
-    auto id2 = r2.indices[0];
-    if(id1 != id2)
-      return id1 > id2;
-    return r1.nnz < r2.nnz;
-  });
 
   if(characteristic == 0)
-    return multimodular_gauss_elim(mat, pool, tracer, interreduce, proof_level);
+    return multimodular_gauss_elim(
+      idxs_in, entries_in, pool, tracer, interreduce, proof_level);
   else
-    return nmod_gauss_elim(
-      mat, characteristic, pool, tracer, interreduce, proof_level);
+    return nmod_gauss_elim(idxs_in,
+                           entries_in,
+                           characteristic,
+                           pool,
+                           tracer,
+                           interreduce,
+                           proof_level);
 }
+
 }

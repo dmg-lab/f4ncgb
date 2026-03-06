@@ -4,7 +4,6 @@
 #include "sparse_vec.h"
 #include <boost/multiprecision/gmp.hpp>
 
-
 template<typename T>
 struct sparse_mat_struct {
   ulong nrow;
@@ -18,17 +17,19 @@ using sparse_mat_t = struct sparse_mat_struct<T>[1];
 typedef sparse_mat_t<ulong> snmod_mat_t;
 typedef sparse_mat_t<fmpz> sfmpz_mat_t;
 
-
 #define sparse_mat_row(mat, ind) ((mat)->rows + (ind))
 
 template<typename T>
 inline void
-sparse_mat_init(sparse_mat_t<T> mat, ulong nrow, ulong ncol) {
+sparse_mat_init(sparse_mat_t<T> mat,
+                ulong nrow,
+                ulong ncol,
+                ulong alloc = 1UL) {
   mat->nrow = nrow;
   mat->ncol = ncol;
   mat->rows = s_malloc<sparse_vec_struct<T>>(nrow);
   for(size_t i = 0; i < nrow; i++)
-    sparse_vec_init(sparse_mat_row(mat, i), 1ULL);
+    sparse_vec_init(sparse_mat_row(mat, i), alloc);
 }
 
 template<typename T>
@@ -68,13 +69,12 @@ sparse_mat_write(sparse_mat_t<T> mat, S& st) {
     for(size_t j = 0; j < mat->ncol; j++) {
       auto c = sparse_mat_entry(mat, i, j);
       boost::multiprecision::mpz_int cc;
-      if (c == nullptr)
+      if(c == nullptr)
         st << 0 << ' ';
       else if constexpr(std::is_same_v<T, fmpz>) {
         fmpz_get_mpz(cc.backend().data(), c);
         st << cc << ' ';
-      }
-      else
+      } else
         st << (int)(*c) << ' ';
     }
     st << "\n";

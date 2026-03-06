@@ -80,7 +80,7 @@ void
 sparse_vec_realloc(sparse_vec_t<T> vec, ulong alloc) {
 
   assert(alloc >= vec->alloc);
-  
+
   if(alloc == vec->alloc)
     return;
   ulong old_alloc = vec->alloc;
@@ -106,10 +106,6 @@ sparse_vec_init(sparse_vec_t<T> vec, ulong alloc = 1) {
   vec->alloc = alloc;
   vec->indices = s_malloc<ulong>(vec->alloc);
   vec->entries = s_malloc<T>(alloc);
-  if constexpr(std::is_same_v<T, fmpz>) {
-    for(ulong i = 0; i < alloc; i++)
-      fmpz_init(vec->entries + i);
-  }
 }
 
 // set zero and clear memory
@@ -163,7 +159,6 @@ sparse_vec_canonicalize(sparse_vec_t<T> vec) {
   }
   vec->nnz = new_nnz;
 }
-
 
 // debug only, not used to the large vector
 template<typename T>

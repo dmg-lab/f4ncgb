@@ -1,12 +1,11 @@
 #pragma once
 
 #include <algorithm>
-#include <chrono>
 #include <cstdint>
 #include <fstream>
+#include <numeric>
 #include <ostream>
 #include <set>
-#include <span>
 #include <utility>
 #include <vector>
 
@@ -20,13 +19,10 @@
 #include "ambiguity.hpp"
 #include "coeff.hpp"
 #include "f4ncgb.hpp"
-#include "gmp.h"
 #include "linear_algebra.hpp"
 #include "parser.hpp"
 #include "profiling.hpp"
 #include "signal_statistics.hpp"
-#include "sparse_rref/sparse_mat.h"
-#include "sparse_rref/sparse_vec.h"
 #include "sparse_rref/thread_pool.hpp"
 
 #include "monomial_trie.hpp"
@@ -160,15 +156,19 @@ struct f4 {
                     bool first = false) {
       if(!first)
         o << (c.sign() > 0 ? " + " : " ");
-      o << c;
-      if(t.a != 0)
+      o << c << "*";
+      if(t.a != 0) {
         context.to_msolve_mon(o, poly, t.a, false);
+        o << "*";
+      }
       if(t.i >= 0)
-        o << "*[" << t.i << "]";
+        o << "[" << t.i << "]";
       else
-        o << "*[i" << -t.i - 1 << "]";
-      if(t.b != 0)
+        o << "[i" << -t.i - 1 << "]";
+      if(t.b != 0) {
+        o << "*";
         context.to_msolve_mon(o, poly, t.b, false);
+      }
     }
   };
 
@@ -336,8 +336,6 @@ struct f4 {
     poly_id g = poly.multiply_front_and_back(aj, j, cj);
 
     if(proof_level > 0) {
-      assert(poly.get_idx(i) > 0);
-      assert(poly.get_idx(j) > 0);
       extended_rows.emplace_back(ai, poly.get_idx(i), ci);
       extended_rows.emplace_back(aj, poly.get_idx(j), cj);
     }
@@ -515,6 +513,7 @@ struct f4 {
   boost::unordered_set<mon_id> todo;
   boost::unordered_set<mon_id> done;
   std::vector<poly_id> rows;
+  std::vector<mon_id> columns;
 
   std::vector<poly_id> symbolic_preprocessing(bool reduce = false) {
     F4NCGB_TIME(sym_pre);
@@ -578,10 +577,8 @@ struct f4 {
     mon_id b = mons.getid(mm.last(mm.size() - match.second - lm.size()));
     poly_id g = lm_to_poly[match.first];
 
-    if(proof_level > 0) {
-      assert(poly.get_idx(g) > 0);
+    if(proof_level > 0)
       extended_rows.emplace_back(a, poly.get_idx(g), b);
-    }
 
     poly_id res = poly.multiply_front_and_back(a, g, b);
 
@@ -597,13 +594,11 @@ struct f4 {
       for(size_t n = basis.size(); n < cofactors.size(); n++) {
         expanded.clear();
         for(auto& cofactor : cofactors[n]) {
-          C& c = cofactor.c;
+          coeff& c = cofactor.c;
           mon_id a = cofactor.a();
           mon_id b = cofactor.b();
           for(auto& cofactor_i : cofactors[(size_t)cofactor.i()]) {
-            C cc;
-            // TODO
-            // mpz_mul(cc.data(), c.data(), cofactor_i.c.data());
+            coeff cc = c * cofactor_i.c;
             mon_id aa = mons.get_product_id(a, cofactor_i.a());
             mon_id bb = mons.get_product_id(cofactor_i.b(), b);
             expanded.emplace_back(cc, aa, cofactor_i.i(), bb);
@@ -691,46 +686,98 @@ struct f4 {
 
     return res;
   }
+
+  boost::unordered_map<mon_id, size_t> col_to_id;
+  std::vector<std::span<C>> entries_in;
+  std::vector<std::vector<size_t>> idxs_in;
+  void prepare_matrix() {
+    col_to_id.clear();
+    size_t i = 0;
+    for(auto c : columns)
+      col_to_id[c] = i++;
+
+    size_t m = rows.size();
+
+    // sort rows (+ extended_rows accordingly)
+    // first by lm (smaller first), then by support (smaller first)
+    std::vector<size_t> perm(m);
+    std::iota(perm.begin(), perm.end(), 0);
+
+    auto cmp = [this](size_t a, size_t b) {
+      size_t ca = col_to_id[this->poly.get_lm_id(rows[a])];
+      size_t cb = col_to_id[this->poly.get_lm_id(rows[b])];
+      if(ca != cb)
+        return ca > cb;
+      return this->poly.get_length(rows[a]) < this->poly.get_length(rows[b]);
+    };
+
+    std::sort(perm.begin(), perm.end(), cmp);
+    auto apply_perm = [&](auto& vec) {
+      using T = typename std::decay_t<decltype(vec)>::value_type;
+      std::vector<T> tmp;
+      tmp.reserve(vec.size());
+      for(size_t i : perm)
+        tmp.push_back(std::move(vec[i]));
+      vec = std::move(tmp);
+    };
+    apply_perm(rows);
+
+    if(proof_level > 0)
+      apply_perm(extended_rows);
+
+    // collect entries and indices
+    entries_in.clear();
+    idxs_in.clear();
+    entries_in.reserve(m);
+    idxs_in.resize(m);
+
+    i = 0;
+    for(auto r : rows) {
+      entries_in.push_back(poly.get_coefficients(r));
+
+      auto p = poly[r];
+      for(auto it = p.begin(); it != p.end(); it++) {
+        idxs_in[i].push_back(col_to_id[*it]);
+      }
+      i++;
+    }
+  }
+
   //------------------------------------------------------------------------------
-  boost::unordered_set<mon_id> col_set;
-  std::vector<mon_id> columns;
   const std::vector<poly_id>& reduction(bool interreduce = false,
                                         bool reduce = false) {
     // symbolic preprocessing
     auto rows = symbolic_preprocessing(reduce);
     crit_pairs.clear();
 
-    col_set.clear();
-
-    // make columns
-    // columns are sorted in DESCENDING order
+    columns.clear();
     for(const auto r : rows) {
       auto p = poly[r];
-      col_set.insert(p.begin(), p.end());
+      columns.insert(columns.end(), p.begin(), p.end());
     }
-    columns.clear();
-    columns.resize(
-      static_cast<size_t>(std::distance(col_set.begin(), col_set.end())));
-    std::move(col_set.begin(), col_set.end(), columns.begin());
     auto cmp = [this](const mon_id a, const mon_id b) {
       return this->mons.template cmp<block_order>(b, a);
     };
     std::sort(columns.begin(), columns.end(), cmp);
+    columns.erase(std::unique(columns.begin(), columns.end()), columns.end());
 
-    // set up matrix
-    sfmpz_mat_t mat;
-    set_up_matrix(mat, rows, columns);
+    // prepare entries
+    prepare_matrix();
 
     // reduction
     F4NCGB_PROFILE(auto timer = gstats.time(gstats.reduction));
-    auto [idxs, entries] = linear_algebra(
-      mat, characteristic, pool, tracer, interreduce, proof_level);
+    auto [idxs, entries] = linear_algebra(idxs_in,
+                                          entries_in,
+                                          characteristic,
+                                          pool,
+                                          tracer,
+                                          interreduce,
+                                          proof_level);
 
     // compute new elements
     F4NCGB_PROFILE(auto timer2 = gstats.time(gstats.new_elements));
     auto& new_elements = compute_new_polynomials(idxs, entries, columns);
 
-    sparse_mat_clear(mat);
     fmpz_cleanup(entries, idxs.size());
 
     return new_elements;
@@ -744,66 +791,6 @@ struct f4 {
   //     fmpz_lcm(denom, denom, tmp);
   //   }
   // }
-  //------------------------------------------------------------------------------
-  boost::unordered_map<mon_id, size_t> col_to_id;
-  void set_up_matrix(sfmpz_mat_t mat,
-                     std::vector<poly_id>& rows,
-                     std::vector<mon_id>& columns) {
-
-    col_to_id.clear();
-    size_t i = 0;
-    for(auto c : columns)
-      col_to_id[c] = i++;
-
-    size_t m = rows.size();
-    size_t n = columns.size();
-
-    // initialize matrix
-    if(proof_level > 0)
-      sparse_mat_init(mat, m, m + n);
-    else
-      sparse_mat_init(mat, m, n);
-
-    if(verbose > 2)
-      msg("Setting up matrix of size (%d, %d)", mat->nrow, mat->ncol);
-
-    // set all entries
-    fmpz_t denom;
-    fmpz_t tmp;
-    fmpz_init(denom);
-    fmpz_init(tmp);
-
-    i = 0;
-    for(auto r : rows) {
-      auto row = sparse_mat_row(mat, i);
-      std::span<C> coeffs = poly.get_coefficients(r);
-
-      auto p = poly[r];
-      auto nnz = p.size();
-      if(proof_level > 0)
-        nnz += 1;// for transformation matrix
-      sparse_vec_realloc(row, nnz);
-      row->nnz = nnz;
-
-      // insert poly
-      size_t k = 0;
-      for(auto it = p.begin(); it != p.end(); it++) {
-        fmpz_set(row->entries + k, coeffs[k].value);
-        row->indices[k] = col_to_id[*it];
-        k++;
-      }
-
-      // insert transformation matrix - if required
-      if(proof_level > 0) {
-        row->indices[k] = n + i;
-        fmpz_set_ui(row->entries + k, 1UL);
-      }
-      i++;
-    }
-
-    fmpz_clear(denom);
-    fmpz_clear(tmp);
-  }
   //------------------------------------------------------------------------------
   void update_basis_and_amb(std::vector<poly_id>& new_elements) {
 

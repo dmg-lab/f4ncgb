@@ -75,14 +75,44 @@ struct coeff {
   }
 
   coeff& operator/=(long b) {
-    fmpz_t tmp;
-    fmpz_init(tmp);
-    fmpz_set_si(tmp, b);
-
-    fmpz_divexact(value, value, tmp);
-
-    fmpz_clear(tmp);
+    fmpz_divexact_si(value, value, b);
     return *this;
+  }
+
+  friend coeff operator+(const coeff& a, const coeff& b) {
+    coeff r;
+    fmpz_add(r.value, a.value, b.value);
+    return r;
+  }
+
+  friend coeff operator+(const coeff& a, ulong b) {
+    coeff r;
+    fmpz_add_ui(r.value, a.value, b);
+    return r;
+  }
+
+  friend coeff operator*(const coeff& a, const coeff& b) {
+    coeff r;
+    fmpz_mul(r.value, a.value, b.value);
+    return r;
+  }
+
+  friend coeff operator*(const coeff& a, ulong b) {
+    coeff r;
+    fmpz_mul_ui(r.value, a.value, b);
+    return r;
+  }
+
+  friend coeff operator*(ulong a, const coeff& b) {
+    coeff r;
+    fmpz_mul_ui(r.value, b.value, a);
+    return r;
+  }
+
+  friend coeff operator+(ulong a, const coeff& b) { return b + a; }
+
+  friend bool operator<(const coeff& a, const coeff& b) {
+    return fmpz_cmp(a.value, b.value) < 0;
   }
 
   int sign() const { return fmpz_sgn(value); }
