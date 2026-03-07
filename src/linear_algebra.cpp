@@ -9,8 +9,6 @@
 #include <utility>
 #include <vector>
 
-#include <boost/unordered_set.hpp>
-
 #include "coeff.hpp"
 #include "fast_div.hpp"
 #include "primes.hpp"
@@ -408,7 +406,7 @@ static void inline copy_to_buffer(T& buffer, uint32_vec_t vec) {
     buffer[vec->indices[i]] = vec->entries[i];
 }
 
-static void inline copy_from_buffer_and_clear(std::vector<int64_t>& buffer,
+static void inline copy_from_buffer_and_clear(int64_t* buffer,
                                               std::vector<size_t>& buffer_ids,
                                               uint32_vec_t vec) {
   size_t nnz = buffer_ids.size();
@@ -437,22 +435,50 @@ static void inline normalize_row(uint32_vec_t vec, nmod_t mod) {
 // Compute x - ay mod p
 // but leave out the 0th entry of y
 // because that will be zero anyway
-static void inline xmay(std::vector<int64_t>& x,
-                        int64_t a,
-                        uint32_vec_t y,
-                        int64_t p2) {
-  size_t j;
-  int64_t t;
-  for(size_t i = 1; i < y->nnz; i++) {
-    j = y->indices[i];
-    t = x[j];
-    t -= a * y->entries[i];
+static inline void
+xmay(int64_t* __restrict x,
+     int64_t a,
+     const ulong* __restrict idx,
+     const uint32_t* __restrict val,
+     size_t nnz,
+     int64_t p2) {
+
+  size_t i = 1;
+  for(; i + 3 < nnz; i += 4) {
+    size_t j0 = idx[i];
+    size_t j1 = idx[i + 1];
+    size_t j2 = idx[i + 2];
+    size_t j3 = idx[i + 3];
+
+    int64_t v0 = x[j0];
+    int64_t v1 = x[j1];
+    int64_t v2 = x[j2];
+    int64_t v3 = x[j3];
+
+    int64_t t0 = v0 - a * val[i];
+    int64_t t1 = v1 - a * val[i + 1];
+    int64_t t2 = v2 - a * val[i + 2];
+    int64_t t3 = v3 - a * val[i + 3];
+
+    t0 += (t0 >> 63) & p2;
+    t1 += (t1 >> 63) & p2;
+    t2 += (t2 >> 63) & p2;
+    t3 += (t3 >> 63) & p2;
+
+    x[j0] = t0;
+    x[j1] = t1;
+    x[j2] = t2;
+    x[j3] = t3;
+  }
+
+  // Handle remaining elements
+  for(; i < nnz; i++) {
+    size_t j = idx[i];
+    int64_t t = x[j] - a * val[i];
     t += (t >> 63) & p2;
     x[j] = t;
   }
 }
-
-static std::vector<size_t> buffer_ids;
 
 template<bool mersenne = false>
 static pivots
@@ -462,6 +488,8 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
 
   std::vector<int64_t> piv_array(mat->ncol, -1);
   std::vector<int64_t> buffer(mat->ncol, 0);
+  std::vector<size_t> buffer_ids;
+  int64_t* buff = buffer.data();
   buffer_ids.reserve(32);
 
   // sort new pivot rows up -- assume: mat is in ref
@@ -496,7 +524,7 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
     if(row->nnz < 2)
       continue;
 
-    copy_to_buffer(buffer, row);
+    copy_to_buffer(buff, row);
     buffer_ids.clear();
     buffer_ids.push_back(row->indices[0]);
     int64_t cc;
@@ -505,14 +533,14 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
     while(i < mat->ncol) {
 #ifdef F4NCGB_FAST_MERSENNE_PRIME_MODULO
       if constexpr(mersenne) {
-        cc = mersenne_mod(buffer[i]);
+        cc = mersenne_mod(buff[i]);
       } else {
 #endif
-        cc = (int64_t)(((uint64_t)buffer[i]) % p);
+        cc = (int64_t)(((uint64_t)buff[i]) % p);
 #ifdef F4NCGB_FAST_MERSENNE_PRIME_MODULO
       }
 #endif
-      buffer[i] = cc;
+      buff[i] = cc;
       if(cc != 0) {
         rr = piv_array[i];
         if(rr < 0) {
@@ -520,15 +548,16 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
         } else {
           assert(sparse_mat_row(mat, rr)->indices[0] == i);
           assert(sparse_mat_row(mat, rr)->entries[0] == 1);
-          buffer[i] = 0;
-          xmay(buffer, cc, sparse_mat_row(mat, rr), p2);
+          buff[i] = 0;
+          auto row_rr = sparse_mat_row(mat, rr);
+          xmay(buff, cc, row_rr->indices, row_rr->entries, row_rr->nnz, p2);
         }
       }
-      i++;
-      while(i < mat->ncol and buffer[i] == 0)
-        i++;
+      for(i++; i < mat->ncol; i++)
+        if(buff[i] != 0)
+          break;
     }
-    copy_from_buffer_and_clear(buffer, buffer_ids, row);
+    copy_from_buffer_and_clear(buff, buffer_ids, row);
   }
 
   return piv;
@@ -584,41 +613,40 @@ gauss_elim(uint32_mat_t mat,
       int64_t expected = -1;
 
       buffer_local.resize(mat->ncol, 0);
+      int64_t* buff = buffer_local.data();
 
       do {
-        copy_to_buffer(buffer_local, row);
+
+        copy_to_buffer(buff, row);
         buffer_ids_local.clear();
         size_t i = row->indices[0];
         size_t max_col = row->indices[row->nnz - 1];
         while(i <= max_col) {
-          assert(buffer_local[i] > 0);
+          assert(buff[i] > 0);
           // v must be smaller than 2^2b, i.e. 2^62
-          assert(buffer_local[i] < 4611686018427387904);
+          assert(buff[i] < 4611686018427387904);
 #ifdef F4NCGB_FAST_MERSENNE_PRIME_MODULO
           if constexpr(mersenne) {
             (void)p;// p is not used in this case.
-            cc = mersenne_mod(buffer_local[i]);
-          } else {
+            cc = mersenne_mod(buff[i]);
+          } else
 #endif
-            cc = (int64_t)(((uint64_t)buffer_local[i]) % p);
-#ifdef F4NCGB_FAST_MERSENNE_PRIME_MODULO
-          }
-#endif
-          buffer_local[i] = cc;
+            cc = (int64_t)(((uint64_t)buff[i]) % p);
+          buff[i] = cc;
           if(cc != 0) {
             rr = atomic_pivots[i];
             if(rr < 0) {
               buffer_ids_local.push_back(i);
             } else {
-              buffer_local[i] = 0;
+              buff[i] = 0;
               auto row_rr = sparse_mat_row(mat, rr);
               max_col = std::max(max_col, row_rr->indices[row_rr->nnz - 1]);
-              xmay(buffer_local, cc, row_rr, p2);
+              xmay(buff, cc, row_rr->indices, row_rr->entries, row_rr->nnz, p2);
             }
           }
-          i++;
-          while(i <= max_col and buffer_local[i] == 0)
-            i++;
+          for(i++; i <= max_col; i++)
+            if(buff[i] != 0)
+              break;
         }
 
         // we have a zero row
@@ -627,12 +655,12 @@ gauss_elim(uint32_mat_t mat,
                and buffer_ids_local[0] >= mat->ncol - mat->nrow)) {
           sparse_vec_clear(row);
           for(auto id : buffer_ids_local)
-            buffer_local[id] = 0;
+            buff[id] = 0;
           // only set them if we use tracer
           trace[r] = use_trace;
           return;
         }
-        copy_from_buffer_and_clear(buffer_local, buffer_ids_local, row);
+        copy_from_buffer_and_clear(buff, buffer_ids_local, row);
         normalize_row(row, mod);
         expected = -1;
       } while(!atomic_pivots[row->indices[0]].compare_exchange_weak(
