@@ -519,55 +519,51 @@ struct f4 {
   }
 
   //------------------------------------------------------------------------------
-  boost::unordered_set<mon_id> todo;
-  boost::unordered_set<mon_id> done;
   std::vector<poly_id> rows;
   std::vector<mon_id> columns;
 
   void symbolic_preprocessing(bool reduce = false) {
     F4NCGB_TIME(sym_pre);
-    todo.clear();
-    done.clear();
+    boost::unordered_set<mon_id> todo_seen;
+    std::vector<mon_id> todo_vec;
+    size_t todo_pos = 0;
     rows.clear();
 
+    auto push_todo = [&](mon_id m) {
+      // insert into vector only if new
+      if(todo_seen.insert(m).second)
+        todo_vec.push_back(m);
+    };
+
     for(const auto& [f, g] : crit_pairs) {
-      // add monomials to corresponding sets
       auto mon_it = poly[f];
       rows.push_back(f);
+      todo_seen.insert(*mon_it.begin());
+      for(auto it = std::next(mon_it.begin()); it != mon_it.end(); ++it)
+        push_todo(*it);
 
-      // the version for reduced_form
-      if(reduce)
-        todo.insert(mon_it.begin(), mon_it.end());
-      // the GB version
-      else {
-        done.insert(*mon_it.begin());
-        todo.insert(++mon_it.begin(), mon_it.end());
-
-        mon_it = poly[g];
-        rows.push_back(g);
-        done.insert(*mon_it.begin());
-        todo.insert(++mon_it.begin(), mon_it.end());
-      }
+      // Repeat for g
+      mon_it = poly[g];
+      rows.push_back(g);
+      todo_seen.insert(*mon_it.begin());
+      for(auto it = std::next(mon_it.begin()); it != mon_it.end(); ++it)
+        push_todo(*it);
     }
     crit_pairs.clear();
 
-    while(!todo.empty()) {
-      mon_id m = *todo.begin();
-      todo.erase(todo.begin());
-      done.insert(m);
-
+    while(todo_pos < todo_vec.size()) {
+      mon_id m = todo_vec[todo_pos++];
       poly_id reducer = find_reducer(m);
-      if(reducer == 0)
+      if(!reducer)
         continue;
+
       assert(m == poly.get_lm_id(reducer));
       rows.push_back(reducer);
-      for(auto mm : poly[reducer]) {
-        if(!done.count(mm))
-          todo.insert(mm);
-      }
+
+      for(mon_id mm : poly[reducer])
+        push_todo(mm);
     }
   }
-
   //------------------------------------------------------------------------------
   poly_id find_reducer(mon_id m) {
     auto& reducers = prefix_trie.divisors(mons[m]);
@@ -642,16 +638,14 @@ struct f4 {
   }
   //------------------------------------------------------------------------------
   std::vector<poly_id> res;
-  std::vector<std::pair<coeff, mon_id>> p;
-  std::vector<cofactor> current_cofactors;
   const std::vector<poly_id>& compute_new_polynomials(
     std::vector<std::pair<size_t, size_t>>& idxs,
     fmpz* entries,
     std::vector<mon_id>& columns) {
 
+    std::vector<std::pair<coeff, mon_id>> p;
+    std::vector<cofactor> current_cofactors;
     res.clear();
-    p.clear();
-    current_cofactors.clear();
 
     poly.reset();
 
@@ -707,11 +701,11 @@ struct f4 {
   };
   //------------------------------------------------------------------------------
 
-  boost::unordered_map<mon_id, size_t> col_to_id;
   std::vector<std::span<C>> entries_in;
   std::vector<std::vector<size_t>> idxs_in;
   void prepare_matrix() {
-    col_to_id.clear();
+
+    boost::unordered_map<mon_id, size_t> col_to_id;
     size_t i = 0;
     for(auto c : columns)
       col_to_id[c] = i++;
