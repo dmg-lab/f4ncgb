@@ -53,8 +53,11 @@ set_up_matrix(uint32_mat_t mat,
   // ---- fill rows ----
   for(size_t i = 0; i < m; i++) {
 
-    if(trace[i])
+    if(trace[i]) {
+      // dummy init to be safe
+      sparse_mat_row_init(mat, i, 0);
       continue;
+    }
 
     const auto& coeffs = entries[i];
     const auto& cols = idxs[i];

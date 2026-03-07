@@ -71,10 +71,9 @@ sparse_vec_realloc(sparse_vec_t<T> vec, ulong alloc) {
 
 #define sparse_vec_entry_pointer(vec, index) ((vec)->entries + (index))
 
-// alloc at least 1 to make sure that indices and entries are not NULL
 template<typename T>
 inline void
-sparse_vec_init(sparse_vec_t<T> vec, ulong alloc = 1) {
+sparse_vec_init(sparse_vec_t<T> vec, ulong alloc = 0) {
   vec->is_new_piv = false;
   vec->nnz = 0;
   vec->alloc = alloc;

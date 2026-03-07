@@ -23,18 +23,15 @@ template<typename T>
 inline void
 sparse_mat_init(sparse_mat_t<T> mat,
                 ulong nrow,
-                ulong ncol,
-                ulong alloc = 1UL) {
+                ulong ncol) {
   mat->nrow = nrow;
   mat->ncol = ncol;
   mat->rows = s_malloc<sparse_vec_struct<T>>(nrow);
-  for(size_t i = 0; i < nrow; i++)
-    sparse_vec_init(sparse_mat_row(mat, i), alloc);
 }
 
 template<typename T>
 inline void
-sparse_mat_clear(sparse_mat_t<T> mat) {
+sparse_mat_clear(sparse_mat_t<T> mat) {  
   for(size_t i = 0; i < mat->nrow; i++)
     sparse_vec_clear(sparse_mat_row(mat, i));
   s_free(mat->rows);
