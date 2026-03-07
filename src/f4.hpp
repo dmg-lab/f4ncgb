@@ -528,6 +528,8 @@ struct f4 {
     std::vector<mon_id> todo_vec;
     size_t todo_pos = 0;
     rows.clear();
+    todo_vec.reserve(1L << 16);
+    todo_seen.reserve(1L << 16);
 
     auto push_todo = [&](mon_id m) {
       // insert into vector only if new
