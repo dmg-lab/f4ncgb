@@ -22,7 +22,7 @@ s_free(T* s) {
 template<typename T>
 inline T*
 s_realloc(T* s, const size_t size) {
-  assert(size > 0);  
+  assert(size > 0);
   return (T*)std::realloc(s, size * sizeof(T));
 }
 
@@ -60,7 +60,7 @@ template<typename T>
 void
 sparse_vec_realloc(sparse_vec_t<T> vec, ulong alloc) {
 
-  if(alloc <= vec->alloc && alloc > vec->alloc / 2)
+  if(alloc == vec->alloc)
     return;
 
   vec->alloc = alloc;
