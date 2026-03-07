@@ -425,6 +425,8 @@ parse_rest_into_polynomial_store(parser_context& ctx, PS& s) {
       for(long d : tmp_denom)
         common_denom.lcm_inplace(d);
 
+      input_denoms.push_back(common_denom);
+
       size_t i = 0;
       for(auto& [c, m] : tmp_polynomial) {
         c *= common_denom;

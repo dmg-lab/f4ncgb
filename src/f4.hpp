@@ -26,6 +26,7 @@
 #include "sparse_rref/thread_pool.hpp"
 
 #include "monomial_trie.hpp"
+#include "store.hpp"
 
 using namespace boost::multiprecision;
 
@@ -96,7 +97,6 @@ struct f4 {
   size_t iter = 0;
   size_t maxiter = UINT_MAX;
   size_t maxdeg = UINT_MAX;
-  size_t proof_level = 0;
   bool tracer = true;
   bool constant_flag = false;
   static constexpr bool block_order = Nblocks > 0;
@@ -112,8 +112,9 @@ struct f4 {
     , characteristic(context.characteristic())
     , maxiter(context.maxiter())
     , maxdeg(context.maxdeg())
-    , proof_level(context.proof_level())
     , tracer(context.tracer()) {
+
+    proof_level = context.proof_level();
 
     mons.set_blocks(context.block_sizes());
 
@@ -222,27 +223,29 @@ struct f4 {
   std::vector<poly_id> new_elements;
   void interreduce_and_add_to_basis(std::vector<poly_id>& polies) {
 
+    interreduce = true;
+
     if(verbose > 1)
       msg("Linearly interreducing input of size %d.", input.size());
 
     size_t i = 0;
     for(const auto& p : polies) {
-      extended_rows.emplace_back(0, i, 0);
+      rows.push_back(p);
       extended_rows.emplace_back(0, i++, 0);
-      crit_pair c(p, p);
-      crit_pairs.insert(c);
     }
 
     // to leave 0th position open; just like in basis
     cofactors.emplace_back();
 
-    // store result in new_elements
-    reduction(true);
+    // reduce and store result in new_elements
+    reduction();
 
     if(verbose > 1)
       msg("Adding %d input elements to basis.", new_elements.size());
 
     update_basis_and_amb();
+
+    interreduce = false;
   }
   //------------------------------------------------------------------------------
 
@@ -269,6 +272,8 @@ struct f4 {
 
       if(verbose > 1)
         msg("Reducing %d critical pairs.", crit_pairs.size());
+
+      symbolic_preprocessing();
 
       // store results in new_elements
       reduction();
@@ -307,7 +312,7 @@ struct f4 {
     if(!constant_flag) {
       crit_pair c(p, p);
       crit_pairs.insert(c);
-      reduction(true, true);
+      reduction();
     }
 
     // find the element with new leading monomial, this is the NF
@@ -544,6 +549,7 @@ struct f4 {
         todo.insert(++mon_it.begin(), mon_it.end());
       }
     }
+    crit_pairs.clear();
 
     while(!todo.empty()) {
       mon_id m = *todo.begin();
@@ -689,6 +695,17 @@ struct f4 {
 
     return res;
   }
+  //------------------------------------------------------------------------------
+
+  template<typename T>
+  void apply_perm(std::vector<T>& vec, std::vector<size_t>& perm) {
+    std::vector<T> tmp;
+    tmp.reserve(vec.size());
+    for(size_t i : perm)
+      tmp.push_back(std::move(vec[i]));
+    vec = std::move(tmp);
+  };
+  //------------------------------------------------------------------------------
 
   boost::unordered_map<mon_id, size_t> col_to_id;
   std::vector<std::span<C>> entries_in;
@@ -716,18 +733,13 @@ struct f4 {
     };
     std::sort(perm.begin(), perm.end(), cmp);
 
-    auto apply_perm = [&](auto& vec) {
-      using T = typename std::decay_t<decltype(vec)>::value_type;
-      std::vector<T> tmp;
-      tmp.reserve(vec.size());
-      for(size_t i : perm)
-        tmp.push_back(std::move(vec[i]));
-      vec = std::move(tmp);
-    };
-    apply_perm(rows);
+    apply_perm(rows, perm);
 
-    if(proof_level > 0)
-      apply_perm(extended_rows);
+    if(proof_level > 0) {
+      if(interreduce)
+        apply_perm(input_denoms, perm);
+      apply_perm(extended_rows, perm);
+    }
 
     // collect entries and indices
     entries_in.clear();
@@ -747,14 +759,11 @@ struct f4 {
 
   //------------------------------------------------------------------------------
   boost::unordered_set<mon_id> col_set;
-  void reduction(bool interreduce = false, bool reduce = false) {
-    // symbolic preprocessing
-    symbolic_preprocessing(reduce);
-    crit_pairs.clear();
-    col_set.clear();
+  void reduction() {
 
     // make columns
     // columns are sorted in DESCENDING order
+    col_set.clear();
     for(const auto r : rows) {
       auto p = poly[r];
       col_set.insert(p.begin(), p.end());
@@ -773,13 +782,8 @@ struct f4 {
 
     // reduction
     F4NCGB_PROFILE(auto timer = gstats.time(gstats.reduction));
-    auto [idxs, entries] = linear_algebra(idxs_in,
-                                          entries_in,
-                                          characteristic,
-                                          pool,
-                                          tracer,
-                                          interreduce,
-                                          proof_level);
+    auto [idxs, entries]
+      = linear_algebra(idxs_in, entries_in, characteristic, pool, tracer);
 
     // compute new elements
     F4NCGB_PROFILE(auto timer2 = gstats.time(gstats.new_elements));

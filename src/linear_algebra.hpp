@@ -3,7 +3,6 @@
 #include <cstddef>
 #include <vector>
 
-#include "gmp.h"
 #include <flint/fmpz.h>
 #include <flint/nmod.h>
 
@@ -14,45 +13,15 @@
 
 namespace f4ncgb {
 
-typedef sparse_vec_t<fmpz> sfmpz_vec_t;
-typedef sparse_mat_t<fmpz> sfmpz_mat_t;
 typedef sparse_vec_t<uint32_t> uint32_vec_t;
 typedef sparse_mat_t<uint32_t> uint32_mat_t;
 using pivots = std::vector<size_t>;
 
-// pivots
-// reverse_solve(uint32_mat_t mat, nmod_t mod);
-
-// pivots
-// gauss_elim(uint32_mat_t mat,
-//            nmod_t mod,
-//            size_t num_threads,
-//            bool* trace,
-//            bool use_trace);
-
-// std::pair<std::vector<std::pair<size_t, size_t>>, fmpz*>
-// multimodular_gauss_elim(std::vector<std::vector<size_t>>& idxs_in,
-//                         std::vector<std::span<coeff>>& entries_in,
-//                         std::unique_ptr<BS::thread_pool<BS::none>>& pool,
-//                         bool tracer = true,
-//                         bool interreduce = false,
-//                         size_t proof_level = 0);
-
-// std::pair<std::vector<std::pair<size_t, size_t>>, fmpz*>
-// nmod_gauss_elim(std::vector<std::vector<size_t>>& idxs_in,
-//                 std::vector<std::span<coeff>>& entries_in,
-//                 size_t p,
-//                 std::unique_ptr<BS::thread_pool<BS::none>>& pool,
-//                 bool tracer = true,
-//                 bool interreduce = false,
-//                 size_t proof_level = 0);
 
 std::pair<std::vector<std::pair<size_t, size_t>>, fmpz*>
 linear_algebra(std::vector<std::vector<size_t>>& idxs_in,
                std::vector<std::span<coeff>>& entries_in,
                size_t characteristic,
                std::unique_ptr<BS::thread_pool<BS::none>>& pool,
-               bool tracer = true,
-               bool interreduce = false,
-               size_t proof_level = 0);
+               bool tracer = true);
 }

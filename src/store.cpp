@@ -10,6 +10,10 @@
 
 namespace f4ncgb {
 
+std::vector<coeff> input_denoms;
+size_t proof_level;
+bool interreduce;
+
 struct f4_base {
   virtual ~f4_base() = default;
   virtual parse_res read_input(parser_context& context) = 0;

@@ -35,8 +35,8 @@ static size_t maxdeg = 0;
 static size_t threads = 0;
 
 // / Proof logging
+static size_t user_proof_level = 0;
 static bool expanded_proof = false;
-static size_t proof_level = 0;
 static bool tracer = true;
 static bool reduce = false;
 /*------------------------------------------------------------------------*/
@@ -157,16 +157,16 @@ main(int argc, char** argv) {
         characteristic);
 
   if(proof_file != "")
-    proof_level = 1;
+    user_proof_level = 1;
 
-  if(proof_level == 0 and expanded_proof)
+  if(user_proof_level == 0 and expanded_proof)
     die(78, "Flag for expanded proofs provided but no proof file");
   if(expanded_proof)
-    proof_level = 2;
+    user_proof_level = 2;
 
   context.maxiter_ = maxiter;
   context.maxdeg_ = maxdeg;
-  context.proof_level_ = proof_level;
+  context.proof_level_ = user_proof_level;
   context.tracer_ = tracer;
   context.threads_ = threads;
   context.proof_file_ = proof_file;
