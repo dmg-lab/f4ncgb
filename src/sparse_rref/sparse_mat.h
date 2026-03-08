@@ -11,7 +11,7 @@ struct sparse_mat_ro_struct {
   ulong nnz;
   ulong trace_len;
 
-  slong* row_offsets;
+  ulong* row_offsets;
   ulong* indices;
   T* entries;
   bool* trace;
@@ -39,7 +39,7 @@ using sparse_mat_t = struct sparse_mat_struct<T>[1];
   ((ro)->indices + (ro)->row_offsets[(ind)])
 
 #define red_mat_nnz(ro, ind) \
-  ((ro)->row_offsets[(ind) + 1] - (ro)->row_offsets[(ind)])
+  ((slong)(ro)->row_offsets[(ind) + 1] - (slong)(ro)->row_offsets[(ind)])
 
 template<typename T>
 void
@@ -49,7 +49,7 @@ sparse_mat_ro_init(sparse_mat_ro_t<T> ro, ulong nrow, ulong ncol, ulong nnz) {
   ro->nnz = nnz;
   ro->trace_len = 0;
 
-  ro->row_offsets = s_malloc<slong>(nrow + 1);
+  ro->row_offsets = s_malloc<ulong>(nrow + 1);
   ro->indices = s_malloc<ulong>(nnz);
   ro->entries = s_malloc<T>(nnz);
   ro->trace = NULL;

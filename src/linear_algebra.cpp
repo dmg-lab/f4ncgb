@@ -67,10 +67,13 @@ bool inline fill_reducer_mat(const std::vector<std::span<coeff>>& entries,
     uint32_t cc = fmpz_get_nmod(coeffs[0].value, mod);
     if(!cc)
       return false;
-    mat_entries[k++] = cc;
+    mat_entries[k++] = 1;
+    uint32_t inv = nmod_inv(cc, mod);
     // other coeffs
-    for(size_t j = 1; j < coeffs.size(); j++)
-      mat_entries[k++] = fmpz_get_nmod(coeffs[j].value, mod);
+    for(size_t j = 1; j < coeffs.size(); j++) {
+      cc = fmpz_get_nmod(coeffs[j].value, mod);
+      mat_entries[k++] = nmod_mul(inv, cc, mod);
+    }
     // append transformation matrix
     if(interreduce)
       mat_entries[k++] = fmpz_get_nmod(input_denoms[i].value, mod);
@@ -81,7 +84,10 @@ bool inline fill_reducer_mat(const std::vector<std::span<coeff>>& entries,
 //------------------------------------------------------------------------------
 std::vector<int64_t> red_pivots;
 void inline set_reducer_pivots() {
-  red_pivots.resize(red_mat->ncol, -1);
+  // clear
+  red_pivots.resize(red_mat->ncol);
+  std::fill(red_pivots.begin(), red_pivots.end(), -1);
+
   for(int i = 0; i < red_mat->nrow; i++) {
     ulong j = red_mat->indices[red_mat->row_offsets[i]];
     red_pivots[j] = static_cast<int64_t>(i);
