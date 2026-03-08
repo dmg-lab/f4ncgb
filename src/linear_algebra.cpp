@@ -88,7 +88,7 @@ void inline set_reducer_pivots() {
   red_pivots.resize(red_mat->ncol);
   std::fill(red_pivots.begin(), red_pivots.end(), -1);
 
-  for(int i = 0; i < red_mat->nrow; i++) {
+  for(size_t i = 0; i < red_mat->nrow; i++) {
     ulong j = red_mat->indices[red_mat->row_offsets[i]];
     red_pivots[j] = static_cast<int64_t>(i);
   }
@@ -154,6 +154,7 @@ set_up_matrix(uint32_mat_t mat,
         row->entries[nnz] = 1;
       nnz++;
     }
+
     row->nnz = nnz;
   }
   return true;
@@ -687,6 +688,9 @@ gauss_elim(uint32_mat_t mat,
           for(; i <= max_col; i++)
             if(buff[i] != 0)
               break;
+
+          if(i > max_col)
+            break;
 
           assert(buff[i] > 0);
           // v must be smaller than 2^2b, i.e. 2^62
