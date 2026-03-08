@@ -40,7 +40,6 @@ binarysearch(T* begin, T* end, T val) {
 
 template<typename T>
 struct sparse_vec_struct {
-  bool is_new_piv = false;
   ulong nnz = 0;
   ulong alloc = 0;
   ulong* indices = NULL;
@@ -74,7 +73,6 @@ sparse_vec_realloc(sparse_vec_t<T> vec, ulong alloc) {
 template<typename T>
 inline void
 sparse_vec_init(sparse_vec_t<T> vec, ulong alloc = 0) {
-  vec->is_new_piv = false;
   vec->nnz = 0;
   vec->alloc = alloc;
   vec->indices = s_malloc<ulong>(alloc);

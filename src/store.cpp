@@ -13,6 +13,7 @@ namespace f4ncgb {
 std::vector<coeff> input_denoms;
 size_t proof_level;
 bool interreduce;
+size_t nr_cols;
 
 struct f4_base {
   virtual ~f4_base() = default;

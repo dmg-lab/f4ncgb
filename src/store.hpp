@@ -56,6 +56,7 @@ namespace f4ncgb {
 extern std::vector<coeff> input_denoms;
 extern size_t proof_level;
 extern bool interreduce;
+extern size_t nr_cols;
 
 namespace internal {
 struct monomial_store_overrun_exception : public std::exception {

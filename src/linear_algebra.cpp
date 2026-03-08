@@ -25,35 +25,91 @@ extern int verbose;
 
 namespace f4ncgb {
 
+static bool use_trace;
+uint32_mat_ro_t red_mat;
+
+void inline set_up_reducer_mat(const std::vector<std::vector<size_t>>& idxs) {
+  const size_t m = idxs.size();
+
+  // ---- compute nnz ----
+  size_t nnz = 0;
+  for(const auto& inner : idxs)
+    nnz += inner.size();
+
+  // ---- initialize matrix ----
+  if(proof_level > 0)
+    sparse_mat_ro_init(red_mat, m, nr_cols + m, nnz + m);
+  else
+    sparse_mat_ro_init(red_mat, m, nr_cols, nnz);
+  if(verbose > 2)
+    msg("Reducer matrix has size (%d, %d)", red_mat->nrow, red_mat->ncol);
+
+  // ---- fill indices ----
+  size_t k = 0;
+  for(size_t i = 0; i < m; i++) {
+    red_mat->row_offsets[i] = k;
+    for(auto j : idxs[i])
+      red_mat->indices[k++] = j;
+    if(proof_level > 0)
+      red_mat->indices[k++] = nr_cols + i;
+  }
+  red_mat->row_offsets[m] = k;
+}
+//------------------------------------------------------------------------------
+bool inline fill_reducer_mat(const std::vector<std::span<coeff>>& entries,
+                             nmod_t mod) {
+
+  size_t k = 0;
+  uint32_t* mat_entries = red_mat->entries;
+  for(size_t i = 0; i < red_mat->nrow; i++) {
+    const auto& coeffs = entries[i];
+    // do leading coeff separately and check for 0
+    uint32_t cc = fmpz_get_nmod(coeffs[0].value, mod);
+    if(!cc)
+      return false;
+    mat_entries[k++] = cc;
+    // other coeffs
+    for(size_t j = 1; j < coeffs.size(); j++)
+      mat_entries[k++] = fmpz_get_nmod(coeffs[j].value, mod);
+    // append transformation matrix
+    if(interreduce)
+      mat_entries[k++] = fmpz_get_nmod(input_denoms[i].value, mod);
+  }
+  return true;
+}
+
+//------------------------------------------------------------------------------
+std::vector<int64_t> red_pivots;
+void inline set_reducer_pivots() {
+  red_pivots.resize(red_mat->ncol, -1);
+  for(int i = 0; i < red_mat->nrow; i++) {
+    ulong j = red_mat->indices[red_mat->row_offsets[i]];
+    red_pivots[j] = static_cast<int64_t>(i);
+  }
+}
+
+//------------------------------------------------------------------------------
+
 bool
 set_up_matrix(uint32_mat_t mat,
               nmod_t mod,
               const std::vector<std::vector<size_t>>& idxs,
-              const std::vector<std::span<coeff>>& entries,
-              bool* trace) {
+              const std::vector<std::span<coeff>>& entries) {
   const size_t m = idxs.size();
-
-  // ---- compute number of columns ----
-  size_t n = 0;
-  for(const auto& inner : idxs) {
-    size_t local_max = *std::max_element(inner.begin(), inner.end());
-    n = std::max(n, local_max);
-  }
-  n += 1;
 
   // ---- initialize matrix ----
   if(proof_level > 0)
-    sparse_mat_init(mat, m, n + m);
+    sparse_mat_init(mat, m, nr_cols + m);
   else
-    sparse_mat_init(mat, m, n);
+    sparse_mat_init(mat, m, nr_cols);
 
   if(verbose > 2)
-    msg("Setting up matrix of size (%d, %d)", mat->nrow, mat->ncol);
+    msg("S-Pol matrix has size (%d, %d)", mat->nrow, mat->ncol);
 
   // ---- fill rows ----
   for(size_t i = 0; i < m; i++) {
 
-    if(trace[i]) {
+    if(red_mat->trace[i]) {
       // dummy init to be safe
       sparse_mat_row_init(mat, i, 0);
       continue;
@@ -83,7 +139,7 @@ set_up_matrix(uint32_mat_t mat,
 
     // ---- transformation block ----
     if(proof_level > 0) {
-      row->indices[nnz] = n + i;
+      row->indices[nnz] = nr_cols + i;
       // insert denom from input polynomial
       if(interreduce) {
         uint32_t c = fmpz_get_nmod(input_denoms[i].value, mod);
@@ -92,11 +148,11 @@ set_up_matrix(uint32_mat_t mat,
         row->entries[nnz] = 1;
       nnz++;
     }
-
     row->nnz = nnz;
   }
   return true;
 }
+//------------------------------------------------------------------------------
 
 inline int
 cmp_pivots(pivots x, pivots y) {
@@ -111,12 +167,20 @@ cmp_pivots(pivots x, pivots y) {
 
   return -1;
 }
+//------------------------------------------------------------------------------
 
 static inline coeff
-height(const std::vector<std::span<coeff>>& entries) {
-  coeff h(0L);
+height(const std::vector<std::span<coeff>>& entries_spol,
+       const std::vector<std::span<coeff>>& entries_red) {
 
-  for(const auto& row : entries) {
+  coeff h(0L);
+  for(const auto& row : entries_spol) {
+    for(const auto& c : row) {
+      if(fmpz_cmpabs(c.value, h.value) > 0)
+        fmpz_abs(h.value, c.value);
+    }
+  }
+  for(const auto& row : entries_red) {
     for(const auto& c : row) {
       if(fmpz_cmpabs(c.value, h.value) > 0)
         fmpz_abs(h.value, c.value);
@@ -125,6 +189,7 @@ height(const std::vector<std::span<coeff>>& entries) {
 
   return h;
 }
+//------------------------------------------------------------------------------
 
 static void
 crt_reconstruction(fmpz*& entries,
@@ -188,6 +253,7 @@ crt_reconstruction(fmpz*& entries,
   fmpz_cleanup(moduli, primes.size());
   fmpz_cleanup(inputs, rrefs.size());
 }
+//------------------------------------------------------------------------------
 
 inline bool
 verify_result(fmpz* nums,
@@ -232,6 +298,7 @@ verify_result(fmpz* nums,
 
   return result;
 }
+//------------------------------------------------------------------------------
 
 struct ratrec_data {
   mpz_t mod;
@@ -283,10 +350,10 @@ struct ratrec_data {
     mpz_clear(d);
   }
 };
+//------------------------------------------------------------------------------
 
 inline bool
 ratrecon(fmpz_t num, fmpz_t den, mpz_t u, ratrec_data* data) {
-
   bool success = false;
 
   while(mpz_cmp_ui(u, 0) < 0) {
@@ -331,6 +398,7 @@ ratrecon(fmpz_t num, fmpz_t den, mpz_t u, ratrec_data* data) {
 
   return success;
 }
+//------------------------------------------------------------------------------
 
 static inline bool
 rational_reconstruction(fmpz*& nums,
@@ -338,7 +406,6 @@ rational_reconstruction(fmpz*& nums,
                         fmpz* crt_entries,
                         coeff& prod,
                         size_t N) {
-
   ratrec_data data;
   fmpz_get_mpz(data.mod, prod.value);
   // N = floor(sqrt(m/2))
@@ -366,12 +433,12 @@ rational_reconstruction(fmpz*& nums,
   mpz_clear(u);
   return res;
 }
+//------------------------------------------------------------------------------
 
 void
 clear_denoms(std::vector<std::pair<size_t, size_t>>& idxs,
              fmpz* nums,
              fmpz* denoms) {
-
   fmpz_t L;
   fmpz_t tmp;
   fmpz_init(L);
@@ -406,12 +473,14 @@ clear_denoms(std::vector<std::pair<size_t, size_t>>& idxs,
   fmpz_clear(L);
   fmpz_clear(tmp);
 }
+//------------------------------------------------------------------------------
 
 template<typename T>
 static void inline copy_to_buffer(T& buffer, uint32_vec_t vec) {
   for(size_t i = 0; i < vec->nnz; i++)
     buffer[vec->indices[i]] = vec->entries[i];
 }
+//------------------------------------------------------------------------------
 
 static void inline copy_from_buffer_and_clear(int64_t* buffer,
                                               std::vector<size_t>& buffer_ids,
@@ -429,6 +498,7 @@ static void inline copy_from_buffer_and_clear(int64_t* buffer,
     buffer[i] = 0;
   }
 }
+//------------------------------------------------------------------------------
 
 static void inline normalize_row(uint32_vec_t vec, nmod_t mod) {
   uint32_t c = vec->entries[0];
@@ -438,6 +508,7 @@ static void inline normalize_row(uint32_vec_t vec, nmod_t mod) {
     vec->entries[i] = v;
   }
 }
+//------------------------------------------------------------------------------
 
 // Compute x - ay mod p
 // but leave out the 0th entry of y
@@ -449,7 +520,6 @@ xmay(int64_t* __restrict x,
      const uint32_t* __restrict val,
      size_t nnz,
      int64_t p2) {
-
   size_t i = 1;
   for(; i + 3 < nnz; i += 4) {
     size_t j0 = idx[i];
@@ -486,6 +556,7 @@ xmay(int64_t* __restrict x,
     x[j] = t;
   }
 }
+//------------------------------------------------------------------------------
 
 template<bool mersenne = false>
 static pivots
@@ -499,12 +570,9 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
   int64_t* buff = buffer.data();
   buffer_ids.reserve(32);
 
-  // sort new pivot rows up -- assume: mat is in ref
   // sort rows by first index and nnz
+  // assume: mat is in ref
   std::sort(mat->rows, mat->rows + mat->nrow, [](auto& r1, auto& r2) {
-    // move new pivot rows up
-    if(r1.is_new_piv != r2.is_new_piv)
-      return r1.is_new_piv;
     // move zero rows down
     if(r1.nnz == 0 or r2.nnz == 0)
       return r1.nnz > r2.nnz;
@@ -520,8 +588,7 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
     if(row->nnz == 0)
       break;
     piv_array[row->indices[0]] = static_cast<int64_t>(r);
-    if(row->is_new_piv)
-      piv.push_back(row->indices[0]);
+    piv.push_back(row->indices[0]);
   }
 
   // reduce the new pivot rows fully
@@ -569,14 +636,14 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
 
   return piv;
 }
+//------------------------------------------------------------------------------
 
 template<bool mersenne = false>
 pivots
 gauss_elim(uint32_mat_t mat,
            nmod_t mod,
-           std::unique_ptr<BS::thread_pool<BS::none>>& pool,
-           bool* trace,
-           bool use_trace) {
+           std::unique_ptr<BS::thread_pool<BS::none>>& pool) {
+
   uint64_t p = mod.n;
   int64_t p2 = static_cast<int64_t>(p * p);
 
@@ -587,39 +654,34 @@ gauss_elim(uint32_mat_t mat,
   std::fill(atomic_pivots.begin(), atomic_pivots.end(), -1);
 
   for(size_t r = 0; r < mat->nrow; r++) {
-    if(trace[r])
+    if(red_mat->trace[r])
       continue;
-
-    auto row = sparse_mat_row(mat, r);
-    size_t c = row->indices[0];
-
-    // we found a new pivot => rescale and insert in pivots
-    int64_t rr = atomic_pivots[c];
-    if(rr < 0) {
-      normalize_row(row, mod);
-      assert(atomic_pivots[c] == -1);
-      atomic_pivots[c] = static_cast<int64_t>(r);
-      continue;
-    }
 
     // reduce row with all already known pivots
-    auto task = [r, &mat, &atomic_pivots, &trace, p, p2, &mod, &use_trace]() {
+    auto task = [r, &mat, &atomic_pivots, p, p2, &mod]() {
       F4NCGB_TIME(elim_task_cpu);
       auto row = sparse_mat_row(mat, r);
       int64_t rr;
       int64_t cc;
       int64_t expected = -1;
+      ulong* indices;
+      uint32_t* entries;
+      size_t nnz;
 
       buffer_local.resize(mat->ncol, 0);
       int64_t* buff = buffer_local.data();
 
       do {
-
         copy_to_buffer(buff, row);
         buffer_ids_local.clear();
         size_t i = row->indices[0];
         size_t max_col = row->indices[row->nnz - 1];
         while(i <= max_col) {
+          // find next nonzero entry
+          for(; i <= max_col; i++)
+            if(buff[i] != 0)
+              break;
+
           assert(buff[i] > 0);
           // v must be smaller than 2^2b, i.e. 2^62
           assert(buff[i] < 4611686018427387904);
@@ -631,20 +693,39 @@ gauss_elim(uint32_mat_t mat,
 #endif
             cc = (int64_t)(((uint64_t)buff[i]) % p);
           buff[i] = cc;
-          if(cc != 0) {
-            rr = atomic_pivots[i];
-            if(rr < 0) {
-              buffer_ids_local.push_back(i);
-            } else {
-              buff[i] = 0;
-              auto row_rr = sparse_mat_row(mat, rr);
-              max_col = std::max(max_col, row_rr->indices[row_rr->nnz - 1]);
-              xmay(buff, cc, row_rr->indices, row_rr->entries, row_rr->nnz, p2);
-            }
+          if(cc == 0)
+            continue;
+
+          // first check red pivots
+          rr = red_pivots[i];
+          if(rr >= 0) {
+            buff[i] = 0;
+            indices = red_mat_indices(red_mat, rr);
+            entries = red_mat_entries(red_mat, rr);
+            nnz = (size_t)red_mat_nnz(red_mat, rr);
+            max_col = std::max(max_col, indices[nnz - 1]);
+            xmay(buff, cc, indices, entries, nnz, p2);
+            i++;
+            continue;
           }
-          for(i++; i <= max_col; i++)
-            if(buff[i] != 0)
-              break;
+
+          // then check atomic pivots
+          rr = atomic_pivots[i];
+          if(rr >= 0) {
+            buff[i] = 0;
+            auto row = sparse_mat_row(mat, rr);
+            indices = row->indices;
+            entries = row->entries;
+            nnz = row->nnz;
+            max_col = std::max(max_col, indices[nnz - 1]);
+            xmay(buff, cc, indices, entries, nnz, p2);
+            i++;
+            continue;
+          }
+
+          // no reducer found
+          buffer_ids_local.push_back(i);
+          i++;
         }
 
         // we have a zero row
@@ -654,8 +735,7 @@ gauss_elim(uint32_mat_t mat,
           sparse_vec_clear(row);
           for(auto id : buffer_ids_local)
             buff[id] = 0;
-          // only set them if we use tracer
-          trace[r] = use_trace;
+          red_mat->trace[r] = use_trace;// only set them if we use tracer
           return;
         }
         copy_from_buffer_and_clear(buff, buffer_ids_local, row);
@@ -663,7 +743,6 @@ gauss_elim(uint32_mat_t mat,
         expected = -1;
       } while(!atomic_pivots[row->indices[0]].compare_exchange_weak(
         expected, static_cast<int64_t>(r)));
-      row->is_new_piv = true;
     };
     if(pool)
       pool->detach_task(task);
@@ -679,12 +758,14 @@ gauss_elim(uint32_mat_t mat,
     return reverse_solve<false>(mat, mod);
   }
 }
+//------------------------------------------------------------------------------
 
 std::pair<std::vector<std::pair<size_t, size_t>>, fmpz*>
-multimodular_gauss_elim(std::vector<std::vector<size_t>>& idxs_in,
-                        std::vector<std::span<coeff>>& entries_in,
-                        std::unique_ptr<BS::thread_pool<BS::none>>& pool,
-                        bool tracer) {
+multimodular_gauss_elim(std::vector<std::vector<size_t>>& idxs_spol,
+                        std::vector<std::span<coeff>>& entries_spol,
+                        std::vector<std::span<coeff>>& entries_red,
+                        std::unique_ptr<BS::thread_pool<BS::none>>& pool) {
+
   std::vector<std::unique_ptr<sparse_mat_struct<uint32_t>>> rrefs;
   pivots best_piv;
   std::vector<pivots> pivs;
@@ -697,15 +778,12 @@ multimodular_gauss_elim(std::vector<std::vector<size_t>>& idxs_in,
   fmpz* nums = nullptr;
   fmpz* denoms = nullptr;
 
-  size_t nrow = idxs_in.size();
+  size_t nrow = entries_spol.size() + entries_red.size();
   size_t ncol = 0;
-
-  bool* trace = new bool[nrow];
-  std::fill(trace, trace + nrow, false);
 
   size_t i = 0;
 
-  coeff h = height(entries_in);
+  coeff h = height(entries_spol, entries_red);
   coeff prod(1L);
   coeff M = 20000000 * nrow * (h + 100) * h + 1;
 
@@ -723,9 +801,11 @@ multimodular_gauss_elim(std::vector<std::vector<size_t>>& idxs_in,
       if(verbose > 2)
         msg("Computing mod %lu", p);
 
+      // set up the matrices
+      res = fill_reducer_mat(entries_red, mod);
       std::unique_ptr<sparse_mat_struct<uint32_t>> nmod_mat
         = std::make_unique<sparse_mat_struct<uint32_t>>();
-      res = set_up_matrix(nmod_mat.get(), mod, idxs_in, entries_in, trace);
+      res &= set_up_matrix(nmod_mat.get(), mod, idxs_spol, entries_spol);
 
       // a pivot was set to zero -- we don't want that
       if(!res) {
@@ -740,9 +820,9 @@ multimodular_gauss_elim(std::vector<std::vector<size_t>>& idxs_in,
       F4NCGB_TIME(rref);
       auto gauss_elim_wrapper = [&]() -> pivots {
         if(mod.n == PRIMES[0]) {
-          return gauss_elim<true>(nmod_mat.get(), mod, pool, trace, tracer);
+          return gauss_elim<true>(nmod_mat.get(), mod, pool);
         } else {
-          return gauss_elim<false>(nmod_mat.get(), mod, pool, trace, tracer);
+          return gauss_elim<false>(nmod_mat.get(), mod, pool);
         }
       };
       pivots piv(gauss_elim_wrapper());
@@ -776,12 +856,10 @@ multimodular_gauss_elim(std::vector<std::vector<size_t>>& idxs_in,
     fmpz* crt_entries = nullptr;
     idxs.clear();
 
-    // the first n_piv rows will be reconstructed
-    size_t n_piv = interreduce ? nrow : best_piv.size();
-
     {
       F4NCGB_TIME(crt);
-      crt_reconstruction(crt_entries, idxs, good_rrefs, good_primes, n_piv);
+      crt_reconstruction(
+        crt_entries, idxs, good_rrefs, good_primes, best_piv.size());
     }
 
     bool success;
@@ -798,7 +876,6 @@ multimodular_gauss_elim(std::vector<std::vector<size_t>>& idxs_in,
         msg("Reconstruction unsuccessful. Increasing bound.");
       M = prod * p * p;
       // reset trace and cleanup
-      std::fill(trace, trace + nrow, false);
       fmpz_cleanup(nums, idxs.size());
       fmpz_cleanup(denoms, idxs.size());
       continue;
@@ -810,41 +887,35 @@ multimodular_gauss_elim(std::vector<std::vector<size_t>>& idxs_in,
 
   for(const auto& rref : rrefs)
     sparse_mat_clear(rref.get());
-  delete[] trace;
   clear_denoms(idxs, nums, denoms);
   fmpz_cleanup(denoms, idxs.size());
 
   return std::make_pair(idxs, nums);
 }
+//------------------------------------------------------------------------------
 
 std::pair<std::vector<std::pair<size_t, size_t>>, fmpz*>
-nmod_gauss_elim(std::vector<std::vector<size_t>>& idxs_in,
-                std::vector<std::span<coeff>>& entries_in,
+nmod_gauss_elim(std::vector<std::vector<size_t>>& idxs_spol,
+                std::vector<std::span<coeff>>& entries_spol,
+                std::vector<std::span<coeff>>& entries_red,
                 size_t p,
-                std::unique_ptr<BS::thread_pool<BS::none>>& pool,
-                bool tracer) {
-  // not needed but use it to avoid code duplication
-  bool* trace = new bool[idxs_in.size()];
-  std::fill(trace, trace + idxs_in.size(), false);
-
+                std::unique_ptr<BS::thread_pool<BS::none>>& pool) {
   nmod_t mod;
   nmod_init(&mod, p);
 
   uint32_mat_t nmod_mat;
-  set_up_matrix(nmod_mat, mod, idxs_in, entries_in, trace);
+  set_up_matrix(nmod_mat, mod, idxs_spol, entries_spol);
+  fill_reducer_mat(entries_red, mod);
 
   F4NCGB_TIME(rref);
   auto gauss_elim_wrapper = [&]() -> pivots {
     if(mod.n == PRIMES[0]) {
-      return gauss_elim<true>(nmod_mat, mod, pool, trace, tracer);
+      return gauss_elim<true>(nmod_mat, mod, pool);
     } else {
-      return gauss_elim<false>(nmod_mat, mod, pool, trace, trace);
+      return gauss_elim<false>(nmod_mat, mod, pool);
     }
   };
   pivots piv(gauss_elim_wrapper());
-
-  // compute rows with new leading terms
-  size_t n_piv = interreduce ? nmod_mat->nrow : piv.size();
 
   // compute nonzero indices & entries
   size_t nnz = sparse_mat_nnz(nmod_mat);
@@ -853,7 +924,7 @@ nmod_gauss_elim(std::vector<std::vector<size_t>>& idxs_in,
   fmpz* entries = new fmpz[nnz];
 
   size_t k = 0;
-  for(size_t i = 0; i < n_piv; i++) {
+  for(size_t i = 0; i < nmod_mat->nrow; i++) {
     auto row = sparse_mat_row(nmod_mat, i);
     for(size_t j = 0; j < row->nnz; j++) {
       idxs.emplace_back(i, row->indices[j]);
@@ -862,56 +933,35 @@ nmod_gauss_elim(std::vector<std::vector<size_t>>& idxs_in,
   }
 
   sparse_mat_clear(nmod_mat);
-  delete[] trace;
 
   return std::make_pair(idxs, entries);
 }
-
-void
-sort_rows(std::vector<std::vector<size_t>>& idxs,
-          std::vector<std::span<coeff>>& entries) {
-  const size_t nrows = idxs.size();
-
-  std::vector<size_t> perm(nrows);
-  for(size_t i = 0; i < nrows; i++)
-    perm[i] = i;
-
-  // comparator
-  auto cmp = [&](size_t a, size_t b) {
-    size_t a_first = idxs[a][0];
-    size_t b_first = idxs[b][0];
-    if(a_first != b_first)
-      return a_first > b_first;
-    return entries[a].size() > entries[b].size();
-  };
-
-  // sort permutation
-  std::sort(perm.begin(), perm.end(), cmp);
-
-  // reorder idxs and entries
-  std::vector<std::vector<size_t>> idxs_sorted(nrows);
-  std::vector<std::span<coeff>> entries_sorted(nrows);
-
-  for(size_t i = 0; i < nrows; i++) {
-    idxs_sorted[i] = std::move(idxs[perm[i]]);
-    entries_sorted[i] = entries[perm[i]];
-  }
-
-  idxs = std::move(idxs_sorted);
-  entries = std::move(entries_sorted);
-}
+//------------------------------------------------------------------------------
 
 std::pair<std::vector<std::pair<size_t, size_t>>, fmpz*>
-linear_algebra(std::vector<std::vector<size_t>>& idxs_in,
-               std::vector<std::span<coeff>>& entries_in,
+linear_algebra(std::vector<std::vector<size_t>>& idxs_spol,
+               std::vector<std::vector<size_t>>& idxs_red,
+               std::vector<std::span<coeff>>& entries_spol,
+               std::vector<std::span<coeff>>& entries_red,
                size_t characteristic,
                std::unique_ptr<BS::thread_pool<BS::none>>& pool,
                bool tracer) {
 
-  if(characteristic == 0)
-    return multimodular_gauss_elim(idxs_in, entries_in, pool, tracer);
-  else
-    return nmod_gauss_elim(idxs_in, entries_in, characteristic, pool, tracer);
-}
+  use_trace = tracer;
 
+  set_up_reducer_mat(idxs_red);
+  set_reducer_pivots();
+  sparse_mat_init_trace(red_mat, idxs_spol.size());
+
+  std::pair<std::vector<std::pair<size_t, size_t>>, fmpz*> res;
+  if(characteristic == 0)
+    res = multimodular_gauss_elim(idxs_spol, entries_spol, entries_red, pool);
+
+  else
+    res = nmod_gauss_elim(
+      idxs_spol, entries_spol, entries_red, characteristic, pool);
+
+  sparse_mat_ro_clear(red_mat);
+  return res;
+}
 }

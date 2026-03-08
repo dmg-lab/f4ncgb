@@ -2,42 +2,96 @@
 #define SPARSE_MAT_H
 
 #include "sparse_vec.h"
-#include <boost/multiprecision/gmp.hpp>
+#include <utility>
+
+template<typename T>
+struct sparse_mat_ro_struct {
+  ulong nrow;
+  ulong ncol;
+  ulong nnz;
+  ulong trace_len;
+
+  slong* row_offsets;
+  ulong* indices;
+  T* entries;
+  bool* trace;
+};
 
 template<typename T>
 struct sparse_mat_struct {
   ulong nrow;
   ulong ncol;
   sparse_vec_struct<T>* rows;
+  sparse_mat_ro_struct<T>* readonly;
 };
 
 template<typename T>
+using sparse_mat_ro_t = sparse_mat_ro_struct<T>[1];
+template<typename T>
 using sparse_mat_t = struct sparse_mat_struct<T>[1];
-
-typedef sparse_mat_t<ulong> snmod_mat_t;
-typedef sparse_mat_t<fmpz> sfmpz_mat_t;
 
 #define sparse_mat_row(mat, ind) ((mat)->rows + (ind))
 
+#define red_mat_entries(ro, ind) \
+  ((ro)->entries + (ro)->row_offsets[(ind)])
+
+#define red_mat_indices(ro, ind) \
+  ((ro)->indices + (ro)->row_offsets[(ind)])
+
+#define red_mat_nnz(ro, ind) \
+  ((ro)->row_offsets[(ind) + 1] - (ro)->row_offsets[(ind)])
+
 template<typename T>
-inline void
-sparse_mat_init(sparse_mat_t<T> mat,
-                ulong nrow,
-                ulong ncol) {
-  mat->nrow = nrow;
-  mat->ncol = ncol;
-  mat->rows = s_malloc<sparse_vec_struct<T>>(nrow);
+void
+sparse_mat_ro_init(sparse_mat_ro_t<T> ro, ulong nrow, ulong ncol, ulong nnz) {
+  ro->nrow = nrow;
+  ro->ncol = ncol;
+  ro->nnz = nnz;
+  ro->trace_len = 0;
+
+  ro->row_offsets = s_malloc<slong>(nrow + 1);
+  ro->indices = s_malloc<ulong>(nnz);
+  ro->entries = s_malloc<T>(nnz);
+  ro->trace = NULL;
 }
 
 template<typename T>
 inline void
-sparse_mat_clear(sparse_mat_t<T> mat) {  
+sparse_mat_init(sparse_mat_t<T> mat, ulong nrow, ulong ncol) {
+  mat->nrow = nrow;
+  mat->ncol = ncol;
+  mat->rows = s_malloc<sparse_vec_struct<T>>(nrow);
+  mat->readonly = NULL;
+}
+
+template<typename T>
+inline void
+sparse_mat_ro_clear(sparse_mat_ro_t<T> ro) {
+  s_free(ro->row_offsets);
+  s_free(ro->indices);
+  s_free(ro->entries);
+  s_free(ro->trace);
+  ro->nrow = 0;
+  ro->ncol = 0;
+  ro->nnz = 0;
+  ro->trace_len = 0;
+
+  ro->trace = NULL;
+  ro->row_offsets = NULL;
+  ro->indices = NULL;
+  ro->entries = NULL;
+}
+
+template<typename T>
+inline void
+sparse_mat_clear(sparse_mat_t<T> mat) {
   for(size_t i = 0; i < mat->nrow; i++)
     sparse_vec_clear(sparse_mat_row(mat, i));
   s_free(mat->rows);
   mat->nrow = 0;
   mat->ncol = 0;
   mat->rows = NULL;
+  mat->readonly = NULL;
 }
 
 template<typename T>
@@ -45,6 +99,20 @@ inline sparse_vec_struct<T>*
 sparse_mat_row_init(sparse_mat_t<T> mat, ulong i, ulong alloc) {
   sparse_vec_init(sparse_mat_row(mat, i), alloc);
   return sparse_mat_row(mat, i);
+}
+
+template<typename T>
+inline void
+sparse_mat_init_trace(sparse_mat_ro_t<T> mat, ulong len) {
+  mat->trace = s_malloc<bool>(len);
+  mat->trace_len = len;
+  std::fill(mat->trace, mat->trace + len, false);
+}
+
+template<typename T>
+inline void
+sparse_mat_reset_trace(sparse_mat_ro_t<T> mat, ulong len) {
+  std::fill(mat->trace, mat->trace + len, false);
 }
 
 template<typename T>
@@ -64,6 +132,27 @@ sparse_mat_entry(sparse_mat_t<T> mat,
                  bool isbinary = true) {
   return sparse_vec_entry(sparse_mat_row(mat, row), col, isbinary);
 }
+
+template<typename T>
+void sparse_mat_print(const sparse_mat_ro_t<T> mat) {
+    for (unsigned long i = 0; i < mat->nrow; i++) {
+        unsigned long row_start = mat->row_offsets[i];
+        unsigned long row_end   = mat->row_offsets[i + 1];
+
+        unsigned long entry_idx = row_start; // index into entries/indices
+        for (unsigned long j = 0; j < mat->ncol; j++) {
+            if (entry_idx < row_end && mat->indices[entry_idx] == j) {
+                // element exists in sparse matrix
+                std::cout << std::setw(5) << mat->entries[entry_idx] << " ";
+                entry_idx++;
+            } else {
+                // zero if missing
+                std::cout << std::setw(5) << 0 << " ";
+            }
+        }
+        std::cout << "\n";
+    }
+}    
 
 template<typename T, typename S>
 void

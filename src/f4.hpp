@@ -12,7 +12,6 @@
 #include <boost/align/align_down.hpp>
 #include <boost/align/align_up.hpp>
 #include <boost/container/small_vector.hpp>
-#include <boost/multiprecision/gmp.hpp>
 #include <boost/unordered/unordered_map.hpp>
 #include <boost/unordered/unordered_set.hpp>
 
@@ -27,8 +26,6 @@
 
 #include "monomial_trie.hpp"
 #include "store.hpp"
-
-using namespace boost::multiprecision;
 
 namespace f4ncgb {
 
@@ -92,6 +89,9 @@ struct f4 {
   monomial_trie_ prefix_trie;
   monomial_trie_ suffix_trie;
   std::unique_ptr<BS::thread_pool<BS::none>> pool;
+  std::vector<poly_id> spolies;
+  std::vector<poly_id> reducers;
+  std::vector<mon_id> columns;
 
   size_t characteristic = 0;
   size_t iter = 0;
@@ -230,7 +230,7 @@ struct f4 {
 
     size_t i = 0;
     for(const auto& p : polies) {
-      rows.push_back(p);
+      spolies.push_back(p);
       extended_rows.emplace_back(0, i++, 0);
     }
 
@@ -319,8 +319,8 @@ struct f4 {
     // if none exists, NF is zero
     for(poly_id q : new_elements) {
       mon_id m = poly.get_lm_id(q);
-      auto& reducers = prefix_trie.divisors(mons[m]);
-      if(reducers.empty()) {
+      auto& red = prefix_trie.divisors(mons[m]);
+      if(red.empty()) {
         normal_form = q;
         break;
       }
@@ -519,15 +519,15 @@ struct f4 {
   }
 
   //------------------------------------------------------------------------------
-  std::vector<poly_id> rows;
-  std::vector<mon_id> columns;
 
-  void symbolic_preprocessing(bool reduce = false) {
+  void symbolic_preprocessing() {
     F4NCGB_TIME(sym_pre);
     boost::unordered_set<mon_id> todo_seen;
+    boost::unordered_set<mon_id> lm_seen;
     std::vector<mon_id> todo_vec;
     size_t todo_pos = 0;
-    rows.clear();
+    spolies.clear();
+    reducers.clear();
     todo_vec.reserve(1L << 16);
     todo_seen.reserve(1L << 16);
 
@@ -538,18 +538,27 @@ struct f4 {
     };
 
     for(const auto& [f, g] : crit_pairs) {
-      auto mon_it = poly[f];
-      rows.push_back(f);
-      todo_seen.insert(*mon_it.begin());
-      for(auto it = std::next(mon_it.begin()); it != mon_it.end(); ++it)
-        push_todo(*it);
+      const auto mons_f = poly[f];
+      const auto mons_g = poly[g];
+      // lm never seen -> one into reducers
+      if(lm_seen.insert(mons_f[0]).second) {
+        if(mons_f.size() < mons_g.size()) {
+          spolies.push_back(f);
+          reducers.push_back(g);
+        } else {
+          spolies.push_back(g);
+          reducers.push_back(f);
+        }
+      } else {
+        spolies.push_back(f);
+        spolies.push_back(g);
+      }
 
-      // Repeat for g
-      mon_it = poly[g];
-      rows.push_back(g);
-      todo_seen.insert(*mon_it.begin());
-      for(auto it = std::next(mon_it.begin()); it != mon_it.end(); ++it)
-        push_todo(*it);
+      todo_seen.insert(mons_f[0]);
+      for(const auto m : mons_f)
+        push_todo(m);
+      for(const auto m : mons_g)
+        push_todo(m);
     }
     crit_pairs.clear();
 
@@ -560,23 +569,23 @@ struct f4 {
         continue;
 
       assert(m == poly.get_lm_id(reducer));
-      rows.push_back(reducer);
+      reducers.push_back(reducer);
 
-      for(mon_id mm : poly[reducer])
-        push_todo(mm);
+      for(mon_id m : poly[reducer])
+        push_todo(m);
     }
   }
   //------------------------------------------------------------------------------
   poly_id find_reducer(mon_id m) {
-    auto& reducers = prefix_trie.divisors(mons[m]);
-    if(reducers.empty())
+    auto& red = prefix_trie.divisors(mons[m]);
+    if(red.empty())
       return 0;
 
     // strategy  : the one with smallest lm
-    std::pair<mon_id, size_t> match = *std::max_element(
-      reducers.begin(), reducers.end(), [this](auto a, auto b) {
-        return this->mons.template cmp<block_order>(b.first, a.first);
-      });
+    std::pair<mon_id, size_t> match
+      = *std::max_element(red.begin(), red.end(), [this](auto a, auto b) {
+          return this->mons.template cmp<block_order>(b.first, a.first);
+        });
 
     monomial mm = mons[m];
     monomial lm = mons[match.first];
@@ -701,10 +710,42 @@ struct f4 {
       tmp.push_back(std::move(vec[i]));
     vec = std::move(tmp);
   };
+
+  void sort_rows(std::vector<poly_id>& to_sort,
+                 std::vector<triplet>& extended,
+                 boost::unordered_map<mon_id, size_t>& col_to_id) {
+    // sort rows (+ extended_rows accordingly)
+    // first by lm (smaller first), then by support (smaller first)
+
+    size_t m = to_sort.size();
+
+    std::vector<size_t> perm(m);
+    std::iota(perm.begin(), perm.end(), 0);
+
+    std::vector<size_t> lm_col(m);
+    for(size_t i = 0; i < m; i++)
+      lm_col[i] = col_to_id[poly.get_lm_id(to_sort[i])];
+
+    auto cmp = [&](size_t a, size_t b) {
+      if(lm_col[a] != lm_col[b])
+        return lm_col[a] > lm_col[b];
+      return poly.get_length(to_sort[a]) < poly.get_length(to_sort[b]);
+    };
+    std::sort(perm.begin(), perm.end(), cmp);
+
+    apply_perm(to_sort, perm);
+    if(proof_level > 0) {
+      if(interreduce)
+        apply_perm(input_denoms, perm);
+      apply_perm(extended, perm);
+    }
+  }
   //------------------------------------------------------------------------------
 
-  std::vector<std::span<C>> entries_in;
-  std::vector<std::vector<size_t>> idxs_in;
+  std::vector<std::span<C>> entries_spol;
+  std::vector<std::vector<size_t>> idxs_spol;
+  std::vector<std::span<C>> entries_red;
+  std::vector<std::vector<size_t>> idxs_red;
   void prepare_matrix() {
 
     boost::unordered_map<mon_id, size_t> col_to_id;
@@ -712,74 +753,83 @@ struct f4 {
     for(auto c : columns)
       col_to_id[c] = i++;
 
-    size_t m = rows.size();
-
-    // sort rows (+ extended_rows accordingly)
-    // first by lm (smaller first), then by support (smaller first)
-    std::vector<size_t> perm(m);
-    std::iota(perm.begin(), perm.end(), 0);
-
-    std::vector<size_t> lm_col(m);
-    for(size_t k = 0; k < m; k++)
-      lm_col[k] = col_to_id[poly.get_lm_id(rows[k])];
-    auto cmp = [&](size_t a, size_t b) {
-      if(lm_col[a] != lm_col[b])
-        return lm_col[a] > lm_col[b];
-      return poly.get_length(rows[a]) < poly.get_length(rows[b]);
-    };
-    std::sort(perm.begin(), perm.end(), cmp);
-
-    apply_perm(rows, perm);
-
-    if(proof_level > 0) {
-      if(interreduce)
-        apply_perm(input_denoms, perm);
-      apply_perm(extended_rows, perm);
-    }
+    // sort spolies and reducers
+    sort_rows(spolies, extended_rows, col_to_id);
+    sort_rows(reducers, extended_rows, col_to_id);
 
     // collect entries and indices
-    entries_in.clear();
-    idxs_in.clear();
-    entries_in.reserve(m);
-    idxs_in.resize(m);
+    entries_spol.clear();
+    idxs_spol.clear();
+    entries_red.clear();
+    idxs_red.clear();
+
+    entries_spol.reserve(spolies.size());
+    idxs_spol.resize(spolies.size());
+    entries_red.reserve(reducers.size());
+    idxs_red.resize(reducers.size());
+
     i = 0;
-    for(auto r : rows) {
-      entries_in.push_back(poly.get_coefficients(r));
-      auto p = poly[r];
-      for(auto it = p.begin(); it != p.end(); it++) {
-        idxs_in[i].push_back(col_to_id[*it]);
-      }
+    for(auto r : spolies) {
+      entries_spol.push_back(poly.get_coefficients(r));
+      for(auto m : poly[r])
+        idxs_spol[i].push_back(col_to_id[m]);
+      i++;
+    }
+    i = 0;
+    for(auto r : reducers) {
+      entries_red.push_back(poly.get_coefficients(r));
+      for(auto m : poly[r])
+        idxs_red[i].push_back(col_to_id[m]);
       i++;
     }
   }
 
   //------------------------------------------------------------------------------
   boost::unordered_set<mon_id> col_set;
-  void reduction() {
-
+  void prepare_columns() {
     // make columns
     // columns are sorted in DESCENDING order
     col_set.clear();
-    for(const auto r : rows) {
+    for(const auto r : spolies) {
       auto p = poly[r];
       col_set.insert(p.begin(), p.end());
     }
+    for(const auto r : reducers) {
+      auto p = poly[r];
+      col_set.insert(p.begin(), p.end());
+    }
+
     columns.clear();
     columns.resize(
       static_cast<size_t>(std::distance(col_set.begin(), col_set.end())));
     std::move(col_set.begin(), col_set.end(), columns.begin());
+
     auto cmp = [this](const mon_id a, const mon_id b) {
       return this->mons.template cmp<block_order>(b, a);
     };
     std::sort(columns.begin(), columns.end(), cmp);
+
+    nr_cols = columns.size();
+  }
+  //------------------------------------------------------------------------------
+
+  void reduction() {
+
+    // make columns
+    prepare_columns();
 
     // prepare entries
     prepare_matrix();
 
     // reduction
     F4NCGB_PROFILE(auto timer = gstats.time(gstats.reduction));
-    auto [idxs, entries]
-      = linear_algebra(idxs_in, entries_in, characteristic, pool, tracer);
+    auto [idxs, entries] = linear_algebra(idxs_spol,
+                                          idxs_red,
+                                          entries_spol,
+                                          entries_red,
+                                          characteristic,
+                                          pool,
+                                          tracer);
 
     // compute new elements
     F4NCGB_PROFILE(auto timer2 = gstats.time(gstats.new_elements));

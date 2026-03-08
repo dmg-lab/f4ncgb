@@ -15,12 +15,14 @@ namespace f4ncgb {
 
 typedef sparse_vec_t<uint32_t> uint32_vec_t;
 typedef sparse_mat_t<uint32_t> uint32_mat_t;
+typedef sparse_mat_ro_t<uint32_t> uint32_mat_ro_t;
 using pivots = std::vector<size_t>;
 
-
 std::pair<std::vector<std::pair<size_t, size_t>>, fmpz*>
-linear_algebra(std::vector<std::vector<size_t>>& idxs_in,
-               std::vector<std::span<coeff>>& entries_in,
+linear_algebra(std::vector<std::vector<size_t>>& idxs_spol,
+               std::vector<std::vector<size_t>>& idxs_red,
+               std::vector<std::span<coeff>>& entries_spol,
+               std::vector<std::span<coeff>>& entries_red,
                size_t characteristic,
                std::unique_ptr<BS::thread_pool<BS::none>>& pool,
                bool tracer = true);
