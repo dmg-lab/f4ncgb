@@ -84,7 +84,7 @@ struct f4 {
   polynomial_store poly;
   std::vector<poly_id> basis;
   std::map<size_t, boost::unordered_set<ambiguity_, amb_hash>> amb;
-  std::set<crit_pair> crit_pairs;
+  std::vector<crit_pair> crit_pairs;
   boost::unordered_map<mon_id, poly_id> lm_to_poly;
   monomial_trie_ prefix_trie;
   monomial_trie_ suffix_trie;
@@ -310,8 +310,7 @@ struct f4 {
 
     // when GB does not contain 1, perform reduction
     if(!constant_flag) {
-      crit_pair c(p, p);
-      crit_pairs.insert(c);
+      crit_pairs.emplace_back(p, p);
       reduction();
     }
 
@@ -360,9 +359,16 @@ struct f4 {
     auto minimal_amb = amb.begin();
     size_t d = minimal_amb->first;
     for(const auto& a : minimal_amb->second) {
-      crit_pairs.insert(to_crit_pair(a));
+      crit_pairs.push_back(to_crit_pair(a));
     }
     amb.erase(d);
+
+    std::sort(crit_pairs.begin(),
+              crit_pairs.end(),
+              [this](const auto& a, const auto& b) {
+                return this->mons.template cmp<block_order>(
+                  this->poly.get_lm_id(a.first), this->poly.get_lm_id(b.first));
+              });
   }
   //------------------------------------------------------------------------------
   /*
@@ -523,7 +529,6 @@ struct f4 {
   void symbolic_preprocessing() {
     F4NCGB_TIME(sym_pre);
     boost::unordered_set<mon_id> todo_seen;
-    boost::unordered_set<mon_id> lm_seen;
     std::vector<mon_id> todo_vec;
     size_t todo_pos = 0;
     spolies.clear();
@@ -537,11 +542,15 @@ struct f4 {
         todo_vec.push_back(m);
     };
 
+    // assumes that crit pairs are sorted by lm
+    // in increasing order
     for(const auto& [f, g] : crit_pairs) {
       const auto mons_f = poly[f];
       const auto mons_g = poly[g];
+
       // lm never seen -> one into reducers
-      if(lm_seen.insert(mons_f[0]).second) {
+      mon_id lm = mons_f[0];
+      if(todo_seen.insert(lm).second) {
         if(mons_f.size() < mons_g.size()) {
           spolies.push_back(f);
           reducers.push_back(g);
@@ -549,12 +558,12 @@ struct f4 {
           spolies.push_back(g);
           reducers.push_back(f);
         }
+        // already have reducer for this lm -> both in spol
       } else {
         spolies.push_back(f);
         spolies.push_back(g);
       }
 
-      todo_seen.insert(mons_f[0]);
       for(const auto m : mons_f)
         push_todo(m);
       for(const auto m : mons_g)

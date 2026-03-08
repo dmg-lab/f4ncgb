@@ -446,6 +446,10 @@ void
 clear_denoms(std::vector<std::pair<size_t, size_t>>& idxs,
              fmpz* nums,
              fmpz* denoms) {
+
+  if(idxs.empty())
+    return;
+
   fmpz_t L;
   fmpz_t tmp;
   fmpz_init(L);
