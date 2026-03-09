@@ -40,30 +40,26 @@ binarysearch(T* begin, T* end, T val) {
 
 template<typename T>
 struct sparse_vec_struct {
-  ulong nnz = 0;
-  ulong alloc = 0;
-  ulong* indices = NULL;
+  uint32_t nnz = 0;
+  uint32_t alloc = 0;
+  uint32_t* indices = NULL;
   T* entries = NULL;
 };
 
 template<typename T>
 using sparse_vec_t = struct sparse_vec_struct<T>[1];
 
-typedef sparse_vec_t<ulong> snmod_vec_t;
-typedef sparse_vec_t<fmpz> sfmpz_vec_t;
-
 // sparse_vec
 
 // memory management
 template<typename T>
 void
-sparse_vec_realloc(sparse_vec_t<T> vec, ulong alloc) {
+sparse_vec_realloc(sparse_vec_t<T> vec, uint32_t alloc) {
 
   if(alloc == vec->alloc)
     return;
 
   vec->alloc = alloc;
-  // enlarge: init later
   vec->indices = s_realloc(vec->indices, vec->alloc);
   vec->entries = s_realloc(vec->entries, vec->alloc);
 }
@@ -72,10 +68,10 @@ sparse_vec_realloc(sparse_vec_t<T> vec, ulong alloc) {
 
 template<typename T>
 inline void
-sparse_vec_init(sparse_vec_t<T> vec, ulong alloc = 0) {
+sparse_vec_init(sparse_vec_t<T> vec, uint32_t alloc = 0) {
   vec->nnz = 0;
   vec->alloc = alloc;
-  vec->indices = s_malloc<ulong>(alloc);
+  vec->indices = s_malloc<uint32_t>(alloc);
   vec->entries = s_malloc<T>(alloc);
 }
 
@@ -93,11 +89,11 @@ sparse_vec_clear(sparse_vec_t<T> vec) {
 
 template<typename T>
 inline T*
-sparse_vec_entry(sparse_vec_t<T> vec, ulong index, const bool isbinary = true) {
+sparse_vec_entry(sparse_vec_t<T> vec, uint32_t index, const bool isbinary = true) {
   if(vec->nnz == 0 || index < vec->indices[0]
      || index > vec->indices[vec->nnz - 1])
     return NULL;
-  ulong* ptr;
+  uint32_t* ptr;
   if(isbinary)
     ptr = binarysearch(vec->indices, vec->indices + vec->nnz, index);
   else
@@ -110,7 +106,7 @@ sparse_vec_entry(sparse_vec_t<T> vec, ulong index, const bool isbinary = true) {
 // debug only, not used to the large vector
 template<typename T>
 void
-print_vec_info(const sparse_vec_t<T> vec) {
+sparse_vec_print(const sparse_vec_t<T> vec) {
   std::cout << "-------------------" << std::endl;
   std::cout << "nnz: " << vec->nnz << std::endl;
   std::cout << "alloc: " << vec->alloc << std::endl;

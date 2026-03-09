@@ -8,11 +8,12 @@ template<typename T>
 struct sparse_mat_ro_struct {
   ulong nrow;
   ulong ncol;
-  ulong nnz;
   ulong trace_len;
 
-  ulong* row_offsets;
-  ulong* indices;
+  uint32_t* row_start;
+  uint32_t* index_start;
+  uint32_t* row_nnz;
+  uint32_t* indices;
   T* entries;
   bool* trace;
 };
@@ -22,7 +23,6 @@ struct sparse_mat_struct {
   ulong nrow;
   ulong ncol;
   sparse_vec_struct<T>* rows;
-  sparse_mat_ro_struct<T>* readonly;
 };
 
 template<typename T>
@@ -32,26 +32,28 @@ using sparse_mat_t = struct sparse_mat_struct<T>[1];
 
 #define sparse_mat_row(mat, ind) ((mat)->rows + (ind))
 
-#define red_mat_entries(ro, ind) \
-  ((ro)->entries + (ro)->row_offsets[(ind)])
+#define red_mat_entries(ro, ind) ((ro)->entries + (ro)->row_start[(ind)])
 
-#define red_mat_indices(ro, ind) \
-  ((ro)->indices + (ro)->row_offsets[(ind)])
+#define red_mat_indices(ro, ind) ((ro)->indices + (ro)->index_start[(ind)])
 
-#define red_mat_nnz(ro, ind) \
-  ((slong)(ro)->row_offsets[(ind) + 1] - (slong)(ro)->row_offsets[(ind)])
+#define red_mat_nnz(ro, ind) ((ro)->row_nnz[(ind)])
 
 template<typename T>
 void
-sparse_mat_ro_init(sparse_mat_ro_t<T> ro, ulong nrow, ulong ncol, ulong nnz) {
+sparse_mat_ro_init(sparse_mat_ro_t<T> ro,
+                   ulong nrow,
+                   ulong ncol,
+                   ulong nnz,
+                   ulong unique_nnz) {
   ro->nrow = nrow;
   ro->ncol = ncol;
-  ro->nnz = nnz;
   ro->trace_len = 0;
 
-  ro->row_offsets = s_malloc<ulong>(nrow + 1);
-  ro->indices = s_malloc<ulong>(nnz);
-  ro->entries = s_malloc<T>(nnz);
+  ro->row_start = s_malloc<uint32_t>(nrow);
+  ro->index_start = s_malloc<uint32_t>(nrow);
+  ro->row_nnz = s_malloc<uint32_t>(nrow);
+  ro->indices = s_malloc<uint32_t>(nnz);
+  ro->entries = s_malloc<T>(unique_nnz);
   ro->trace = NULL;
 }
 
@@ -61,23 +63,25 @@ sparse_mat_init(sparse_mat_t<T> mat, ulong nrow, ulong ncol) {
   mat->nrow = nrow;
   mat->ncol = ncol;
   mat->rows = s_malloc<sparse_vec_struct<T>>(nrow);
-  mat->readonly = NULL;
 }
 
 template<typename T>
 inline void
 sparse_mat_ro_clear(sparse_mat_ro_t<T> ro) {
-  s_free(ro->row_offsets);
+  s_free(ro->row_start);
+  s_free(ro->index_start);
+  s_free(ro->row_nnz);
   s_free(ro->indices);
   s_free(ro->entries);
   s_free(ro->trace);
   ro->nrow = 0;
   ro->ncol = 0;
-  ro->nnz = 0;
   ro->trace_len = 0;
 
   ro->trace = NULL;
-  ro->row_offsets = NULL;
+  ro->row_start = NULL;
+  ro->index_start = NULL;
+  ro->row_nnz = NULL;
   ro->indices = NULL;
   ro->entries = NULL;
 }
@@ -91,7 +95,6 @@ sparse_mat_clear(sparse_mat_t<T> mat) {
   mat->nrow = 0;
   mat->ncol = 0;
   mat->rows = NULL;
-  mat->readonly = NULL;
 }
 
 template<typename T>
@@ -134,25 +137,25 @@ sparse_mat_entry(sparse_mat_t<T> mat,
 }
 
 template<typename T>
-void sparse_mat_print(const sparse_mat_ro_t<T> mat) {
-    for (unsigned long i = 0; i < mat->nrow; i++) {
-        unsigned long row_start = mat->row_offsets[i];
-        unsigned long row_end   = mat->row_offsets[i + 1];
+void
+sparse_mat_print(const sparse_mat_ro_t<T> mat) {
+  for(unsigned long i = 0; i < mat->nrow; i++) {
+    unsigned long idx_off = mat->index_start[i];
+    unsigned long ent_off = mat->row_start[i];
+    unsigned long nnz = mat->row_nnz[i];
 
-        unsigned long entry_idx = row_start; // index into entries/indices
-        for (unsigned long j = 0; j < mat->ncol; j++) {
-            if (entry_idx < row_end && mat->indices[entry_idx] == j) {
-                // element exists in sparse matrix
-                std::cout << std::setw(5) << mat->entries[entry_idx] << " ";
-                entry_idx++;
-            } else {
-                // zero if missing
-                std::cout << std::setw(5) << 0 << " ";
-            }
-        }
-        std::cout << "\n";
+    unsigned long k = 0;
+    for(unsigned long j = 0; j < mat->ncol; j++) {
+      if(k < nnz && mat->indices[idx_off + k] == j) {
+        std::cout << std::setw(5) << mat->entries[ent_off + k] << " ";
+        k++;
+      } else {
+        std::cout << std::setw(5) << 0 << " ";
+      }
     }
-}    
+    std::cout << "\n";
+  }
+}
 
 template<typename T, typename S>
 void

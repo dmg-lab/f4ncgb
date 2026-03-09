@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <atomic>
+#include <boost/unordered/unordered_map.hpp>
 #include <cstddef>
 #include <cstdint>
 #include <map>
@@ -27,70 +28,104 @@ namespace f4ncgb {
 
 static bool use_trace;
 uint32_mat_ro_t red_mat;
+boost::unordered_map<const coeff*, size_t> ref_rows;
 
-void inline set_up_reducer_mat(const std::vector<std::vector<size_t>>& idxs) {
+void inline set_up_reducer_mat(const std::vector<std::vector<size_t>>& idxs,
+                               const std::vector<std::span<coeff>>& entries) {
   const size_t m = idxs.size();
 
-  // ---- compute nnz ----
+  ref_rows.clear();
+
+  // first pass: compute total nnz and unique_nnz
+  // also remember first row for each unique span
   size_t nnz = 0;
-  for(const auto& inner : idxs)
-    nnz += inner.size();
-
-  // ---- initialize matrix ----
-  if(proof_level > 0)
-    sparse_mat_ro_init(red_mat, m, nr_cols + m, nnz + m);
-  else
-    sparse_mat_ro_init(red_mat, m, nr_cols, nnz);
-  if(verbose > 2)
-    msg("Reducer matrix has size (%d, %d)", red_mat->nrow, red_mat->ncol);
-
-  // ---- fill indices ----
-  size_t k = 0;
+  size_t unique_nnz = 0;
   for(size_t i = 0; i < m; i++) {
-    red_mat->row_offsets[i] = k;
-    for(auto j : idxs[i])
-      red_mat->indices[k++] = j;
-    if(proof_level > 0)
-      red_mat->indices[k++] = nr_cols + i;
+    nnz += idxs[i].size();
+    const coeff* ptr = entries[i].data();
+    if(ref_rows.find(ptr) == ref_rows.end()) {
+      ref_rows[ptr] = i;
+      unique_nnz += idxs[i].size();
+    }
   }
-  red_mat->row_offsets[m] = k;
+
+  sparse_mat_ro_init(red_mat, m, nr_cols, nnz, unique_nnz);
+  double ratio = nnz > 0 ? (100. * unique_nnz) / nnz : 0;
+  if(verbose > 2)
+    msg("Reducer matrix has size (%d, %d) (%.1f%% entries actually stored)",
+        red_mat->nrow,
+        red_mat->ncol,
+        ratio);
+
+  size_t idx_k = 0;
+  size_t entry_k = 0;
+  uint32_t* indices = red_mat->indices;
+  uint32_t* index_start = red_mat->index_start;
+  uint32_t* row_start = red_mat->row_start;
+  uint32_t* row_nnz = red_mat->row_nnz;
+
+  for(size_t i = 0; i < m; i++) {
+    index_start[i] = idx_k;
+    row_nnz[i] = idxs[i].size();
+
+    // TODO: transformation matrix
+    // store indices
+    for(auto j : idxs[i])
+      indices[idx_k++] = j;
+
+    // store coeff offset
+    const coeff* ptr = entries[i].data();
+    size_t ref_row = ref_rows[ptr];
+    if(i == ref_row) {
+      row_start[i] = entry_k;
+      entry_k += idxs[i].size();// TODO: transformation matrix
+    } else {
+      row_start[i] = row_start[ref_row];
+    }
+  }
 }
 //------------------------------------------------------------------------------
 bool inline fill_reducer_mat(const std::vector<std::span<coeff>>& entries,
                              nmod_t mod) {
 
-  size_t k = 0;
   uint32_t* mat_entries = red_mat->entries;
+
+  // only fill entries for first occurrence of each span
   for(size_t i = 0; i < red_mat->nrow; i++) {
     const auto& coeffs = entries[i];
-    // do leading coeff separately and check for 0
+    const coeff* ptr = coeffs.data();
+
+    // just a duplicate -> nothing to do
+    if(ref_rows[ptr] != i)
+      continue;
+
+    // check leading coeff for zero
     uint32_t cc = fmpz_get_nmod(coeffs[0].value, mod);
     if(!cc)
       return false;
+
+    // only write entries for first occurrence
+    size_t k = red_mat->row_start[i];
     mat_entries[k++] = 1;
     uint32_t inv = nmod_inv(cc, mod);
-    // other coeffs
     for(size_t j = 1; j < coeffs.size(); j++) {
       cc = fmpz_get_nmod(coeffs[j].value, mod);
       mat_entries[k++] = nmod_mul(inv, cc, mod);
     }
-    // append transformation matrix
-    if(interreduce)
-      mat_entries[k++] = fmpz_get_nmod(input_denoms[i].value, mod);
   }
   return true;
 }
 
 //------------------------------------------------------------------------------
-std::vector<int64_t> red_pivots;
+std::vector<int32_t> red_pivots;
 void inline set_reducer_pivots() {
   // clear
   red_pivots.resize(red_mat->ncol);
   std::fill(red_pivots.begin(), red_pivots.end(), -1);
 
-  for(size_t i = 0; i < red_mat->nrow; i++) {
-    ulong j = red_mat->indices[red_mat->row_offsets[i]];
-    red_pivots[j] = static_cast<int64_t>(i);
+  for(uint32_t i = 0; i < red_mat->nrow; i++) {
+    uint32_t j = red_mat->indices[red_mat->index_start[i]];
+    red_pivots[j] = static_cast<int32_t>(i);
   }
 }
 
@@ -202,7 +237,7 @@ static void
 crt_reconstruction(fmpz*& entries,
                    std::vector<std::pair<size_t, size_t>>& idxs,
                    std::vector<sparse_mat_struct<uint32_t>*>& rrefs,
-                   std::vector<ulong>& primes,
+                   std::vector<uint32_t>& primes,
                    size_t n_piv) {
   if(rrefs.size() == 0)
     return;
@@ -494,7 +529,7 @@ static void inline copy_to_buffer(T& buffer, uint32_vec_t vec) {
 //------------------------------------------------------------------------------
 
 static void inline copy_from_buffer_and_clear(int64_t* buffer,
-                                              std::vector<size_t>& buffer_ids,
+                                              std::vector<uint32_t>& buffer_ids,
                                               uint32_vec_t vec) {
   size_t nnz = buffer_ids.size();
 
@@ -527,16 +562,16 @@ static void inline normalize_row(uint32_vec_t vec, nmod_t mod) {
 static inline void
 xmay(int64_t* __restrict x,
      int64_t a,
-     const ulong* __restrict idx,
+     const uint32_t* __restrict idx,
      const uint32_t* __restrict val,
-     size_t nnz,
+     uint32_t nnz,
      int64_t p2) {
-  size_t i = 1;
+  uint32_t i = 1;
   for(; i + 3 < nnz; i += 4) {
-    size_t j0 = idx[i];
-    size_t j1 = idx[i + 1];
-    size_t j2 = idx[i + 2];
-    size_t j3 = idx[i + 3];
+    uint32_t j0 = idx[i];
+    uint32_t j1 = idx[i + 1];
+    uint32_t j2 = idx[i + 2];
+    uint32_t j3 = idx[i + 3];
 
     int64_t v0 = x[j0];
     int64_t v1 = x[j1];
@@ -561,7 +596,7 @@ xmay(int64_t* __restrict x,
 
   // Handle remaining elements
   for(; i < nnz; i++) {
-    size_t j = idx[i];
+    uint32_t j = idx[i];
     int64_t t = x[j] - a * val[i];
     t += (t >> 63) & p2;
     x[j] = t;
@@ -575,9 +610,9 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
   uint64_t p = mod.n;
   int64_t p2 = static_cast<int64_t>(p * p);
 
-  std::vector<int64_t> piv_array(mat->ncol, -1);
+  std::vector<int32_t> piv_array(mat->ncol, -1);
   std::vector<int64_t> buffer(mat->ncol, 0);
-  std::vector<size_t> buffer_ids;
+  std::vector<uint32_t> buffer_ids;
   int64_t* buff = buffer.data();
   buffer_ids.reserve(32);
 
@@ -598,7 +633,7 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
     auto row = sparse_mat_row(mat, r);
     if(row->nnz == 0)
       break;
-    piv_array[row->indices[0]] = static_cast<int64_t>(r);
+    piv_array[row->indices[0]] = static_cast<int32_t>(r);
     piv.push_back(row->indices[0]);
   }
 
@@ -613,8 +648,8 @@ reverse_solve(uint32_mat_t mat, nmod_t mod) {
     buffer_ids.clear();
     buffer_ids.push_back(row->indices[0]);
     int64_t cc;
-    slong rr;
-    size_t i = row->indices[1];
+    int32_t rr;
+    uint32_t i = row->indices[1];
     while(i < mat->ncol) {
 #ifdef F4NCGB_FAST_MERSENNE_PRIME_MODULO
       if constexpr(mersenne) {
@@ -659,9 +694,9 @@ gauss_elim(uint32_mat_t mat,
   int64_t p2 = static_cast<int64_t>(p * p);
 
   thread_local std::vector<int64_t> buffer_local;
-  thread_local std::vector<size_t> buffer_ids_local;
+  thread_local std::vector<uint32_t> buffer_ids_local;
 
-  std::vector<std::atomic_int64_t> atomic_pivots(mat->ncol);
+  std::vector<std::atomic_int32_t> atomic_pivots(mat->ncol);
   std::fill(atomic_pivots.begin(), atomic_pivots.end(), -1);
 
   for(size_t r = 0; r < mat->nrow; r++) {
@@ -672,12 +707,12 @@ gauss_elim(uint32_mat_t mat,
     auto task = [r, &mat, &atomic_pivots, p, p2, &mod]() {
       F4NCGB_TIME(elim_task_cpu);
       auto row = sparse_mat_row(mat, r);
-      int64_t rr;
+      int32_t rr;
       int64_t cc;
-      int64_t expected = -1;
-      ulong* indices;
+      int32_t expected = -1;
+      uint32_t* indices;
       uint32_t* entries;
-      size_t nnz;
+      uint32_t nnz;
 
       buffer_local.resize(mat->ncol, 0);
       int64_t* buff = buffer_local.data();
@@ -685,8 +720,8 @@ gauss_elim(uint32_mat_t mat,
       do {
         copy_to_buffer(buff, row);
         buffer_ids_local.clear();
-        size_t i = row->indices[0];
-        size_t max_col = row->indices[row->nnz - 1];
+        uint32_t i = row->indices[0];
+        uint32_t max_col = row->indices[row->nnz - 1];
         while(i <= max_col) {
           // find next nonzero entry
           for(; i <= max_col; i++)
@@ -716,7 +751,7 @@ gauss_elim(uint32_mat_t mat,
             buff[i] = 0;
             indices = red_mat_indices(red_mat, rr);
             entries = red_mat_entries(red_mat, rr);
-            nnz = (size_t)red_mat_nnz(red_mat, rr);
+            nnz = red_mat_nnz(red_mat, rr);
             max_col = std::max(max_col, indices[nnz - 1]);
             xmay(buff, cc, indices, entries, nnz, p2);
             i++;
@@ -756,7 +791,7 @@ gauss_elim(uint32_mat_t mat,
         normalize_row(row, mod);
         expected = -1;
       } while(!atomic_pivots[row->indices[0]].compare_exchange_weak(
-        expected, static_cast<int64_t>(r)));
+        expected, static_cast<int32_t>(r)));
     };
     if(pool)
       pool->detach_task(task);
@@ -783,10 +818,10 @@ multimodular_gauss_elim(std::vector<std::vector<size_t>>& idxs_spol,
   std::vector<std::unique_ptr<sparse_mat_struct<uint32_t>>> rrefs;
   pivots best_piv;
   std::vector<pivots> pivs;
-  std::vector<ulong> used_primes;
+  std::vector<uint32_t> used_primes;
   std::vector<sparse_mat_struct<uint32_t>*> good_rrefs;
   std::vector<pivots> good_pivs;
-  std::vector<ulong> good_primes;
+  std::vector<uint32_t> good_primes;
 
   std::vector<std::pair<size_t, size_t>> idxs;
   fmpz* nums = nullptr;
@@ -963,7 +998,7 @@ linear_algebra(std::vector<std::vector<size_t>>& idxs_spol,
 
   use_trace = tracer;
 
-  set_up_reducer_mat(idxs_red);
+  set_up_reducer_mat(idxs_red, entries_red);
   set_reducer_pivots();
   sparse_mat_init_trace(red_mat, idxs_spol.size());
 
