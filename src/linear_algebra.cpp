@@ -92,7 +92,8 @@ void inline set_up_reducer_mat(const std::vector<std::vector<size_t>>& idxs,
     if(proof_level > 0) {
       row_nnz[i] += 1;
       indices[idx_k++] = nr_cols + i;
-      entry_k++;
+      if(i == ref_row)
+        entry_k++;
     }
   }
 }
@@ -207,8 +208,6 @@ set_up_spol_matrix(uint32_mat_t mat,
     row->nnz = nnz;
   }
 
-  sparse_mat_print(mat);
-
   return true;
 }
 //------------------------------------------------------------------------------
@@ -265,7 +264,7 @@ crt_reconstruction(fmpz*& entries,
     auto& nnz_pos_row = nnz_pos[i];
     for(auto& rref : rrefs) {
       auto row = sparse_mat_row(rref, i);
-      // include row only if polynomial part is nonzero      
+      // include row only if polynomial part is nonzero
       if(proof_level == 0 or row->nnz > 0)
         nnz_pos_row.insert(row->indices, row->indices + row->nnz);
     }
