@@ -49,12 +49,14 @@ sparse_mat_ro_init(sparse_mat_ro_t<T> ro,
   ro->ncol = ncol;
   ro->trace_len = 0;
 
-  ro->row_start = s_malloc<uint32_t>(nrow);
-  ro->index_start = s_malloc<uint32_t>(nrow);
-  ro->row_nnz = s_malloc<uint32_t>(nrow);
-  ro->indices = s_malloc<uint32_t>(nnz);
-  ro->entries = s_malloc<T>(unique_nnz);
-  ro->trace = NULL;
+  if(nrow > 0) {
+    ro->row_start = s_malloc<uint32_t>(nrow);
+    ro->index_start = s_malloc<uint32_t>(nrow);
+    ro->row_nnz = s_malloc<uint32_t>(nrow);
+    ro->indices = s_malloc<uint32_t>(nnz);
+    ro->entries = s_malloc<T>(unique_nnz);
+    ro->trace = NULL;
+  }
 }
 
 template<typename T>
@@ -157,23 +159,19 @@ sparse_mat_print(const sparse_mat_ro_t<T> mat) {
   }
 }
 
-template<typename T, typename S>
+template<typename T>
 void
-sparse_mat_write(sparse_mat_t<T> mat, S& st) {
-  st << mat->nrow << ' ' << mat->ncol << ' ' << sparse_mat_nnz(mat) << '\n';
+sparse_mat_print(sparse_mat_t<T> mat) {
+  std::cout << mat->nrow << ' ' << mat->ncol << ' ' << sparse_mat_nnz(mat) << '\n';
   for(size_t i = 0; i < mat->nrow; i++) {
     for(size_t j = 0; j < mat->ncol; j++) {
       auto c = sparse_mat_entry(mat, i, j);
-      boost::multiprecision::mpz_int cc;
       if(c == nullptr)
-        st << 0 << ' ';
-      else if constexpr(std::is_same_v<T, fmpz>) {
-        fmpz_get_mpz(cc.backend().data(), c);
-        st << cc << ' ';
-      } else
-        st << (int)(*c) << ' ';
+        std::cout << 0 << ' ';
+      else
+        std::cout << (int)(*c) << ' ';
     }
-    st << "\n";
+    std::cout << "\n";
   }
 }
 

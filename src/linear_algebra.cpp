@@ -20,19 +20,19 @@
 
 #include "linear_algebra.hpp"
 
-using namespace boost::multiprecision;
-
 extern int verbose;
 
 namespace f4ncgb {
 
+static size_t nrows_total;
 static bool use_trace;
 uint32_mat_ro_t red_mat;
 boost::unordered_map<const coeff*, size_t> ref_rows;
 
 void inline set_up_reducer_mat(const std::vector<std::vector<size_t>>& idxs,
                                const std::vector<std::span<coeff>>& entries) {
-  const size_t m = idxs.size();
+  const size_t nrows = idxs.size();
+  size_t ncols = nr_cols;
 
   ref_rows.clear();
 
@@ -40,7 +40,7 @@ void inline set_up_reducer_mat(const std::vector<std::vector<size_t>>& idxs,
   // also remember first row for each unique span
   size_t nnz = 0;
   size_t unique_nnz = 0;
-  for(size_t i = 0; i < m; i++) {
+  for(size_t i = 0; i < nrows; i++) {
     nnz += idxs[i].size();
     const coeff* ptr = entries[i].data();
     if(ref_rows.find(ptr) == ref_rows.end()) {
@@ -49,7 +49,13 @@ void inline set_up_reducer_mat(const std::vector<std::vector<size_t>>& idxs,
     }
   }
 
-  sparse_mat_ro_init(red_mat, m, nr_cols, nnz, unique_nnz);
+  if(proof_level > 0) {
+    nnz += nrows;
+    unique_nnz += ref_rows.size();
+    ncols += nrows_total;
+  }
+
+  sparse_mat_ro_init(red_mat, nrows, ncols, nnz, unique_nnz);
   double ratio = nnz > 0 ? (100. * unique_nnz) / nnz : 0;
   if(verbose > 2)
     msg("Reducer matrix has size (%d, %d) (%.1f%% entries actually stored)",
@@ -64,11 +70,10 @@ void inline set_up_reducer_mat(const std::vector<std::vector<size_t>>& idxs,
   uint32_t* row_start = red_mat->row_start;
   uint32_t* row_nnz = red_mat->row_nnz;
 
-  for(size_t i = 0; i < m; i++) {
+  for(size_t i = 0; i < nrows; i++) {
     index_start[i] = idx_k;
     row_nnz[i] = idxs[i].size();
 
-    // TODO: transformation matrix
     // store indices
     for(auto j : idxs[i])
       indices[idx_k++] = j;
@@ -78,9 +83,16 @@ void inline set_up_reducer_mat(const std::vector<std::vector<size_t>>& idxs,
     size_t ref_row = ref_rows[ptr];
     if(i == ref_row) {
       row_start[i] = entry_k;
-      entry_k += idxs[i].size();// TODO: transformation matrix
+      entry_k += idxs[i].size();
     } else {
       row_start[i] = row_start[ref_row];
+    }
+
+    // store transformation matrix
+    if(proof_level > 0) {
+      row_nnz[i] += 1;
+      indices[idx_k++] = nr_cols + i;
+      entry_k++;
     }
   }
 }
@@ -112,6 +124,8 @@ bool inline fill_reducer_mat(const std::vector<std::span<coeff>>& entries,
       cc = fmpz_get_nmod(coeffs[j].value, mod);
       mat_entries[k++] = nmod_mul(inv, cc, mod);
     }
+    if(proof_level > 0)
+      mat_entries[k++] = 1;
   }
   return true;
 }
@@ -132,23 +146,25 @@ void inline set_reducer_pivots() {
 //------------------------------------------------------------------------------
 
 bool
-set_up_matrix(uint32_mat_t mat,
-              nmod_t mod,
-              const std::vector<std::vector<size_t>>& idxs,
-              const std::vector<std::span<coeff>>& entries) {
-  const size_t m = idxs.size();
+set_up_spol_matrix(uint32_mat_t mat,
+                   nmod_t mod,
+                   const std::vector<std::vector<size_t>>& idxs,
+                   const std::vector<std::span<coeff>>& entries) {
+  const size_t nrows = idxs.size();
 
   // ---- initialize matrix ----
   if(proof_level > 0)
-    sparse_mat_init(mat, m, nr_cols + m);
+    sparse_mat_init(mat, nrows, nr_cols + nrows_total);
   else
-    sparse_mat_init(mat, m, nr_cols);
+    sparse_mat_init(mat, nrows, nr_cols);
 
   if(verbose > 2)
     msg("S-Pol matrix has size (%d, %d)", mat->nrow, mat->ncol);
 
   // ---- fill rows ----
-  for(size_t i = 0; i < m; i++) {
+  uint32_t offset
+    = nr_cols + (uint32_t)((int32_t)nrows_total) - ((int32_t)nrows);
+  for(size_t i = 0; i < nrows; i++) {
 
     if(red_mat->trace[i]) {
       // dummy init to be safe
@@ -164,7 +180,6 @@ set_up_matrix(uint32_mat_t mat,
     auto row = sparse_mat_row_init(mat, i, max_nnz);
 
     size_t nnz = 0;
-
     // --- insert reduced entries ---
     for(size_t k = 0; k < coeffs.size(); k++) {
       uint32_t c = fmpz_get_nmod(coeffs[k].value, mod);
@@ -180,7 +195,7 @@ set_up_matrix(uint32_mat_t mat,
 
     // ---- transformation block ----
     if(proof_level > 0) {
-      row->indices[nnz] = nr_cols + i;
+      row->indices[nnz] = offset + i;
       // insert denom from input polynomial
       if(interreduce) {
         uint32_t c = fmpz_get_nmod(input_denoms[i].value, mod);
@@ -189,9 +204,11 @@ set_up_matrix(uint32_mat_t mat,
         row->entries[nnz] = 1;
       nnz++;
     }
-
     row->nnz = nnz;
   }
+
+  sparse_mat_print(mat);
+
   return true;
 }
 //------------------------------------------------------------------------------
@@ -248,7 +265,7 @@ crt_reconstruction(fmpz*& entries,
     auto& nnz_pos_row = nnz_pos[i];
     for(auto& rref : rrefs) {
       auto row = sparse_mat_row(rref, i);
-      // include row only if polynomial part is nonzero
+      // include row only if polynomial part is nonzero      
       if(proof_level == 0 or row->nnz > 0)
         nnz_pos_row.insert(row->indices, row->indices + row->nnz);
     }
@@ -854,7 +871,7 @@ multimodular_gauss_elim(std::vector<std::vector<size_t>>& idxs_spol,
       res = fill_reducer_mat(entries_red, mod);
       std::unique_ptr<sparse_mat_struct<uint32_t>> nmod_mat
         = std::make_unique<sparse_mat_struct<uint32_t>>();
-      res &= set_up_matrix(nmod_mat.get(), mod, idxs_spol, entries_spol);
+      res &= set_up_spol_matrix(nmod_mat.get(), mod, idxs_spol, entries_spol);
 
       // a pivot was set to zero -- we don't want that
       if(!res) {
@@ -953,7 +970,7 @@ nmod_gauss_elim(std::vector<std::vector<size_t>>& idxs_spol,
   nmod_init(&mod, p);
 
   uint32_mat_t nmod_mat;
-  set_up_matrix(nmod_mat, mod, idxs_spol, entries_spol);
+  set_up_spol_matrix(nmod_mat, mod, idxs_spol, entries_spol);
   fill_reducer_mat(entries_red, mod);
 
   F4NCGB_TIME(rref);
@@ -997,6 +1014,9 @@ linear_algebra(std::vector<std::vector<size_t>>& idxs_spol,
                bool tracer) {
 
   use_trace = tracer;
+  nrows_total = idxs_spol.size() + idxs_red.size();
+
+  std::cout << "total nr rows = " << nrows_total << std::endl;
 
   set_up_reducer_mat(idxs_red, entries_red);
   set_reducer_pivots();
@@ -1011,6 +1031,9 @@ linear_algebra(std::vector<std::vector<size_t>>& idxs_spol,
       idxs_spol, entries_spol, entries_red, characteristic, pool);
 
   sparse_mat_ro_clear(red_mat);
+
+  std::cout << "Done with reduction" << std::endl;
+
   return res;
 }
 }
