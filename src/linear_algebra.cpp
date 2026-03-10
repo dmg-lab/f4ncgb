@@ -260,9 +260,9 @@ crt_reconstruction(fmpz*& entries,
 
   // get all (i,j) where at least one rref is nonzero
   std::map<size_t, std::set<size_t>> nnz_pos;
-  for(size_t i = 0; i < n_piv; i++) {
-    auto& nnz_pos_row = nnz_pos[i];
-    for(auto& rref : rrefs) {
+  for(auto& rref : rrefs) {
+    for(size_t i = 0; i < n_piv; i++) {
+      auto& nnz_pos_row = nnz_pos[i];
       auto row = sparse_mat_row(rref, i);
       // include row only if polynomial part is nonzero
       if(proof_level == 0 or row->nnz > 0)
@@ -320,6 +320,7 @@ verify_result(fmpz* nums,
               coeff height,
               size_t n,
               coeff P) {
+
   fmpz_t d;
   fmpz_init_set_ui(d, 1);
   for(size_t i = 0; i < len; i++)
@@ -464,6 +465,7 @@ rational_reconstruction(fmpz*& nums,
                         fmpz* crt_entries,
                         coeff& prod,
                         size_t N) {
+
   ratrec_data data;
   fmpz_get_mpz(data.mod, prod.value);
   // N = floor(sqrt(m/2))
@@ -743,7 +745,6 @@ gauss_elim(uint32_mat_t mat,
           for(; i <= max_col; i++)
             if(buff[i] != 0)
               break;
-
           if(i > max_col)
             break;
 
@@ -940,12 +941,14 @@ multimodular_gauss_elim(std::vector<std::vector<size_t>>& idxs_spol,
       if(verbose > 2)
         msg("Reconstruction unsuccessful. Increasing bound.");
       M = prod * p * p;
-      // reset trace and cleanup
+      // cleanup
+      sparse_mat_reset_trace(red_mat);
       fmpz_cleanup(nums, idxs.size());
       fmpz_cleanup(denoms, idxs.size());
       continue;
     }
 
+    // TODO: if verification fails increase M and cleanup
     if(verify_result(nums, denoms, idxs.size(), h, ncol, prod))
       break;
   }
@@ -993,7 +996,7 @@ nmod_gauss_elim(std::vector<std::vector<size_t>>& idxs_spol,
     auto row = sparse_mat_row(nmod_mat, i);
     for(size_t j = 0; j < row->nnz; j++) {
       idxs.emplace_back(i, row->indices[j]);
-      fmpz_set_ui(entries + k++, row->entries[j]);
+      fmpz_init_set_ui(entries + k++, row->entries[j]);
     }
   }
 
@@ -1015,8 +1018,6 @@ linear_algebra(std::vector<std::vector<size_t>>& idxs_spol,
   use_trace = tracer;
   nrows_total = idxs_spol.size() + idxs_red.size();
 
-  std::cout << "total nr rows = " << nrows_total << std::endl;
-
   set_up_reducer_mat(idxs_red, entries_red);
   set_reducer_pivots();
   sparse_mat_init_trace(red_mat, idxs_spol.size());
@@ -1030,8 +1031,6 @@ linear_algebra(std::vector<std::vector<size_t>>& idxs_spol,
       idxs_spol, entries_spol, entries_red, characteristic, pool);
 
   sparse_mat_ro_clear(red_mat);
-
-  std::cout << "Done with reduction" << std::endl;
 
   return res;
 }
