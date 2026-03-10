@@ -130,12 +130,9 @@ sparse_mat_nnz(const sparse_mat_t<T> mat) {
 }
 
 template<typename T>
-inline T*
-sparse_mat_entry(sparse_mat_t<T> mat,
-                 ulong row,
-                 ulong col,
-                 bool isbinary = true) {
-  return sparse_vec_entry(sparse_mat_row(mat, row), col, isbinary);
+inline T
+sparse_mat_entry(sparse_mat_t<T> mat, ulong row, ulong col) {
+  return sparse_vec_entry(sparse_mat_row(mat, row), col);
 }
 
 template<typename T>
@@ -162,14 +159,12 @@ sparse_mat_print(const sparse_mat_ro_t<T> mat) {
 template<typename T>
 void
 sparse_mat_print(sparse_mat_t<T> mat) {
-  std::cout << mat->nrow << ' ' << mat->ncol << ' ' << sparse_mat_nnz(mat) << '\n';
+  std::cout << mat->nrow << ' ' << mat->ncol << ' ' << sparse_mat_nnz(mat)
+            << '\n';
   for(size_t i = 0; i < mat->nrow; i++) {
     for(size_t j = 0; j < mat->ncol; j++) {
       auto c = sparse_mat_entry(mat, i, j);
-      if(c == nullptr)
-        std::cout << 0 << ' ';
-      else
-        std::cout << (int)(*c) << ' ';
+      std::cout << c << ' ';
     }
     std::cout << "\n";
   }

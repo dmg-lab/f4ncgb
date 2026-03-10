@@ -269,6 +269,7 @@ crt_reconstruction(fmpz*& entries,
         nnz_pos_row.insert(row->indices, row->indices + row->nnz);
     }
   }
+
   size_t nnz = 0;
   for(const auto& [key, values] : nnz_pos)
     nnz += values.size();
@@ -298,10 +299,7 @@ crt_reconstruction(fmpz*& entries,
       idxs.emplace_back(i, j);
       for(size_t k = 0; k < rrefs.size(); k++) {
         auto c = sparse_mat_entry(rrefs[k], i, j);
-        if(c == nullptr)
-          fmpz_set_ui(inputs + k, 0);
-        else
-          fmpz_set_ui(inputs + k, *c);
+        fmpz_set_ui(inputs + k, c);
       }
       fmpz_multi_CRT_precomp(entries + idx++, crt_base, inputs, 0);
     }
@@ -844,14 +842,11 @@ multimodular_gauss_elim(std::vector<std::vector<size_t>>& idxs_spol,
   fmpz* nums = nullptr;
   fmpz* denoms = nullptr;
 
-  size_t nrow = entries_spol.size() + entries_red.size();
-  size_t ncol = 0;
-
   size_t i = 0;
 
   coeff h = height(entries_spol, entries_red);
   coeff prod(1L);
-  coeff M = 20000000 * nrow * (h + 100) * h + 1;
+  coeff M = 10000000 * nr_cols * (h + 100) * h + 1;
 
   uint32_t p = PRIMES[0];
   nmod_t mod;
@@ -880,8 +875,6 @@ multimodular_gauss_elim(std::vector<std::vector<size_t>>& idxs_spol,
         sparse_mat_clear(nmod_mat.get());
         continue;
       }
-
-      ncol = nmod_mat.get()->ncol;
 
       F4NCGB_TIME(rref);
       auto gauss_elim_wrapper = [&]() -> pivots {
@@ -921,7 +914,6 @@ multimodular_gauss_elim(std::vector<std::vector<size_t>>& idxs_spol,
     // and clear here
     fmpz* crt_entries = nullptr;
     idxs.clear();
-
     {
       F4NCGB_TIME(crt);
       crt_reconstruction(
@@ -937,20 +929,17 @@ multimodular_gauss_elim(std::vector<std::vector<size_t>>& idxs_spol,
 
     fmpz_cleanup(crt_entries, idxs.size());
 
-    if(!success) {
-      if(verbose > 2)
-        msg("Reconstruction unsuccessful. Increasing bound.");
-      M = prod * p * p;
-      // cleanup
-      sparse_mat_reset_trace(red_mat);
-      fmpz_cleanup(nums, idxs.size());
-      fmpz_cleanup(denoms, idxs.size());
-      continue;
-    }
+    if(success)
+      if(verify_result(nums, denoms, idxs.size(), h, nr_cols, prod))
+        break;
+      else if(verbose > 2)
+        msg("Verification has failed. Increasing bound.");
 
-    // TODO: if verification fails increase M and cleanup
-    if(verify_result(nums, denoms, idxs.size(), h, ncol, prod))
-      break;
+    // increase bound and cleanup
+    M = prod * p * p;
+    sparse_mat_reset_trace(red_mat);
+    fmpz_cleanup(nums, idxs.size());
+    fmpz_cleanup(denoms, idxs.size());
   }
 
   for(const auto& rref : rrefs)

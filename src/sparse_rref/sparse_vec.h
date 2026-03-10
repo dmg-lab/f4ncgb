@@ -88,19 +88,18 @@ sparse_vec_clear(sparse_vec_t<T> vec) {
 }
 
 template<typename T>
-inline T*
-sparse_vec_entry(sparse_vec_t<T> vec, uint32_t index, const bool isbinary = true) {
-  if(vec->nnz == 0 || index < vec->indices[0]
-     || index > vec->indices[vec->nnz - 1])
-    return NULL;
-  uint32_t* ptr;
-  if(isbinary)
-    ptr = binarysearch(vec->indices, vec->indices + vec->nnz, index);
-  else
-    ptr = std::find(vec->indices, vec->indices + vec->nnz, index);
-  if(ptr == vec->indices + vec->nnz)
-    return NULL;
-  return sparse_vec_entry_pointer(vec, ptr - vec->indices);
+inline T
+sparse_vec_entry(sparse_vec_t<T> vec, uint32_t index) {
+
+  if(vec->nnz == 0)
+    return 0;
+
+  auto it = std::lower_bound(vec->indices, vec->indices + vec->nnz, index);
+  if(it != vec->indices + vec->nnz && *it == index) {
+    size_t pos = it - vec->indices;
+    return vec->entries[pos];
+  }
+  return 0;
 }
 
 // debug only, not used to the large vector
