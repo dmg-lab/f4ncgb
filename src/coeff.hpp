@@ -28,20 +28,9 @@ struct coeff {
     fmpz_swap(value, other.value);
   }
 
-  // Leaves x in valid but unspecified state
-  explicit coeff(fmpz_t&& x) {
-    fmpz_init(value);
-    fmpz_swap(value, x);
-  }
-
   coeff(long x) {
     fmpz_init(value);
     fmpz_set_si(value, x);
-  }
-
-  explicit coeff(const mpz_t x) {
-    fmpz_init(value);
-    fmpz_set_mpz(value, x);
   }
 
   friend std::ostream& operator<<(std::ostream& os, const coeff& c) {
