@@ -163,8 +163,7 @@ set_up_spol_matrix(uint32_mat_t mat,
     msg("S-Pol matrix has size (%d, %d)", mat->nrow, mat->ncol);
 
   // ---- fill rows ----
-  uint32_t offset
-    = nr_cols + (uint32_t)((int32_t)nrows_total) - ((int32_t)nrows);
+  uint32_t offset = nr_cols + nrows_total - nrows;
   for(size_t i = 0; i < nrows; i++) {
 
     if(red_mat->trace[i]) {
@@ -298,7 +297,7 @@ crt_reconstruction(fmpz*& entries,
     for(auto j : nnz_pos[i]) {
       idxs.emplace_back(i, j);
       for(size_t k = 0; k < rrefs.size(); k++) {
-        auto c = sparse_mat_entry(rrefs[k], i, j);
+        uint32_t c = sparse_mat_entry(rrefs[k], i, j);
         fmpz_set_ui(inputs + k, c);
       }
       fmpz_multi_CRT_precomp(entries + idx++, crt_base, inputs, 0);
@@ -315,9 +314,9 @@ inline bool
 verify_result(fmpz* nums,
               fmpz* denoms,
               size_t len,
-              coeff height,
+              coeff& height,
               size_t n,
-              coeff P) {
+              coeff& P) {
 
   fmpz_t d;
   fmpz_init_set_ui(d, 1);
@@ -846,7 +845,7 @@ multimodular_gauss_elim(std::vector<std::vector<size_t>>& idxs_spol,
 
   coeff h = height(entries_spol, entries_red);
   coeff prod(1L);
-  coeff M = 10000000 * nr_cols * (h + 100) * h + 1;
+  coeff M = 10000000UL * nr_cols * (h + 100) * h + 1;
 
   uint32_t p = PRIMES[0];
   nmod_t mod;
@@ -937,7 +936,7 @@ multimodular_gauss_elim(std::vector<std::vector<size_t>>& idxs_spol,
 
     // increase bound and cleanup
     M = prod * p * p;
-    sparse_mat_reset_trace(red_mat);
+    // sparse_mat_reset_trace(red_mat);
     fmpz_cleanup(nums, idxs.size());
     fmpz_cleanup(denoms, idxs.size());
   }

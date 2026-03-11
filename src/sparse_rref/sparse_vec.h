@@ -96,7 +96,7 @@ sparse_vec_entry(sparse_vec_t<T> vec, uint32_t index) {
 
   auto it = std::lower_bound(vec->indices, vec->indices + vec->nnz, index);
   if(it != vec->indices + vec->nnz && *it == index) {
-    size_t pos = it - vec->indices;
+    int pos = it - vec->indices;
     return vec->entries[pos];
   }
   return 0;

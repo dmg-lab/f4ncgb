@@ -246,6 +246,10 @@ struct f4 {
     update_basis_and_amb();
 
     interreduce = false;
+
+    if(verbose > 0)
+      msg("==== Interreduction finished. Basis has now %d elements ====",
+          basis.size() - 1);
   }
   //------------------------------------------------------------------------------
 
@@ -689,7 +693,8 @@ struct f4 {
         }
       }
 
-      coeff c(entries[k++]);
+      coeff c;
+      fmpz_swap(c.value, &entries[k++]);
       assert(!c.is_zero());
       if(j < n) {
         p.emplace_back(c, columns[j]);
@@ -751,9 +756,9 @@ struct f4 {
   }
   //------------------------------------------------------------------------------
 
-  std::vector<std::span<C>> entries_spol;
+  std::vector<std::span<coeff>> entries_spol;
   std::vector<std::vector<size_t>> idxs_spol;
-  std::vector<std::span<C>> entries_red;
+  std::vector<std::span<coeff>> entries_red;
   std::vector<std::vector<size_t>> idxs_red;
   void prepare_matrix() {
 
