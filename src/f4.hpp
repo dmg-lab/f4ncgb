@@ -147,14 +147,14 @@ struct f4 {
       : c(c_)
       , t(a_, i_, b_) {}
 
-    inline mon_id a() { return t.a; }
-    inline int i() { return t.i; }
-    inline mon_id b() { return t.b; }
+    inline mon_id a() const { return t.a; }
+    inline int i() const { return t.i; }
+    inline mon_id b() const { return t.b; }
 
     inline void log(std::ostream& o,
                     parser_context& context,
                     polynomial_store& poly,
-                    bool first = false) {
+                    bool first = false) const {
       if(!first)
         o << (c.sign() > 0 ? " + " : " ");
       o << c << "*";
@@ -206,7 +206,7 @@ struct f4 {
         // add(userdata, gmp_num, gmp_den, 0, 0);
       } else {
         auto coeff_it = poly.get_coefficients(poly_id).begin();
-        for(auto mon_id : poly[poly_id]) {
+        for(const auto mon_id : poly[poly_id]) {
           auto vars = mons[mon_id];
           data.clear();
           std::copy(vars.begin(), vars.end(), std::back_inserter(data));
@@ -322,7 +322,7 @@ struct f4 {
 
     // find the element with new leading monomial, this is the NF
     // if none exists, NF is zero
-    for(poly_id q : new_elements) {
+    for(const poly_id q : new_elements) {
       mon_id m = poly.get_lm_id(q);
       auto& red = prefix_trie.divisors(mons[m]);
       if(red.empty()) {
@@ -445,7 +445,7 @@ struct f4 {
       // overlaps with m = AB
       ab = m;
       // last k elements of m = AB form overlap B
-      for(auto [j, k] : overlaps) {
+      for(const auto [j, k] : overlaps) {
         bc = mons[j];
         I d = ab.size() + bc.size() - k;
         if(d > maxdeg)
@@ -461,7 +461,7 @@ struct f4 {
       suffix_trie.overlaps_rev(m, overlaps);
       bc = m;
       // k determines where B starts in m = BC
-      for(auto [j, k] : overlaps) {
+      for(const auto [j, k] : overlaps) {
         ab = mons[j];
         I d = ab.size() + bc.size() - k;
         if(d > maxdeg)
@@ -478,7 +478,7 @@ struct f4 {
       // inclusions with m = ABC
       I d = m.size();
       // k determines where B starts in m = ABC
-      for(auto [j, k] : inclusions) {
+      for(const auto [j, k] : inclusions) {
         if(i == j)
           continue;
         b = mons[j];
@@ -493,7 +493,7 @@ struct f4 {
       b = m;
       prefix_trie.inclusions(m, inclusions);
       // last k elements in ABC form C
-      for(auto [j, k] : inclusions) {
+      for(const auto [j, k] : inclusions) {
         if(i == j)
           continue;
         abc = mons[j];
@@ -584,7 +584,7 @@ struct f4 {
       assert(m == poly.get_lm_id(reducer));
       reducers.push_back(reducer);
 
-      for(mon_id m : poly[reducer])
+      for(const mon_id m : poly[reducer])
         push_todo(m);
     }
   }
@@ -622,11 +622,11 @@ struct f4 {
       std::vector<cofactor> expanded;
       for(size_t n = basis.size(); n < cofactors.size(); n++) {
         expanded.clear();
-        for(auto& cofactor : cofactors[n]) {
-          coeff& c = cofactor.c;
+        for(const auto& cofactor : cofactors[n]) {
+          const coeff& c = cofactor.c;
           mon_id a = cofactor.a();
           mon_id b = cofactor.b();
-          for(auto& cofactor_i : cofactors[(size_t)cofactor.i()]) {
+          for(const auto& cofactor_i : cofactors[(size_t)cofactor.i()]) {
             coeff cc = c * cofactor_i.c;
             mon_id aa = mons.get_product_id(a, cofactor_i.a());
             mon_id bb = mons.get_product_id(cofactor_i.b(), b);
@@ -653,7 +653,7 @@ struct f4 {
     bool first = true;
     for(size_t n = basis.size(); n < cofactors.size(); n++) {
       first = true;
-      for(auto& cofactor : cofactors[n]) {
+      for(const auto& cofactor : cofactors[n]) {
         cofactor.log(proof_file, context, poly, first);
         first = false;
       }
@@ -681,7 +681,7 @@ struct f4 {
     size_t n = columns.size();
     size_t k = 0;
     size_t cur_i = idxs[0].first;
-    for(auto [i, j] : idxs) {
+    for(const auto [i, j] : idxs) {
       // a new polynomial starts
       if(i != cur_i) {
         res.push_back(poly.add_polynomial(p));
@@ -780,7 +780,7 @@ struct f4 {
 
     boost::unordered_map<mon_id, size_t> col_to_id;
     size_t i = 0;
-    for(auto c : columns)
+    for(const auto c : columns)
       col_to_id[c] = i++;
 
     // sort spolies and reducers
@@ -799,16 +799,16 @@ struct f4 {
     idxs_red.resize(reducers.size());
 
     i = 0;
-    for(auto r : spolies) {
+    for(const auto r : spolies) {
       entries_spol.push_back(poly.get_coefficients(r));
-      for(auto m : poly[r])
+      for(const auto m : poly[r])
         idxs_spol[i].push_back(col_to_id[m]);
       i++;
     }
     i = 0;
-    for(auto r : reducers) {
+    for(const auto r : reducers) {
       entries_red.push_back(poly.get_coefficients(r));
-      for(auto m : poly[r])
+      for(const auto m : poly[r])
         idxs_red[i].push_back(col_to_id[m]);
       i++;
     }

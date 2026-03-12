@@ -75,7 +75,7 @@ void inline set_up_reducer_mat(const std::vector<std::vector<size_t>>& idxs,
     row_nnz[i] = idxs[i].size();
 
     // store indices
-    for(auto j : idxs[i])
+    for(const auto j : idxs[i])
       indices[idx_k++] = j;
 
     // store coeff offset
@@ -259,7 +259,7 @@ crt_reconstruction(fmpz*& entries,
 
   // get all (i,j) where at least one rref is nonzero
   std::map<size_t, std::set<size_t>> nnz_pos;
-  for(auto& rref : rrefs) {
+  for(const auto& rref : rrefs) {
     for(size_t i = 0; i < n_piv; i++) {
       auto& nnz_pos_row = nnz_pos[i];
       auto row = sparse_mat_row(rref, i);
@@ -294,7 +294,7 @@ crt_reconstruction(fmpz*& entries,
 
   size_t idx = 0;
   for(size_t i = 0; i < n_piv; i++) {
-    for(auto j : nnz_pos[i]) {
+    for(const auto j : nnz_pos[i]) {
       idxs.emplace_back(i, j);
       for(size_t k = 0; k < rrefs.size(); k++) {
         uint32_t c = sparse_mat_entry(rrefs[k], i, j);
@@ -449,8 +449,9 @@ ratrecon(fmpz_t num, fmpz_t den, mpz_t u, ratrec_data* data) {
     fmpz_set_mpz(num, data->n);
     fmpz_set_mpz(den, data->d);
 
-  } else if(verbose > 2)
+  } else if(verbose > 2) {
     msg("Rational reconstruction does not exist");
+  }
 
   return success;
 }
@@ -796,7 +797,7 @@ gauss_elim(uint32_mat_t mat,
            or (proof_level > 0
                and buffer_ids_local[0] >= mat->ncol - nrows_total)) {
           sparse_vec_clear(row);
-          for(auto id : buffer_ids_local)
+          for(const auto id : buffer_ids_local)
             buff[id] = 0;
           red_mat->trace[r] = use_trace;// only set them if we use tracer
           return;
