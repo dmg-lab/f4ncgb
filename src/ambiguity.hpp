@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <boost/functional/hash.hpp>
+#include <boost/unordered/unordered_map.hpp>
 #include <span>
 
 namespace f4ncgb {
@@ -20,6 +21,12 @@ template<typename I>
 struct ambiguity {
   std::array<I, 7> values;
   size_t hash_;
+  mutable I fi_;
+  mutable I fj_;
+  mutable I lm_;
+
+  using mon_id = I;
+  using poly_id = I;
 
   inline ambiguity(I d, I i, I j, I ai, I ci, I aj, I cj)
     : values{ d, i, j, ai, ci, aj, cj }
@@ -32,10 +39,24 @@ struct ambiguity {
   inline I ci() const noexcept { return values[4]; }
   inline I aj() const noexcept { return values[5]; }
   inline I cj() const noexcept { return values[6]; }
+  inline I fi() const noexcept { return fi_; }
+  inline I fj() const noexcept { return fj_; }
+  inline I lm() const noexcept { return lm_; }
 
   // Equality operator for unordered_set
   inline bool operator==(const ambiguity& other) const noexcept {
     return (hash_ == other.hash_) and (values == other.values);
+  }
+
+  template<typename PS>
+  void prepare(PS& poly,
+               boost::unordered_map<mon_id, poly_id>& lm_to_poly) const {
+    poly_id ii = lm_to_poly[i()];
+    poly_id jj = lm_to_poly[j()];
+
+    fi_ = poly.multiply_front_and_back(ai(), ii, ci());
+    fj_ = poly.multiply_front_and_back(aj(), jj, cj());
+    lm_ = poly.get_lm_id(values[7]);
   }
 };
 

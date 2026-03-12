@@ -126,7 +126,7 @@ bool inline fill_reducer_mat(const std::vector<std::span<coeff>>& entries,
       mat_entries[k++] = nmod_mul(inv, cc, mod);
     }
     if(proof_level > 0)
-      mat_entries[k++] = 1;
+      mat_entries[k++] = inv;
   }
   return true;
 }
@@ -794,7 +794,7 @@ gauss_elim(uint32_mat_t mat,
         // we have a zero row
         if(buffer_ids_local.empty()
            or (proof_level > 0
-               and buffer_ids_local[0] >= mat->ncol - mat->nrow)) {
+               and buffer_ids_local[0] >= mat->ncol - nrows_total)) {
           sparse_vec_clear(row);
           for(auto id : buffer_ids_local)
             buff[id] = 0;

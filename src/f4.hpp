@@ -84,7 +84,7 @@ struct f4 {
   polynomial_store poly;
   std::vector<poly_id> basis;
   std::map<size_t, boost::unordered_set<ambiguity_, amb_hash>> amb;
-  std::vector<crit_pair> crit_pairs;
+  std::vector<ambiguity_> crit_pairs;
   boost::unordered_map<mon_id, poly_id> lm_to_poly;
   monomial_trie_ prefix_trie;
   monomial_trie_ suffix_trie;
@@ -173,7 +173,8 @@ struct f4 {
     }
   };
 
-  std::vector<triplet> extended_rows;
+  std::vector<triplet> extended_spolies;
+  std::vector<triplet> extended_reducers;
   std::vector<std::vector<cofactor>> cofactors;
   //------------------------------------------------------------------------------
   inline parse_res read_input(parser_context& context) {
@@ -231,7 +232,8 @@ struct f4 {
     size_t i = 0;
     for(const auto& p : polies) {
       spolies.push_back(p);
-      extended_rows.emplace_back(0, i++, 0);
+      if(proof_level > 0)
+        extended_spolies.emplace_back(0, i++, 0);
     }
 
     // to leave 0th position open; just like in basis
@@ -314,7 +316,7 @@ struct f4 {
 
     // when GB does not contain 1, perform reduction
     if(!constant_flag) {
-      crit_pairs.emplace_back(p, p);
+      spolies.push_back(p);
       reduction();
     }
 
@@ -335,26 +337,6 @@ struct f4 {
   }
 
   //------------------------------------------------------------------------------
-  inline crit_pair to_crit_pair(const ambiguity_& a) {
-    poly_id i = lm_to_poly[a.i()];
-    poly_id j = lm_to_poly[a.j()];
-
-    mon_id ai = a.ai();
-    mon_id ci = a.ci();
-    mon_id aj = a.aj();
-    mon_id cj = a.cj();
-
-    poly_id f = poly.multiply_front_and_back(ai, i, ci);
-    poly_id g = poly.multiply_front_and_back(aj, j, cj);
-
-    if(proof_level > 0) {
-      extended_rows.emplace_back(ai, poly.get_idx(i), ci);
-      extended_rows.emplace_back(aj, poly.get_idx(j), cj);
-    }
-    crit_pair c(f, g);
-    return c;
-  }
-  //------------------------------------------------------------------------------
 
   inline void stage_crit_pairs() {
     if(amb.empty())
@@ -362,16 +344,19 @@ struct f4 {
 
     auto minimal_amb = amb.begin();
     size_t d = minimal_amb->first;
+
+    crit_pairs.reserve(minimal_amb->second.size());
     for(const auto& a : minimal_amb->second) {
-      crit_pairs.push_back(to_crit_pair(a));
+      a.prepare(poly, lm_to_poly);
+      crit_pairs.push_back(a);
     }
     amb.erase(d);
 
+    // sort by increasing lm
     std::sort(crit_pairs.begin(),
               crit_pairs.end(),
               [this](const auto& a, const auto& b) {
-                return this->mons.template cmp<block_order>(
-                  this->poly.get_lm_id(a.first), this->poly.get_lm_id(b.first));
+                return this->mons.template cmp<block_order>(a.lm(), b.lm());
               });
   }
   //------------------------------------------------------------------------------
@@ -532,6 +517,7 @@ struct f4 {
 
   void symbolic_preprocessing() {
     F4NCGB_TIME(sym_pre);
+
     boost::unordered_set<mon_id> todo_seen;
     std::vector<mon_id> todo_vec;
     size_t todo_pos = 0;
@@ -546,26 +532,40 @@ struct f4 {
         todo_vec.push_back(m);
     };
 
+    auto handle_spoly = [&](poly_id p, auto ai, auto i, auto ci) {
+      spolies.push_back(p);
+      if(proof_level > 0)
+        extended_spolies.emplace_back(ai, poly.get_idx(lm_to_poly[i]), ci);
+    };
+
+    auto handle_reducer = [&](poly_id p, auto ai, auto i, auto ci) {
+      reducers.push_back(p);
+      if(proof_level > 0)
+        extended_reducers.emplace_back(ai, poly.get_idx(lm_to_poly[i]), ci);
+    };
+
     // assumes that crit pairs are sorted by lm
     // in increasing order
-    for(const auto& [f, g] : crit_pairs) {
-      const auto mons_f = poly[f];
-      const auto mons_g = poly[g];
+    for(const auto& a : crit_pairs) {
+      poly_id f = a.fi();
+      poly_id g = a.fj();
+      const auto& mons_f = poly[f];
+      const auto& mons_g = poly[g];
+
+      mon_id lm = mons_f[0];
+      bool first_time = todo_seen.insert(lm).second;
 
       // lm never seen -> one into reducers
-      mon_id lm = mons_f[0];
-      if(todo_seen.insert(lm).second) {
-        if(mons_f.size() < mons_g.size()) {
-          spolies.push_back(f);
-          reducers.push_back(g);
-        } else {
-          spolies.push_back(g);
-          reducers.push_back(f);
-        }
-        // already have reducer for this lm -> both in spol
+      // lm seen before -> both in spolies
+      if(!first_time) {
+        handle_spoly(f, a.ai(), a.i(), a.ci());
+        handle_spoly(g, a.aj(), a.j(), a.cj());
+      } else if(mons_f.size() < mons_g.size()) {
+        handle_spoly(f, a.ai(), a.i(), a.ci());
+        handle_reducer(g, a.aj(), a.j(), a.cj());
       } else {
-        spolies.push_back(f);
-        spolies.push_back(g);
+        handle_reducer(f, a.ai(), a.i(), a.ci());
+        handle_spoly(g, a.aj(), a.j(), a.cj());
       }
 
       for(const auto m : mons_f)
@@ -607,7 +607,7 @@ struct f4 {
     poly_id g = lm_to_poly[match.first];
 
     if(proof_level > 0)
-      extended_rows.emplace_back(a, poly.get_idx(g), b);
+      extended_reducers.emplace_back(a, poly.get_idx(g), b);
 
     poly_id res = poly.multiply_front_and_back(a, g, b);
 
@@ -670,11 +670,11 @@ struct f4 {
     std::vector<std::pair<coeff, mon_id>> p;
     std::vector<cofactor> current_cofactors;
     res.clear();
-
     poly.reset();
 
     if(idxs.size() == 0) {
-      extended_rows.clear();
+      extended_spolies.clear();
+      extended_reducers.clear();
       return res;
     }
 
@@ -696,13 +696,24 @@ struct f4 {
       coeff c;
       fmpz_swap(c.value, &entries[k++]);
       assert(!c.is_zero());
+
       if(j < n) {
         p.emplace_back(c, columns[j]);
       } else {
-        current_cofactors.emplace_back(c,
-                                       extended_rows[j - n].a,
-                                       extended_rows[j - n].i,
-                                       extended_rows[j - n].b);
+        size_t idx = j - n;
+        if(idx < extended_reducers.size()) {
+          current_cofactors.emplace_back(c,
+                                         extended_reducers[idx].a,
+                                         extended_reducers[idx].i,
+                                         extended_reducers[idx].b);
+        } else {
+          idx -= extended_reducers.size();
+          assert(idx < extended_spolies.size());
+          current_cofactors.emplace_back(c,
+                                         extended_spolies[idx].a,
+                                         extended_spolies[idx].i,
+                                         extended_spolies[idx].b);
+        }
       }
     }
     // don't forget to add last element
@@ -710,20 +721,25 @@ struct f4 {
     if(proof_level > 0)
       cofactors.emplace_back(std::move(current_cofactors));
 
-    extended_rows.clear();
+    extended_spolies.clear();
+    extended_reducers.clear();
 
     return res;
   }
   //------------------------------------------------------------------------------
 
   template<typename T>
-  void apply_perm(std::vector<T>& vec, std::vector<size_t>& perm) {
+  void apply_perm(std::vector<T>& vec, const std::vector<size_t>& perm) {
+
+    assert(vec.size() == perm.size());
     std::vector<T> tmp;
+
     tmp.reserve(vec.size());
     for(size_t i : perm)
-      tmp.push_back(std::move(vec[i]));
-    vec = std::move(tmp);
+      tmp.push_back(vec[i]);
+    vec.swap(tmp);
   };
+  //------------------------------------------------------------------------------
 
   void sort_rows(std::vector<poly_id>& to_sort,
                  std::vector<triplet>& extended,
@@ -749,9 +765,9 @@ struct f4 {
 
     apply_perm(to_sort, perm);
     if(proof_level > 0) {
-      if(interreduce)
-        apply_perm(input_denoms, perm);
       apply_perm(extended, perm);
+      if(interreduce and &to_sort == &spolies)
+        apply_perm(input_denoms, perm);
     }
   }
   //------------------------------------------------------------------------------
@@ -768,8 +784,8 @@ struct f4 {
       col_to_id[c] = i++;
 
     // sort spolies and reducers
-    sort_rows(spolies, extended_rows, col_to_id);
-    sort_rows(reducers, extended_rows, col_to_id);
+    sort_rows(spolies, extended_spolies, col_to_id);
+    sort_rows(reducers, extended_reducers, col_to_id);
 
     // collect entries and indices
     entries_spol.clear();
