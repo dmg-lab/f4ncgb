@@ -146,10 +146,10 @@ sparse_mat_print(const sparse_mat_ro_t<T> mat) {
     unsigned long k = 0;
     for(unsigned long j = 0; j < mat->ncol; j++) {
       if(k < nnz && mat->indices[idx_off + k] == j) {
-        std::cout << std::setw(5) << mat->entries[ent_off + k] << " ";
+        std::cout << mat->entries[ent_off + k] << " ";
         k++;
       } else {
-        std::cout << std::setw(5) << 0 << " ";
+        std::cout << 0 << " ";
       }
     }
     std::cout << "\n";
