@@ -57,10 +57,11 @@ if __name__ == '__main__':
     
     vars = input.readline().split(",")
     char = int(input.readline())
+        
     K = QQ
     if char != 0:
         K = GF(char)
-    R = FreeAlgebra(QQ,vars)
+    R = FreeAlgebra(K,vars)
     
     F = [R(l.rstrip().strip(",")) for l in input]
     G = []
@@ -88,6 +89,7 @@ if __name__ == '__main__':
         
         if(f_basis != f_proof):
             print("FAILED! ", f_basis, " != ", f_proof)
+            print(f_basis - f_proof)
             sys.exit(1)
         print("CORRECT")
         G.append(f_basis)    
