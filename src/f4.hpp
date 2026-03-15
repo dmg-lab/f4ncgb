@@ -83,11 +83,12 @@ struct f4 {
   monomial_store mons;
   polynomial_store poly;
   std::vector<poly_id> basis;
-  std::map<size_t, boost::unordered_set<ambiguity_, amb_hash>> amb;
+  std::map<size_t, std::vector<ambiguity_>> amb;
   std::vector<ambiguity_> crit_pairs;
   boost::unordered_map<mon_id, poly_id> lm_to_poly;
   monomial_trie_ prefix_trie;
   monomial_trie_ suffix_trie;
+  monomial_trie_ gm_trie;
   std::unique_ptr<BS::thread_pool<BS::none>> pool;
   std::vector<poly_id> spolies;
   std::vector<poly_id> reducers;
@@ -109,6 +110,7 @@ struct f4 {
     , poly(mons)
     , prefix_trie(context.num_vars())
     , suffix_trie(context.num_vars())
+    , gm_trie(context.num_vars())
     , characteristic(context.characteristic())
     , maxiter(context.maxiter())
     , maxdeg(context.maxdeg())
@@ -360,77 +362,83 @@ struct f4 {
               });
   }
   //------------------------------------------------------------------------------
-  /*
-   * assumes that self.i() == other.i()
-   * returns
-   *   -1 if self is not divisible by other
-   *   0 if self == other
-   *   1 if self is properly divisble by other
-   **/
-  int inline divisible_by(const ambiguity_& self,
-                          const ambiguity_& other) const {
-    assert(self.i() == other.i());
-
-    std::span<const V> s_ai = mons[self.ai()];
-    std::span<const V> s_ci = mons[self.ci()];
-    std::span<const V> o_ai = mons[other.ai()];
-    std::span<const V> o_ci = mons[other.ci()];
-
-    if(endswith(s_ai, o_ai) and startswith(s_ci, o_ci))
-      if(s_ai.size() == o_ai.size() and s_ci.size() == o_ci.size())
-        return 0;
-      else
-        return 1;
-    else
-      return -1;
-  }
-  //------------------------------------------------------------------------------
-  std::vector<ambiguity_> tmp;
   std::vector<char> to_remove;
-  void gebauer_moeller(boost::unordered_set<ambiguity_, amb_hash>& new_amb) {
+  std::vector<mon_id> next_same_ci;
+  void gebauer_moeller(std::vector<ambiguity_>& new_amb) {
     // first index is always the newer polynomial
 
-    auto cmp = [this](ambiguity_& a, ambiguity_& b) {
+    F4NCGB_TIME(other);
+
+    // sort to group identical elements and remove duplicates
+    std::sort(new_amb.begin(),
+              new_amb.end(),
+              [](const ambiguity_& a, const ambiguity_& b) {
+                if(a.hash_ != b.hash_)
+                  return a.hash_ < b.hash_;
+                return a.values < b.values;
+              });
+    new_amb.erase(std::unique(new_amb.begin(), new_amb.end()), new_amb.end());
+
+    // sort
+    auto cmp = [this](const ambiguity_& a, const ambiguity_& b) {
       if(a.degree() != b.degree())
         return a.degree() < b.degree();
       if(a.j() != b.j())
         return a.j() < b.j();
       return this->mons.template cmp<block_order>(a.aj(), b.aj());
     };
-
-    tmp.clear();
-    tmp.reserve(
-      static_cast<size_t>(std::distance(new_amb.begin(), new_amb.end())));
-    std::copy(new_amb.begin(), new_amb.end(), std::back_inserter(tmp));
-    std::sort(tmp.begin(), tmp.end(), cmp);
+    std::sort(new_amb.begin(), new_amb.end(), cmp);
 
     to_remove.clear();
-    to_remove.resize(tmp.size());
-    for(size_t i = 0; i < tmp.size(); i++)
-      to_remove[i] = false;
+    to_remove.resize(new_amb.size(), false);
 
-    for(size_t i = 0; i < tmp.size(); i++) {
-      auto a = tmp[i];
-      if(to_remove[i]) {
-        new_amb.erase(a);
-        continue;
+    gm_trie.clear();
+    next_same_ci.clear();
+    next_same_ci.resize(new_amb.size(), 0);
+
+    for(size_t j = 0; j < new_amb.size(); j++) {
+      auto& b = new_amb[j];
+      const monomial b_ai = mons[b.ai()];
+      const monomial b_ci = mons[b.ci()];
+
+      bool divisible = false;
+      const auto& divs = gm_trie.get_prefixes(b_ci);
+
+      for(const auto& match : divs) {
+        mon_id idx = match.first;
+        while(idx != 0) {
+          size_t i = static_cast<size_t>(idx - 1);
+          auto& a = new_amb[i];
+          const monomial a_ai = mons[a.ai()];
+          if(endswith(b_ai, a_ai)) {
+            divisible = true;
+            break;
+          }
+          idx = next_same_ci[i];
+        }
+        if(divisible)
+          break;
       }
-      // use a to remove other ambiguities
-      for(size_t j = i + 1; j < tmp.size(); j++) {
-        if(to_remove[j])
-          continue;
-        int d = divisible_by(tmp[j], a);
-        // if divisible, remove
-        // ordering ensures that other conditions are satisfied
-        if(d >= 0)
-          to_remove[j] = true;
+
+      if(divisible) {
+        to_remove[j] = true;
+      } else {
+        mon_id old_id = gm_trie.insert_chain(b_ci, j + 1);
+        next_same_ci[j] = old_id;
+      }
+    }
+
+    for(size_t j = 0; j < new_amb.size(); j++) {
+      if(!to_remove[j]) {
+        auto& a = new_amb[j];
+        amb[a.degree()].push_back(std::move(a));
       }
     }
   }
   //------------------------------------------------------------------------------
   std::vector<std::pair<mon_id, size_t>> overlaps;
   std::vector<std::pair<mon_id, size_t>> inclusions;
-  boost::unordered_set<ambiguity_, amb_hash> new_amb;
+  std::vector<ambiguity_> new_amb;
   void compute_ambiguities(mon_id i) {
     monomial m = mons[i];
     monomial ab, b, bc, abc;
@@ -453,7 +461,7 @@ struct f4 {
         I aj = mons.getid(ab.first(ab.size() - k));
         I ci = mons.getid(bc.last(bc.size() - k));
         ambiguity_ a(d, i, j, 0, ci, aj, 0);
-        new_amb.insert(a);
+        new_amb.push_back(a);
       }
       overlaps.clear();
 
@@ -469,7 +477,7 @@ struct f4 {
         I ai = mons.getid(ab.first(ab.size() - k));
         I cj = mons.getid(bc.last(bc.size() - k));
         ambiguity_ a(d, i, j, ai, 0, 0, cj);
-        new_amb.insert(a);
+        new_amb.push_back(a);
       }
     }
 
@@ -485,7 +493,7 @@ struct f4 {
         I aj = mons.getid(m.first(k));
         I cj = mons.getid(m.last(d - k - b.size()));
         ambiguity_ a(d, i, j, 0, 0, aj, cj);
-        new_amb.insert(a);
+        new_amb.push_back(a);
       }
       inclusions.clear();
 
@@ -503,14 +511,11 @@ struct f4 {
         I ai = mons.getid(abc.first(abc.size() - b.size() - k));
         I ci = mons.getid(abc.last(k));
         ambiguity_ a(d, i, j, ai, ci, 0, 0);
-        new_amb.insert(a);
+        new_amb.push_back(a);
       }
     }
 
     gebauer_moeller(new_amb);
-
-    for(const auto& a : new_amb)
-      amb[a.degree()].insert(a);
   }
 
   //------------------------------------------------------------------------------

@@ -71,6 +71,28 @@ struct monomial_trie {
     nodes[cur_idx] = id;
   }
   // -----------------------------------------------------------------
+
+  void inline clear() {
+    nodes.resize(child_size + 1);
+    std::fill(nodes.begin(), nodes.end(), 0);
+  }
+  // -----------------------------------------------------------------
+
+  I inline insert_chain(const std::span<const V>& entry, I id) {
+    size_t cur_idx = 0;
+
+    for(auto c : entry) {
+      if(nodes[cur_idx + c] == 0) {
+        nodes[cur_idx + c] = nodes.size();
+        nodes.insert(nodes.end(), child_size + 1, 0);
+      }
+      cur_idx = nodes[cur_idx + c];
+    }
+    I old_id = static_cast<I>(nodes[cur_idx]);
+    nodes[cur_idx] = id;
+    return old_id;
+  }
+  // -----------------------------------------------------------------
   size_t inline starts_sequence(size_t idx, const std::span<const V>& word) {
     uint64_t cur_idx = idx;
     for(auto c : word) {
@@ -177,6 +199,14 @@ struct monomial_trie {
     if(nodes[cur_idx])
       res.emplace_back(nodes[cur_idx], depth);
     return cur_idx;
+  }
+  // -----------------------------------------------------------------
+
+  inline const std::vector<match>& get_prefixes(
+    const std::span<const V>& word) {
+    divisors_res.clear();
+    prefixes(word, divisors_res, 0);
+    return divisors_res;
   }
   // -----------------------------------------------------------------
 
