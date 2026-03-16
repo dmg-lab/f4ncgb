@@ -453,7 +453,7 @@ struct f4 {
       // overlaps with m = AB
       ab = m;
       // last k elements of m = AB form overlap B
-      for(const auto [j, k] : overlaps) {
+      for(const auto& [j, k] : overlaps) {
         bc = mons[j];
         I d = ab.size() + bc.size() - k;
         if(d > maxdeg)
@@ -469,7 +469,7 @@ struct f4 {
       suffix_trie.overlaps_rev(m, overlaps);
       bc = m;
       // k determines where B starts in m = BC
-      for(const auto [j, k] : overlaps) {
+      for(const auto& [j, k] : overlaps) {
         ab = mons[j];
         I d = ab.size() + bc.size() - k;
         if(d > maxdeg)
@@ -486,7 +486,7 @@ struct f4 {
       // inclusions with m = ABC
       I d = m.size();
       // k determines where B starts in m = ABC
-      for(const auto [j, k] : inclusions) {
+      for(const auto& [j, k] : inclusions) {
         if(i == j)
           continue;
         b = mons[j];
@@ -501,7 +501,7 @@ struct f4 {
       b = m;
       prefix_trie.inclusions(m, inclusions);
       // last k elements in ABC form C
-      for(const auto [j, k] : inclusions) {
+      for(const auto& [j, k] : inclusions) {
         if(i == j)
           continue;
         abc = mons[j];
@@ -686,7 +686,7 @@ struct f4 {
     size_t n = columns.size();
     size_t k = 0;
     size_t cur_i = idxs[0].first;
-    for(const auto [i, j] : idxs) {
+    for(const auto& [i, j] : idxs) {
       // a new polynomial starts
       if(i != cur_i) {
         res.push_back(poly.add_polynomial(p));
