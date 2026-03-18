@@ -766,7 +766,7 @@ struct f4 {
         return lm_col[a] > lm_col[b];
       return poly.get_length(to_sort[a]) < poly.get_length(to_sort[b]);
     };
-    std::sort(perm.begin(), perm.end(), cmp);
+    std::stable_sort(perm.begin(), perm.end(), cmp);
 
     apply_perm(to_sort, perm);
     if(proof_level > 0) {
