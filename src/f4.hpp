@@ -155,13 +155,18 @@ struct f4 {
 
     inline void log(std::ostream& o,
                     parser_context& context,
-                    polynomial_store& poly,
+                    monomial_store& mon,
+                    const coeff& lc,
                     bool first = false) const {
+
+      rat_coeff rc;
+      rc.update(c, lc);
+      
       if(!first)
-        o << (c.sign() > 0 ? " + " : " ");
-      o << c << "*";
+        o << (rc.sign() > 0 ? " + " : " ");
+      o << rc << "*";
       if(t.a != 0) {
-        context.to_msolve_mon(o, poly, t.a, false);
+        context.to_msolve_mon(o, mon, t.a, false);
         o << "*";
       }
       if(t.i >= 0)
@@ -170,7 +175,7 @@ struct f4 {
         o << "[i" << -t.i - 1 << "]";
       if(t.b != 0) {
         o << "*";
-        context.to_msolve_mon(o, poly, t.b, false);
+        context.to_msolve_mon(o, mon, t.b, false);
       }
     }
   };
@@ -655,8 +660,10 @@ struct f4 {
     bool first = true;
     for(size_t n = basis.size(); n < cofactors.size(); n++) {
       first = true;
+      const coeff& lc
+        = *poly.get_coefficients(new_elements[n - basis.size()]).begin();
       for(const auto& cofactor : cofactors[n]) {
-        cofactor.log(proof_file, context, poly, first);
+        cofactor.log(proof_file, context, mons, lc, first);
         first = false;
       }
       proof_file << std::endl;

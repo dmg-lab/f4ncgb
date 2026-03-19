@@ -3,6 +3,7 @@
 #include <boost/multiprecision/gmp.hpp>
 
 #include <flint/fmpz.h>
+#include <flint/fmpq.h>
 namespace f4ncgb {
 
 inline void
@@ -121,6 +122,35 @@ struct coeff {
   void lcm_inplace(long b) {
     coeff tmp(b);
     lcm_inplace(tmp);
+  }
+};
+
+struct rat_coeff {
+  fmpq_t value;
+
+  rat_coeff() { fmpq_init(value); }
+  ~rat_coeff() { fmpq_clear(value); }
+
+  void update(const coeff& num, const coeff& den) {
+    fmpq_set_fmpz_frac(value, num.value, den.value);
+  }
+
+  friend std::ostream& operator<<(std::ostream& os, const rat_coeff& c) {
+    char* s = fmpq_get_str(nullptr, 10, c.value);
+    os << s;
+    flint_free(s);
+    return os;
+  }
+  int sign() const { return fmpq_sgn(value); }
+
+  bool is_zero() const { return fmpq_is_zero(value); }
+
+  bool is_unit() const { return fmpq_is_pm1(value); }
+
+  rat_coeff abs() const {
+    rat_coeff r;
+    fmpq_abs(r.value, value);
+    return r;
   }
 };
 

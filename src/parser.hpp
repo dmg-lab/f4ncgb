@@ -286,51 +286,19 @@ class parser_context {
     return o;
   }
 
-  template<class PS>
+  template<class MS>
   std::ostream& to_msolve_mon(std::ostream& o,
-                              const PS& p,
-                              typename PS::monomial_store_::index_type mon_id,
-                              bool first,
-                              std::span<const coeff>::iterator* coeff_it_ptr
-                              = nullptr) {
-    using monomial_store = typename PS::monomial_store_;
-    const monomial_store& m = p.get_monomial_store();
-
-    bool print_asterisk = false;
-
-    if(coeff_it_ptr) {
-      const coeff& c = **coeff_it_ptr;
-
-      // Print the sign
-      if(!first)
-        o << (c.sign() < 0 ? " - " : " + ");
-      else if(c.sign() < 0)
-        o << "-";
-
-      // Print coefficient if it's not ±1 or monomial is empty
-      if(!c.is_unit() || m[mon_id].empty()) {
-        o << c.abs();
-        print_asterisk = true;
-      }
-
-      ++(*coeff_it_ptr);
-    }
+                              const MS& mons,
+                              typename MS::index_type mon_id,
+                              bool print_asterisk = false) {
 
     // Print the monomial with '*' as needed
-    for(auto mon : m[mon_id]) {
+    for(auto mon : mons[mon_id]) {
       if(print_asterisk)
         o << "*";
       print_asterisk = true;
       var_to_ostream(o, mon);
     }
-
-    // Special case: empty monomial and coefficient ±1
-    if(m[mon_id].empty() && coeff_it_ptr && (**(coeff_it_ptr - 1)).is_unit()) {
-      if(print_asterisk)
-        o << "*";
-      o << "1";
-    }
-
     return o;
   }
 
@@ -339,11 +307,8 @@ class parser_context {
                                const PS& p,
                                PS::index_type poly_id,
                                bool first_poly) {
-    if(first_poly)
-      first_poly = false;
-    else {
+    if(!first_poly)
       o << ",\n";
-    }
 
     // special case to print zero polynomial
     if(poly_id == 0) {
@@ -351,14 +316,40 @@ class parser_context {
       return o;
     }
 
+    const typename PS::monomial_store_& mons = p.get_monomial_store();
     auto coeff_it = p.get_coefficients(poly_id).begin();
     bool first = true;
-    for(auto mon_id : p[poly_id]) {
-      to_msolve_mon(o, p, mon_id, first, &coeff_it);
-      if(first) {
-        first = false;
+    const coeff& lc = *coeff_it;
+    rat_coeff rc;
+
+    for(const auto& mon_id : p[poly_id]) {
+
+      bool print_asterisk = false;
+      rc.update(*coeff_it, lc);
+
+      // print sign
+      if(!first)
+        o << (rc.sign() < 0 ? " - " : " + ");
+      else if(rc.sign() < 0)
+        o << "-";
+
+      // print coefficient if it's not ±1
+      if(!rc.is_unit()) {
+        o << rc.abs();
+        print_asterisk = true;
       }
+      // print monomial
+      to_msolve_mon(o, mons, mon_id, print_asterisk);
+
+      // special case: empty monomial and coefficient ±1
+      if(mon_id == 0 && rc.is_unit()) {
+        o << "1";
+      }
+
+      first = false;
+      coeff_it++;
     }
+
     return o;
   }
 

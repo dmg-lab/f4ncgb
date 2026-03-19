@@ -126,7 +126,7 @@ bool inline fill_reducer_mat(const std::vector<std::span<coeff>>& entries,
       mat_entries[k++] = nmod_mul(inv, cc, mod);
     }
     if(proof_level > 0)
-      mat_entries[k++] = inv;
+      mat_entries[k++] = 1;
   }
   return true;
 }
@@ -198,10 +198,9 @@ set_up_spol_matrix(uint32_mat_t mat,
       row->indices[nnz] = offset + i;
       // insert denom from input polynomial
       if(interreduce) {
-        uint32_t c = fmpz_get_nmod(input_denoms[i].value, mod);
-        row->entries[nnz] = c;
+        row->entries[nnz] = fmpz_get_nmod(input_denoms[i].value, mod);
       } else
-        row->entries[nnz] = 1;
+        row->entries[nnz] = fmpz_get_nmod(coeffs[0].value, mod);
       nnz++;
     }
     row->nnz = nnz;
