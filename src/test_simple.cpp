@@ -240,7 +240,7 @@ BOOST_AUTO_TEST_CASE(parse_braid3) {
   BOOST_REQUIRE(dir_optional.has_value());
   std::filesystem::path dir = *dir_optional;
 
-  std::filesystem::path input = dir / "braid3-11.ms";
+  std::filesystem::path input = dir / "braid3-16.ms";
 
   using I = impl<>;
   I::monomial_store ms;
@@ -264,16 +264,16 @@ BOOST_AUTO_TEST_CASE(c_api_use) {
   BOOST_CHECK(s.state() == F4NCGB_STATE_READY);
   s.set_blocks({ 3 });
 
-  s.add(1, 1, { 3, 2, 3 });
-  s.add(-1, 1, { 2, 1, 2 });
+  s.add(2, 1, { 3, 2, 3 });
+  s.add(-3, 1, { 2, 1, 2 });
   s.end_poly();
 
-  s.add(1, 1, { 3, 1, 2 });
-  s.add(-1, 1, { 1, 2, 1 });
+  s.add(4, 1, { 3, 1, 2 });
+  s.add(5, 1, { 1, 2, 1 });
   s.end_poly();
 
-  s.add(1, 1, { 3, 1, 3 });
-  s.add(-1, 1, { 2, 3, 1 });
+  s.add(6, 1, { 3, 1, 3 });
+  s.add(-7, 1, { 2, 3, 1 });
   s.end_poly();
 
   s.add(1, 1, { 3, 3, 3 });
@@ -289,12 +289,13 @@ BOOST_AUTO_TEST_CASE(c_api_use) {
 
   auto [res, polys] = s.solve();
 
-  // Expected number of polys is 7.
+  // Expected number of polys is 5.
   BOOST_CHECK(res == F4NCGB_OK);
   BOOST_CHECK(polys.size() == 5);
 
   // for(auto& p : polys) {
   //   for(auto& m : p) {
+  //     std::cout << "[" << std::get<0>(m) << "/" << std::get<1>(m) << "] ";
   //     for(auto v : std::get<2>(m)) {
   //       std::cout << v << " ";
   //     }

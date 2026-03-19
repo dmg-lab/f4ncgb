@@ -2,6 +2,7 @@
 #define AMBIGUITY_H
 
 #include <algorithm>
+#include <array>
 #include <boost/functional/hash.hpp>
 #include <boost/unordered/unordered_map.hpp>
 #include <span>
@@ -27,6 +28,8 @@ struct ambiguity {
 
   using mon_id = I;
   using poly_id = I;
+
+  inline ambiguity() = default;
 
   inline ambiguity(I d, I i, I j, I ai, I ci, I aj, I cj)
     : values{ d, i, j, ai, ci, aj, cj }

@@ -1,10 +1,10 @@
 #ifndef F4NCGB_HPP
 #define F4NCGB_HPP
 
+#include <flint/fmpz.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <gmp.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -84,8 +84,8 @@ const char*
 f4ncgb_set_proof_file(f4ncgb_handle*, const char*);
 
 typedef void (*f4ncgb_add_cb)(void* userdata,
-                              mpz_ptr numerator,
-                              mpz_ptr denominator,
+                              fmpz_t numerator,
+                              fmpz_t denominator,
                               size_t varcount,
                               const uint32_t* vars);
 
@@ -99,9 +99,9 @@ f4ncgb_solve(f4ncgb_handle*,
 
 f4ncgb_result
 f4ncgb_reduce(f4ncgb_handle*,
-             void* userdata,
-             f4ncgb_add_cb add_cb,
-             f4ncgb_end_poly_cb end_cb);
+              void* userdata,
+              f4ncgb_add_cb add_cb,
+              f4ncgb_end_poly_cb end_cb);
 
 #ifdef __cplusplus
 }
@@ -112,6 +112,8 @@ f4ncgb_reduce(f4ncgb_handle*,
 #include <memory>
 #include <span>
 #include <vector>
+
+#include "coeff.hpp"
 
 namespace f4ncgb {
 class Solver {
@@ -203,8 +205,7 @@ class Solver {
     }
   }
 
-  using add_cb
-    = std::function<void(mpz_ptr, mpz_ptr, std::span<const uint32_t>)>;
+  using add_cb = std::function<void(fmpz_t, fmpz_t, std::span<const uint32_t>)>;
   using end_poly_cb = std::function<void()>;
 
   f4ncgb_result solve(add_cb add, end_poly_cb end) {
@@ -215,8 +216,8 @@ class Solver {
     meta m{ add, end };
 
     auto c_add_cb = [](void* userdata,
-                       mpz_ptr numerator,
-                       mpz_ptr denominator,
+                       fmpz_t numerator,
+                       fmpz_t denominator,
                        size_t varcount,
                        const uint32_t* vars) {
       meta& m = *static_cast<meta*>(userdata);
@@ -240,8 +241,8 @@ class Solver {
     meta m{ add, end };
 
     auto c_add_cb = [](void* userdata,
-                       mpz_ptr numerator,
-                       mpz_ptr denominator,
+                       fmpz_t numerator,
+                       fmpz_t denominator,
                        size_t varcount,
                        const uint32_t* vars) {
       meta& m = *static_cast<meta*>(userdata);
@@ -258,18 +259,29 @@ class Solver {
   }
 
   using monomial = std::vector<uint32_t>;
-  using polynomial = std::vector<std::tuple<mpz_ptr, mpz_ptr, monomial>>;
+  using polynomial = std::vector<std::tuple<coeff, coeff, monomial>>;
 
   std::pair<f4ncgb_result, std::vector<polynomial>> solve() {
     std::vector<polynomial> polys;
     bool create = true;
     f4ncgb_result res = solve(
-      [&polys,
-       &create](mpz_ptr num, mpz_ptr den, std::span<const uint32_t> vars) {
+      [&polys, &create](
+        fmpz_t numerator, fmpz_t denominator, std::span<const uint32_t> vars) {
         if(create) {
           polys.emplace_back();
           create = false;
         }
+        coeff num;
+        coeff den;
+        if(numerator)
+          fmpz_set(num.value, numerator);
+        else
+          fmpz_set_ui(num.value, 0);
+        if(denominator)
+          fmpz_set(den.value, denominator);
+        else
+          fmpz_set_ui(den.value, 1);
+
         polys.back().emplace_back(
           num, den, std::vector<uint32_t>(vars.begin(), vars.end()));
       },

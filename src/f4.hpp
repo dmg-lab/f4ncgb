@@ -199,24 +199,21 @@ struct f4 {
                           f4ncgb_add_cb add,
                           f4ncgb_end_poly_cb end) {
     std::vector<uint32_t> data;
+
     for(size_t n = 1; n < basis.size(); n++) {
       auto poly_id = basis[n];
       // special case: zero polynomial
       if(poly_id == 0) {
-        coeff zero;
-        // TODO
-        // add(userdata, gmp_num, gmp_den, 0, 0);
+        add(userdata, nullptr, nullptr, 0, nullptr);
       } else {
         auto coeff_it = poly.get_coefficients(poly_id).begin();
+        coeff lc = *coeff_it;
         for(const auto mon_id : poly[poly_id]) {
           auto vars = mons[mon_id];
           data.clear();
           std::copy(vars.begin(), vars.end(), std::back_inserter(data));
           auto c = *coeff_it++;
-          // TODO
-          // mpz_ptr gmp_num = &c.data()[0]._mp_num;
-          // mpz_ptr gmp_den = &c.data()[0]._mp_den;
-          // add(userdata, gmp_num, gmp_den, vars.size(), data.data());
+          add(userdata, c.value, lc.value, vars.size(), data.data());
         }
       }
       end(userdata);
