@@ -254,6 +254,8 @@ f4ncgb_solve_intern_(f4ncgb_handle* h,
   }
   h->ctx.num_blocks_ = h->ctx.blocks_.size();
 
+  if(h->ctx.num_vars() == 0)
+    return F4NCGB_ARGERROR;
   if(h->ctx.num_blocks() > F4NCGB_MAX_BLOCKS)
     return F4NCGB_ARGERROR;
   if(h->ctx.characteristic() > 2147483647l)// 2^31 -1
