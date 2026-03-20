@@ -199,13 +199,15 @@ set_up_spol_matrix(uint32_mat_t mat,
       // insert denom from input polynomial
       if(interreduce) {
         row->entries[nnz] = fmpz_get_nmod(input_denoms[i].value, mod);
+      } else if (reduce_mode) {
+        row->entries[nnz] = fmpz_get_nmod(reduce_denom_c.value, mod);
       } else
         row->entries[nnz] = fmpz_get_nmod(coeffs[0].value, mod);
       nnz++;
     }
     row->nnz = nnz;
   }
-
+  
   return true;
 }
 //------------------------------------------------------------------------------

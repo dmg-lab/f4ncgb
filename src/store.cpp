@@ -13,6 +13,8 @@ namespace f4ncgb {
 std::vector<coeff> input_denoms;
 size_t proof_level;
 bool interreduce;
+bool reduce_mode = false;
+coeff reduce_denom_c = 1;
 size_t nr_cols;
 
 struct f4_base {

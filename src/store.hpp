@@ -56,6 +56,8 @@ namespace f4ncgb {
 extern std::vector<coeff> input_denoms;
 extern size_t proof_level;
 extern bool interreduce;
+extern bool reduce_mode;
+extern coeff reduce_denom_c;
 extern size_t nr_cols;
 
 namespace internal {

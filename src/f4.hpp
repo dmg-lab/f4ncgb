@@ -161,7 +161,7 @@ struct f4 {
 
       rat_coeff rc;
       rc.update(c, lc);
-      
+
       if(!first)
         o << (rc.sign() > 0 ? " + " : " ");
       o << rc << "*";
@@ -194,7 +194,7 @@ struct f4 {
   inline void write_basis(std::ostream& o) {
     bool first = true;
     for(size_t n = 1; n < basis.size(); n++) {
-      context.to_msolve_poly(o, poly, basis[n], first);
+      context.to_msolve_poly(o, poly, basis[n], first, reduce_mode);
       first = false;
     }
     o << "\n";
@@ -231,7 +231,7 @@ struct f4 {
     interreduce = true;
 
     if(verbose > 1)
-      msg("Linearly interreducing input of size %d.", input.size());
+      msg("Linearly interreducing input of size %d.", polies.size());
 
     size_t i = 0;
     for(const auto& p : polies) {
@@ -283,6 +283,7 @@ struct f4 {
       if(verbose > 1)
         msg("Reducing %d critical pairs.", crit_pairs.size());
 
+      spolies.clear();
       symbolic_preprocessing();
 
       // store results in new_elements
@@ -313,27 +314,41 @@ struct f4 {
     poly_id p = input.back();
     input.pop_back();
 
-    // interreduce input and set up data structures
+    // set parameters for reduce path
+    reduce_mode = true;
+    maxiter = 10;
+    proof_level = 1;
+    reduce_denom_c = input_denoms.back();
+    input_denoms.pop_back();
+
+    // interreduce input
     interreduce_and_add_to_basis(input);
 
-    poly_id normal_form = 0;
-
-    // when GB does not contain 1, perform reduction
-    if(!constant_flag) {
-      spolies.push_back(p);
-      reduction();
+    // when input contains 1, normal form is zero
+    if(constant_flag) {
+      basis.clear();
+      basis.push_back(0);
+      basis.push_back(0);
+      return;
     }
 
-    // find the element with new leading monomial, this is the NF
-    // if none exists, NF is zero
-    for(const poly_id q : new_elements) {
-      mon_id m = poly.get_lm_id(q);
-      auto& red = prefix_trie.divisors(mons[m]);
-      if(red.empty()) {
-        normal_form = q;
-        break;
-      }
+    // perform reduction
+    spolies.clear();
+    spolies.push_back(p);
+    symbolic_preprocessing();
+    reduction();
+
+    // reduction to zero
+    if(new_elements.empty()) {
+      basis.clear();
+      basis.push_back(0);
+      basis.push_back(0);
+      return;
     }
+
+    // nonzero reduction + set up normalization coeff
+    poly_id normal_form = new_elements[0];
+    reduce_denom_c = cofactors.back().back().c;
 
     basis.clear();
     basis.push_back(0);
@@ -528,7 +543,6 @@ struct f4 {
     boost::unordered_set<mon_id> todo_seen;
     std::vector<mon_id> todo_vec;
     size_t todo_pos = 0;
-    spolies.clear();
     reducers.clear();
     todo_vec.reserve(1L << 16);
     todo_seen.reserve(1L << 16);
@@ -581,6 +595,13 @@ struct f4 {
         push_todo(m);
     }
     crit_pairs.clear();
+
+    // separate path for reduced_form
+    if(reduce_mode) {
+      const auto& mons_f = poly[spolies[0]];
+      for(const auto m : mons_f)
+        push_todo(m);
+    }
 
     while(todo_pos < todo_vec.size()) {
       mon_id m = todo_vec[todo_pos++];
@@ -660,13 +681,15 @@ struct f4 {
     bool first = true;
     for(size_t n = basis.size(); n < cofactors.size(); n++) {
       first = true;
-      const coeff& lc
-        = *poly.get_coefficients(new_elements[n - basis.size()]).begin();
+      poly_id p = new_elements[n - basis.size()];
+      const coeff& lc = *poly.get_coefficients(p).begin();
       for(const auto& cofactor : cofactors[n]) {
         cofactor.log(proof_file, context, mons, lc, first);
         first = false;
       }
       proof_file << std::endl;
+      if(poly.get_lm_id(p) == 0)
+        return;
     }
   }
   //------------------------------------------------------------------------------
@@ -739,7 +762,6 @@ struct f4 {
 
   template<typename T>
   void apply_perm(std::vector<T>& vec, const std::vector<size_t>& perm) {
-
     assert(vec.size() == perm.size());
     std::vector<T> tmp;
 
@@ -899,8 +921,10 @@ struct f4 {
         suffix_trie.insert_rev(m, m_id);
 
         // compute ambiguities
-        F4NCGB_TIME(amb);
-        compute_ambiguities(m_id);
+        if(!reduce_mode) {
+          F4NCGB_TIME(amb);
+          compute_ambiguities(m_id);
+        }
       }
 
       // update basis

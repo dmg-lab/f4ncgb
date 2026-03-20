@@ -306,7 +306,8 @@ class parser_context {
   std::ostream& to_msolve_poly(std::ostream& o,
                                const PS& p,
                                PS::index_type poly_id,
-                               bool first_poly) {
+                               bool first_poly,
+                               bool reduce = false) {
     if(!first_poly)
       o << ",\n";
 
@@ -319,7 +320,7 @@ class parser_context {
     const typename PS::monomial_store_& mons = p.get_monomial_store();
     auto coeff_it = p.get_coefficients(poly_id).begin();
     bool first = true;
-    const coeff& lc = *coeff_it;
+    const coeff& lc = reduce ? reduce_denom_c : *coeff_it;
     rat_coeff rc;
 
     for(const auto& mon_id : p[poly_id]) {
