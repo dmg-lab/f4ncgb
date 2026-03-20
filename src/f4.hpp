@@ -212,12 +212,12 @@ struct f4 {
         add(userdata, nullptr, nullptr, 0, nullptr);
       } else {
         auto coeff_it = poly.get_coefficients(poly_id).begin();
-        coeff lc = *coeff_it;
+        coeff lc = reduce_mode ? reduce_denom_c : *coeff_it;
         for(const auto mon_id : poly[poly_id]) {
           auto vars = mons[mon_id];
           data.clear();
           std::copy(vars.begin(), vars.end(), std::back_inserter(data));
-          auto c = *coeff_it++;
+          coeff c = *coeff_it++;
           add(userdata, c.value, lc.value, vars.size(), data.data());
         }
       }
@@ -902,7 +902,7 @@ struct f4 {
   void update_basis_and_amb() {
 
     // log cofactors
-    if(proof_level > 0) {
+    if(proof_level > 0 and !reduce_mode) {
       F4NCGB_TIME(other);
       log_cofactors();
     }

@@ -287,13 +287,66 @@ BOOST_AUTO_TEST_CASE(c_api_use) {
 
   f4ncgb_set_msg_printing(false);
 
-  auto [res, polys] = s.solve();
+  auto [res, polies] = s.solve();
 
   // Expected number of polys is 5.
   BOOST_CHECK(res == F4NCGB_OK);
-  BOOST_CHECK(polys.size() == 5);
+  BOOST_CHECK(polies.size() == 5);
 
-  // for(auto& p : polys) {
+  // for(auto& p : polies) {
+  //   for(auto& m : p) {
+  //     std::cout << "[" << std::get<0>(m) << "/" << std::get<1>(m) << "] ";
+  //     for(auto v : std::get<2>(m)) {
+  //       std::cout << v << " ";
+  //     }
+  //     std::cout << "+ ";
+  //   }
+  //   std::cout << "0" << std::endl;
+  // }
+}
+
+BOOST_AUTO_TEST_CASE(reduce_path) {
+  Solver s;
+  BOOST_CHECK(s.state() == F4NCGB_STATE_READY);
+
+  s.set_nvars(2);
+
+  s.add(1, 1, { 2, 1 });
+  s.add(-1, 3, { 1, 2 });
+  s.end_poly();
+
+  s.add(-3, 1, { 1, 2 });
+  s.add(29, 16, { 1 });
+  s.end_poly();
+
+  s.add(7, 8, { 2, 1 });
+  s.add(1, 1, { 1, 2 });
+  s.add(-4, 1, {});
+  s.end_poly();
+
+  f4ncgb_set_msg_printing(false);
+
+  auto [res, polies] = s.reduce();
+
+  // Expected number of polys is 1.
+  BOOST_CHECK(res == F4NCGB_OK);
+  BOOST_CHECK(polies.size() == 1);
+
+  rat_coeff rc;
+  fmpq_t correct;
+  fmpq_init(correct);
+
+  auto& [n, d, m] = polies[0][0];
+  rc.update(n, d);
+  fmpq_set_si(correct, 899, 1152);
+  BOOST_CHECK(fmpq_equal(rc.value, correct));
+
+  auto& [n2, d2, m2] = polies[0][1];
+  rc.update(n2, d2);
+  fmpq_set_si(correct, -4, 1);
+  BOOST_CHECK(fmpq_equal(rc.value, correct));
+
+  // for(auto& p : polies) {
   //   for(auto& m : p) {
   //     std::cout << "[" << std::get<0>(m) << "/" << std::get<1>(m) << "] ";
   //     for(auto v : std::get<2>(m)) {

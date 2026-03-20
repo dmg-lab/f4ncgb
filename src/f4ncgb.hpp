@@ -288,6 +288,34 @@ class Solver {
       [&create]() { create = true; });
     return std::make_pair(res, std::move(polys));
   }
+
+  std::pair<f4ncgb_result, std::vector<polynomial>> reduce() {
+    std::vector<polynomial> polys;
+    bool create = true;
+    f4ncgb_result res = reduce(
+      [&polys, &create](
+        fmpz_t numerator, fmpz_t denominator, std::span<const uint32_t> vars) {
+        if(create) {
+          polys.emplace_back();
+          create = false;
+        }
+        coeff num;
+        coeff den;
+        if(numerator)
+          fmpz_set(num.value, numerator);
+        else
+          fmpz_set_ui(num.value, 0);
+        if(denominator)
+          fmpz_set(den.value, denominator);
+        else
+          fmpz_set_ui(den.value, 1);
+
+        polys.back().emplace_back(
+          num, den, std::vector<uint32_t>(vars.begin(), vars.end()));
+      },
+      [&create]() { create = true; });
+    return std::make_pair(res, std::move(polys));
+  }
 };
 }
 #endif
