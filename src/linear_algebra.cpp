@@ -233,13 +233,13 @@ height(const std::vector<std::span<coeff>>& entries_spol,
        const std::vector<std::span<coeff>>& entries_red) {
 
   coeff h(0L);
-  for(const auto& row : entries_spol) {
+  for(auto row : entries_spol) {
     for(const auto& c : row) {
       if(fmpz_cmpabs(c.value, h.value) > 0)
         fmpz_abs(h.value, c.value);
     }
   }
-  for(const auto& row : entries_red) {
+  for(auto row : entries_red) {
     for(const auto& c : row) {
       if(fmpz_cmpabs(c.value, h.value) > 0)
         fmpz_abs(h.value, c.value);
