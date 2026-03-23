@@ -106,7 +106,7 @@ bool inline fill_reducer_mat(const std::vector<std::span<coeff>>& entries,
 
   // only fill entries for first occurrence of each span
   for(size_t i = 0; i < red_mat->nrow; i++) {
-    const auto& coeffs = entries[i];
+    std::span<coeff> coeffs = entries[i];
     const coeff* ptr = coeffs.data();
 
     // just a duplicate -> nothing to do
@@ -173,7 +173,7 @@ set_up_spol_matrix(uint32_mat_t mat,
       continue;
     }
 
-    const auto& coeffs = entries[i];
+    std::span<coeff> coeffs = entries[i];
     const auto& cols = idxs[i];
 
     const size_t max_nnz = coeffs.size() + (proof_level > 0 ? 1 : 0);

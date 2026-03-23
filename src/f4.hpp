@@ -569,8 +569,8 @@ struct f4 {
     for(const auto& a : crit_pairs) {
       poly_id f = a.fi();
       poly_id g = a.fj();
-      const auto& mons_f = poly[f];
-      const auto& mons_g = poly[g];
+      auto mons_f = poly[f];
+      auto mons_g = poly[g];
 
       mon_id lm = mons_f[0];
       bool first_time = todo_seen.insert(lm).second;
@@ -597,7 +597,7 @@ struct f4 {
 
     // separate path for reduced_form
     if(reduce_mode) {
-      const auto& mons_f = poly[spolies[0]];
+      auto mons_f = poly[spolies[0]];
       for(const auto m : mons_f)
         push_todo(m);
     }
