@@ -386,13 +386,13 @@ struct f4 {
     // first index is always the newer polynomial
 
     // sort to group identical elements and remove duplicates
-    std::stable_sort(new_amb.begin(),
-                     new_amb.end(),
-                     [](const ambiguity_& a, const ambiguity_& b) {
-                       if(a.hash_ != b.hash_)
-                         return a.hash_ < b.hash_;
-                       return a.values < b.values;
-                     });
+    std::sort(new_amb.begin(),
+              new_amb.end(),
+              [](const ambiguity_& a, const ambiguity_& b) {
+                if(a.hash_ != b.hash_)
+                  return a.hash_ < b.hash_;
+                return a.values < b.values;
+              });
     new_amb.erase(std::unique(new_amb.begin(), new_amb.end()), new_amb.end());
 
     // sort
@@ -403,7 +403,7 @@ struct f4 {
         return a.j() < b.j();
       return this->mons.template cmp<block_order>(a.aj(), b.aj());
     };
-    std::stable_sort(new_amb.begin(), new_amb.end(), cmp);
+    std::sort(new_amb.begin(), new_amb.end(), cmp);
 
     to_remove.clear();
     to_remove.resize(new_amb.size(), false);
@@ -791,7 +791,7 @@ struct f4 {
         return lm_col[a] > lm_col[b];
       return poly.get_length(to_sort[a]) < poly.get_length(to_sort[b]);
     };
-    std::stable_sort(perm.begin(), perm.end(), cmp);
+    std::sort(perm.begin(), perm.end(), cmp);
 
     apply_perm(to_sort, perm);
     if(proof_level > 0) {
