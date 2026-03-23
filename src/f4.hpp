@@ -387,7 +387,7 @@ struct f4 {
     F4NCGB_TIME(other);
 
     // sort to group identical elements and remove duplicates
-    std::sort(new_amb.begin(),
+    std::stable_sort(new_amb.begin(),
               new_amb.end(),
               [](const ambiguity_& a, const ambiguity_& b) {
                 if(a.hash_ != b.hash_)
@@ -404,7 +404,7 @@ struct f4 {
         return a.j() < b.j();
       return this->mons.template cmp<block_order>(a.aj(), b.aj());
     };
-    std::sort(new_amb.begin(), new_amb.end(), cmp);
+    std::stable_sort(new_amb.begin(), new_amb.end(), cmp);
 
     to_remove.clear();
     to_remove.resize(new_amb.size(), false);
