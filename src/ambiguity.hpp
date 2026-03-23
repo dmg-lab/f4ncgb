@@ -59,7 +59,7 @@ struct ambiguity {
 
     fi_ = poly.multiply_front_and_back(ai(), ii, ci());
     fj_ = poly.multiply_front_and_back(aj(), jj, cj());
-    lm_ = poly.get_lm_id(values[7]);
+    lm_ = poly.get_lm_id(fi_);
   }
 };
 
@@ -71,12 +71,12 @@ struct ambiguity_hash {
   }
 };
 
-template<class T, std::size_t N, std::size_t M>
-constexpr inline bool
-startswith(std::span<T, N> data, std::span<T, M> prefix) noexcept {
-  return data.size() >= prefix.size()
-         && std::equal(prefix.begin(), prefix.end(), data.begin());
-}
+// template<class T, std::size_t N, std::size_t M>
+// constexpr inline bool
+// startswith(std::span<T, N> data, std::span<T, M> prefix) noexcept {
+//   return data.size() >= prefix.size()
+//          && std::equal(prefix.begin(), prefix.end(), data.begin());
+// }
 
 template<class T, std::size_t N, std::size_t M>
 constexpr inline bool
