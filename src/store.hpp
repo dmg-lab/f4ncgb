@@ -705,8 +705,8 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     size_t la, lb;
 
     if constexpr(block_order) {
-      auto a_it = (*this)[a];
-      auto b_it = (*this)[b];
+      auto& a_it = (*this)[a];
+      auto& b_it = (*this)[b];
 
       // compare all blocks
       for(size_t i = 0; i < Nblocks; i++) {
@@ -729,11 +729,11 @@ class monomial_store : public store<monomial_store<M, V, I>, M, V, I> {
     }
 
     // compare monomials lexicographically
-    auto a_it = (*this)[a];
-    auto b_it = (*this)[b];
+    auto& a_it = (*this)[a];
+    auto& b_it = (*this)[b];
 
-    return std::lexicographical_compare(
-      a_it.begin(), a_it.end(), b_it.begin(), b_it.end());
+    int cmp = std::memcmp(a_it.data(), b_it.data(), a_it.size() * sizeof(V));
+    return cmp < 0;
   }
   //-----------------------------------------------------------------
   std::ostream& print_ambiguity(const ambiguity_& a, std::ostream& o) const {

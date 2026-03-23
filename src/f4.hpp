@@ -100,7 +100,8 @@ struct f4 {
   size_t maxdeg = UINT_MAX;
   bool tracer = true;
   bool constant_flag = false;
-  static constexpr bool block_order = Nblocks > 0;
+
+  static constexpr bool block_order = Nblocks > 1;
 
   std::ofstream proof_file;
 
@@ -384,16 +385,14 @@ struct f4 {
   void gebauer_moeller(std::vector<ambiguity_>& new_amb) {
     // first index is always the newer polynomial
 
-    F4NCGB_TIME(other);
-
     // sort to group identical elements and remove duplicates
     std::stable_sort(new_amb.begin(),
-              new_amb.end(),
-              [](const ambiguity_& a, const ambiguity_& b) {
-                if(a.hash_ != b.hash_)
-                  return a.hash_ < b.hash_;
-                return a.values < b.values;
-              });
+                     new_amb.end(),
+                     [](const ambiguity_& a, const ambiguity_& b) {
+                       if(a.hash_ != b.hash_)
+                         return a.hash_ < b.hash_;
+                       return a.values < b.values;
+                     });
     new_amb.erase(std::unique(new_amb.begin(), new_amb.end()), new_amb.end());
 
     // sort
@@ -848,6 +847,7 @@ struct f4 {
   //------------------------------------------------------------------------------
   boost::unordered_set<mon_id> col_set;
   void prepare_columns() {
+
     // make columns
     // columns are sorted in DESCENDING order
     col_set.clear();
@@ -875,7 +875,6 @@ struct f4 {
   //------------------------------------------------------------------------------
 
   void reduction() {
-
     // make columns
     prepare_columns();
 
