@@ -1,9 +1,11 @@
 #pragma once
 
-#include <boost/multiprecision/gmp.hpp>
-
-#include <flint/fmpz.h>
+#include <cstddef>
 #include <flint/fmpq.h>
+#include <flint/fmpz.h>
+#include <iostream>
+#include <utility>
+
 namespace f4ncgb {
 
 inline void
@@ -22,11 +24,6 @@ struct coeff {
   coeff(const coeff& other) {
     fmpz_init(value);
     fmpz_set(value, other.value);
-  }
-
-  coeff(coeff&& other) noexcept {
-    fmpz_init(value);
-    fmpz_swap(value, other.value);
   }
 
   coeff(long x) {

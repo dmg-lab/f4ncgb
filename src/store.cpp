@@ -5,9 +5,6 @@
 #include "profiling.hpp"
 #include "store.hpp"
 
-#include <boost/multiprecision/detail/default_ops.hpp>
-#include <fstream>
-
 namespace f4ncgb {
 
 std::vector<coeff> input_denoms;

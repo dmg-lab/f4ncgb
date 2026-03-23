@@ -3,6 +3,7 @@
 #include <boost/unordered/unordered_map.hpp>
 #include <cstddef>
 #include <cstdint>
+#include <gmp.h>
 #include <map>
 #include <ranges>
 #include <set>
@@ -199,7 +200,7 @@ set_up_spol_matrix(uint32_mat_t mat,
       // insert denom from input polynomial
       if(interreduce) {
         row->entries[nnz] = fmpz_get_nmod(input_denoms[i].value, mod);
-      } else if (reduce_mode) {
+      } else if(reduce_mode) {
         row->entries[nnz] = fmpz_get_nmod(reduce_denom_c.value, mod);
       } else
         row->entries[nnz] = fmpz_get_nmod(coeffs[0].value, mod);
@@ -207,7 +208,7 @@ set_up_spol_matrix(uint32_mat_t mat,
     }
     row->nnz = nnz;
   }
-  
+
   return true;
 }
 //------------------------------------------------------------------------------
