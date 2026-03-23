@@ -91,9 +91,9 @@ BOOST_AUTO_TEST_CASE(simple_cmp) {
   I::idx m132_idx = s.getid({ 1, 3, 2 });
   I::idx m123123_idx = s.getid({ 1, 2, 3, 1, 2, 3 });
 
-  BOOST_TEST(!s.template cmp<true>(m123_idx, m123_idx2));
-  BOOST_TEST(s.template cmp<true>(m123_idx, m132_idx));
-  BOOST_TEST(!s.template cmp<true>(m123123_idx, m123_idx));
+  BOOST_TEST(!s.template cmp<false>(m123_idx, m123_idx2));
+  BOOST_TEST(s.template cmp<false>(m123_idx, m132_idx));
+  BOOST_TEST(!s.template cmp<false>(m123123_idx, m123_idx));
 }
 
 BOOST_AUTO_TEST_CASE(simple_polynomials) {

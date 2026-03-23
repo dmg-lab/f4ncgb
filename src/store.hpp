@@ -790,7 +790,7 @@ class polynomial_store
 
   friend base;
 
-  constexpr static bool block_order = Nblocks > 0;
+  constexpr static bool block_order = Nblocks > 1;
 
   constexpr static size_t capacity() {
 #if defined(__has_feature)
