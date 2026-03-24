@@ -15,6 +15,7 @@ v0.3.4
 
 ## Fixes
   - Fix bug in cofactor representations
+  
 v0.3.3
 ======
 
