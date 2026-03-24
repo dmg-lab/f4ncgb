@@ -784,7 +784,7 @@ struct f4 {
 
     std::vector<size_t> lm_col(m);
     for(size_t i = 0; i < m; i++)
-      lm_col[i] = col_to_id[poly.get_lm_id(to_sort[i])];
+      lm_col[i] = col_to_id.at(poly.get_lm_id(to_sort[i]));
 
     auto cmp = [&](size_t a, size_t b) {
       if(lm_col[a] != lm_col[b])
@@ -831,15 +831,19 @@ struct f4 {
     i = 0;
     for(const auto r : spolies) {
       entries_spol.push_back(poly.get_coefficients(r));
-      for(const auto m : poly[r])
-        idxs_spol[i].push_back(col_to_id[m]);
+      auto p = poly[r];
+      idxs_spol[i].reserve(p.size());
+      for(const auto m : p)
+        idxs_spol[i].push_back(col_to_id.at(m));
       i++;
     }
     i = 0;
     for(const auto r : reducers) {
       entries_red.push_back(poly.get_coefficients(r));
-      for(const auto m : poly[r])
-        idxs_red[i].push_back(col_to_id[m]);
+      auto p = poly[r];
+      idxs_red[i].reserve(p.size());
+      for(const auto m : p)
+        idxs_red[i].push_back(col_to_id.at(m));
       i++;
     }
   }
@@ -875,6 +879,7 @@ struct f4 {
   //------------------------------------------------------------------------------
 
   void reduction() {
+
     // make columns
     prepare_columns();
 
