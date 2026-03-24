@@ -263,11 +263,10 @@ crt_reconstruction(fmpz*& entries,
   std::map<size_t, std::set<size_t>> nnz_pos;
   for(const auto& rref : rrefs) {
     for(size_t i = 0; i < n_piv; i++) {
-      auto& nnz_pos_row = nnz_pos[i];
       auto row = sparse_mat_row(rref, i);
-      // include row only if polynomial part is nonzero
-      if(proof_level == 0 or row->nnz > 0)
-        nnz_pos_row.insert(row->indices, row->indices + row->nnz);
+      // we have cleared all syzygy rows completely (also the transformation
+      // matrix) thus, any row within n_piv must have nonzer polynomial part
+      nnz_pos[i].insert(row->indices, row->indices + row->nnz);
     }
   }
 
@@ -931,11 +930,12 @@ multimodular_gauss_elim(std::vector<std::vector<size_t>>& idxs_spol,
 
     fmpz_cleanup(crt_entries, idxs.size());
 
-    if(success)
+    if(success) {
       if(verify_result(nums, denoms, idxs.size(), h, nr_cols, prod))
         break;
       else if(verbose > 2)
         msg("Verification has failed. Increasing bound.");
+    }
 
     // increase bound and cleanup
     M = prod * p * p;

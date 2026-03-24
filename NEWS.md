@@ -1,3 +1,15 @@
+v1.0.0
+======
+
+## New Features
+  - Proper version of reduced_form
+  
+## Improvements
+  - Better internal coefficient handling (FLINT instead of GMP)
+  - More efficient matrix data structures
+  - refactored several bottlenecks 
+  - several bugfixes
+
 v0.3.4
 ======
 
