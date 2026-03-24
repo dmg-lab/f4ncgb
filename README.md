@@ -5,22 +5,22 @@ in free algebras (with rational coefficients or coefficients in a prime field).
 It transfers recent advancements in commutative Gröbner basis software to the
 noncommutative setting.
 
-Below is a runtime comparison (in seconds) of `f4ncgb` with the state-of-the-art tool [Singular](https://www.singular.uni-kl.de/index.php.html).
+Below is a runtime comparison (in seconds) of `f4ncgb` (version 1.0.0) with the state-of-the-art tool [Singular](https://www.singular.uni-kl.de/index.php.html).
 All benchmarks are part of the [SymbolicData project](https://symbolicdata.github.io).
 
 
 | Example&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Singular&nbsp;&nbsp;&nbsp; | f4ncgb&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (1 core) |  f4ncgb&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (2 cores) |  f4ncgb&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (4 cores) |  f4ncgb&nbsp;&nbsp;&nbsp;&nbsp; (8 cores) | 
 | --------- | ------ |-----|------- | ------ |-----|
-| 4nilp5s-10 |  1 282.44 | 150.46 | 96.83 | 79.47  | 65.96  |
-| braid3-16  | 18 953.19  | 105.46 |  64.92  |    34.58     |   23.96   |
-| braidX-18  | >43 200 | 1 977.27 | 1 018.47 |  601.12  | 364.29 |
-| braidXY-12 | 1 847.97 | 62.40  | 55.45 | 52.44 | 53.51  |
-| holt_G3562h-17  | >43 200 | 25 021.62 | 14 660.04 | 12 671.38 | 8915.69 |
-| lascala_neuh-13  | 171.95 | 9.84 | 7.08 | 5.50 | 4.98 |
-| lv2d10-100  | >43 200 | 48.43 | 34.31 | 27.68 | 26.98 |
-| malle_G12h-100  | 4 142.27 | 89.93 | 78.04 | 74.15 | 74.19 | 
-|  serre-e6-17 | 113.95 | 130.62 | 130.07 | 130.53 | 131.01 |
-| serre-ha11-17 | 99.09 | 38.18 | 32.79 | 31.66 | 30.77 |
+| 4nilp5s-10 |  1 282.44 | 97.58 | 76.02 | 53.25  | 43.75  |
+| braid3-16  | 18 953.19  | 66.48 |  39.24  |    23.96     |   16.28   |
+| braidX-18  | >43 200 | 1 491.60 | 811.73 |  492.95  | 300.98 |
+| braidXY-12 | 1 847.97 | 46.95  | 45.15 | 43.68 | 42.68  |
+| holt_G3562h-17  | >43 200 | 26 586.95 | 15 666.13 | 9 668.48 | 7 356.25 |
+| lascala_neuh-13  | 171.95 | 10.92 | 7.38 | 5.45 | 4.58 |
+| lv2d10-100  | >43 200 | 41.41 | 28.67 | 22.59 | 20.00 |
+| malle_G12h-100  | 4 142.27 | 75.24 | 71.86 | 64.60 | 60.96 | 
+|  serre-e6-17 | 113.95 | 114.64 | 110.57 | 111.20 | 110.35 |
+| serre-ha11-17 | 99.09 | 22.39 | 20.54 | 19.38 | 19.16 |
 
 
 # Table of Contents
